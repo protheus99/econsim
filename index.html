@@ -1,0 +1,174 @@
+<!-- index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Economic Simulation - Live Dashboard</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="game-clock">
+            <div class="clock-display">
+                <div class="clock-info">
+                    <div class="date-time" id="game-date">2025-01-01 00:00</div>
+                    <div class="time-meta">
+                        <span class="status-indicator status-running" id="status-indicator"></span>
+                        <span id="status-text">Running</span> • 1 second = 1 game hour
+                    </div>
+                </div>
+                <div class="real-time-info">
+                    <div class="time-meta">Real Time Elapsed</div>
+                    <div class="real-time-display" id="real-time">00:00:00</div>
+                </div>
+            </div>
+            <div class="controls">
+                <button class="btn btn-play" id="btn-play">▶ Play</button>
+                <button class="btn btn-pause" id="btn-pause">⏸ Pause</button>
+                <button class="btn btn-speed" data-speed="2">2x</button>
+                <button class="btn btn-speed" data-speed="1">1x</button>
+                <button class="btn btn-speed" data-speed="0.5">0.5x</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="main-container">
+        <!-- World Overview -->
+        <section class="grid">
+            <!-- Economic Overview -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">🌍 Global Economy</div>
+                </div>
+                <div class="metric-big" id="total-population">0</div>
+                <div class="metric-label">Total Population</div>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <span class="stat-label">Total GDP</span>
+                        <span class="stat-value" id="total-gdp">$0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Cities</span>
+                        <span class="stat-value" id="city-count">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Employed</span>
+                        <span class="stat-value" id="total-employed">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Avg Salary</span>
+                        <span class="stat-value" id="avg-salary-level">0%</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Top Corporations -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">🏢 Top Corporations</div>
+                    <div class="card-badge" id="corp-count">0 Active</div>
+                </div>
+                <div id="corp-list"></div>
+            </div>
+
+            <!-- Market Activity -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">💰 Market Activity</div>
+                </div>
+                <div class="chart-container">
+                    <svg class="chart-svg" id="market-chart"></svg>
+                </div>
+                <div class="stats-grid" style="margin-top: 15px;">
+                    <div class="stat-item">
+                        <span class="stat-label">Hourly Transactions</span>
+                        <span class="stat-value" id="hourly-transactions">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Avg Transaction</span>
+                        <span class="stat-value" id="avg-transaction">$0</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- World Map -->
+        <section class="card full-width">
+            <div class="card-header">
+                <div class="card-title">🗺️ World Map</div>
+                <div class="card-badge" id="map-info">0 Cities</div>
+            </div>
+            <div class="map-container" id="world-map"></div>
+        </section>
+
+        <!-- Cities Section -->
+        <section class="grid">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">🏙️ Cities</div>
+                    <div class="card-badge" id="cities-badge">0 Cities</div>
+                </div>
+                <div class="city-list" id="city-list"></div>
+            </div>
+
+            <!-- Products -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">🛍️ Active Products</div>
+                    <div class="card-badge" id="product-count">0 Products</div>
+                </div>
+                <div class="market-grid" id="product-grid"></div>
+            </div>
+        </section>
+
+        <!-- Transportation Calculator -->
+        <section class="card full-width">
+            <div class="card-header">
+                <div class="card-title">🚚 Transportation Calculator</div>
+            </div>
+            <div class="transport-calculator">
+                <div class="transport-form">
+                    <div class="form-group">
+                        <label>Origin City</label>
+                        <select id="origin-city"></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Destination City</label>
+                        <select id="destination-city"></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Cargo Units</label>
+                        <input type="number" id="cargo-units" value="10" min="1">
+                    </div>
+                    <div class="form-group">
+                        <label>Priority</label>
+                        <select id="priority">
+                            <option value="cost">Lowest Cost</option>
+                            <option value="speed">Fastest</option>
+                            <option value="reliability">Most Reliable</option>
+                            <option value="balanced" selected>Balanced</option>
+                        </select>
+                    </div>
+                </div>
+                <button class="btn btn-primary" id="calculate-route">Calculate Route</button>
+                <div id="route-results"></div>
+            </div>
+        </section>
+
+        <!-- Event Feed -->
+        <section class="card full-width">
+            <div class="card-header">
+                <div class="card-title">📢 Event Feed</div>
+                <div class="card-badge">Live Updates</div>
+            </div>
+            <div class="event-feed" id="event-feed"></div>
+        </section>
+    </main>
+
+    <!-- Scripts -->
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>
