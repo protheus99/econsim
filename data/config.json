@@ -1,0 +1,191 @@
+// data/config.json
+{
+  "simulation": {
+    "version": "1.0.0",
+    "name": "Economic Simulation System",
+    "startYear": 2025,
+    "timeScale": {
+      "realSecond": 1000,
+      "gameHour": 1,
+      "gameDay": 24,
+      "gameMonth": 720,
+      "gameYear": 8640
+    }
+  },
+  "cities": {
+    "initial": 8,
+    "minPopulation": 250000,
+    "maxPopulation": 5000000,
+    "populationGrowthRate": {
+      "min": 0.001,
+      "max": 0.003
+    },
+    "salaryLevel": {
+      "min": 0.1,
+      "max": 1.0,
+      "default": 0.5
+    },
+    "economicClasses": {
+      "lower": {
+        "percentage": 0.25,
+        "salaryRange": [20000, 35000],
+        "disposableIncome": 0.15
+      },
+      "working": {
+        "percentage": 0.35,
+        "salaryRange": [35000, 55000],
+        "disposableIncome": 0.25
+      },
+      "lowerMiddle": {
+        "percentage": 0.25,
+        "salaryRange": [55000, 110000],
+        "disposableIncome": 0.35
+      },
+      "upperMiddle": {
+        "percentage": 0.14,
+        "salaryRange": [110000, 375000],
+        "disposableIncome": 0.45
+      },
+      "upper": {
+        "percentage": 0.01,
+        "salaryRange": [375000, 1500000],
+        "disposableIncome": 0.55
+      },
+      "rich": {
+        "percentage": 0.0005,
+        "salaryRange": [1500000, 5000000],
+        "disposableIncome": 0.65
+      }
+    },
+    "demographics": {
+      "nonWorkingPercentage": 0.30,
+      "employmentRate": 0.85
+    }
+  },
+  "transportation": {
+    "types": {
+      "LOCAL_ROAD": {
+        "name": "Local Roads",
+        "costPerKm": 0.50,
+        "speedKmh": 50,
+        "reliability": 0.85,
+        "minDistance": 0,
+        "maxDistance": 100
+      },
+      "HIGHWAY": {
+        "name": "Highway",
+        "costPerKm": 0.30,
+        "speedKmh": 90,
+        "reliability": 0.95,
+        "minDistance": 50,
+        "maxDistance": 1000
+      },
+      "TRAIN": {
+        "name": "Rail Freight",
+        "costPerKm": 0.15,
+        "speedKmh": 80,
+        "reliability": 0.90,
+        "minDistance": 100,
+        "maxDistance": 3000,
+        "requiresInfrastructure": "hasRailway"
+      },
+      "AIR": {
+        "name": "Air Freight",
+        "costPerKm": 2.50,
+        "speedKmh": 600,
+        "reliability": 0.92,
+        "minDistance": 200,
+        "maxDistance": 10000,
+        "baseCost": 500,
+        "requiresInfrastructure": "hasAirport"
+      },
+      "SEA": {
+        "name": "Sea Freight",
+        "costPerKm": 0.08,
+        "speedKmh": 40,
+        "reliability": 0.85,
+        "minDistance": 500,
+        "maxDistance": 20000,
+        "baseCost": 1000,
+        "requiresInfrastructure": "hasSeaport"
+      }
+    }
+  },
+  "products": {
+    "categories": [
+      {
+        "name": "Computers",
+        "category": "ELECTRONICS",
+        "basePrice": 1200,
+        "weight": 1.2,
+        "necessityIndex": 0.6
+      },
+      {
+        "name": "Smartphones",
+        "category": "ELECTRONICS",
+        "basePrice": 800,
+        "weight": 0.5,
+        "necessityIndex": 0.7
+      },
+      {
+        "name": "Clothing",
+        "category": "APPAREL",
+        "basePrice": 50,
+        "weight": 0.8,
+        "necessityIndex": 0.8
+      },
+      {
+        "name": "Furniture",
+        "category": "HOME",
+        "basePrice": 500,
+        "weight": 3.5,
+        "necessityIndex": 0.5
+      },
+      {
+        "name": "Food",
+        "category": "FOOD",
+        "basePrice": 10,
+        "weight": 1.0,
+        "necessityIndex": 1.0
+      },
+      {
+        "name": "Automobiles",
+        "category": "AUTOMOTIVE",
+        "basePrice": 25000,
+        "weight": 8.0,
+        "necessityIndex": 0.6
+      },
+      {
+        "name": "Medicine",
+        "category": "PHARMA",
+        "basePrice": 30,
+        "weight": 0.3,
+        "necessityIndex": 0.9
+      },
+      {
+        "name": "Books",
+        "category": "MEDIA",
+        "basePrice": 20,
+        "weight": 0.6,
+        "necessityIndex": 0.4
+      }
+    ]
+  },
+  "corporations": {
+    "initial": 6,
+    "characters": [
+      "CONSERVATIVE",
+      "MODERATE",
+      "AGGRESSIVE",
+      "VERY_AGGRESSIVE"
+    ],
+    "initialCapital": {
+      "min": 10000000,
+      "max": 30000000
+    },
+    "initialEmployees": {
+      "min": 100,
+      "max": 1000
+    }
+  }
+}
