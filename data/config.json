@@ -1,8 +1,8 @@
 // data/config.json
 {
   "simulation": {
-    "version": "1.0.0",
-    "name": "Economic Simulation System",
+    "version": "1.0.1",
+    "name": "Enhanced Economic Simulation System",
     "startYear": 2025,
     "timeScale": {
       "realSecond": 1000,
@@ -10,6 +10,20 @@
       "gameDay": 24,
       "gameMonth": 720,
       "gameYear": 8640
+    }
+  },
+  "countries": {
+    "count": 25,
+    "continents": ["NORTHERN", "SOUTHERN", "EASTERN", "WESTERN", "CENTRAL"],
+    "economicLevels": ["DEVELOPED", "EMERGING", "DEVELOPING"],
+    "tradeAgreements": {
+      "regional": true,
+      "bilateral": false
+    },
+    "tariffs": {
+      "raw": 0.05,
+      "semiRaw": 0.10,
+      "manufactured": 0.15
     }
   },
   "cities": {
@@ -60,6 +74,34 @@
     "demographics": {
       "nonWorkingPercentage": 0.30,
       "employmentRate": 0.85
+    },
+    "infrastructure": {
+      "airportThreshold": 500000,
+      "seaportRequiresCoastal": true,
+      "railwayThreshold": 250000
+    }
+  },
+  "firms": {
+    "types": ["MINING", "LOGGING", "FARM", "MANUFACTURING", "RETAIL", "BANK"],
+    "distribution": {
+      "MINING": 0.15,
+      "LOGGING": 0.10,
+      "FARM": 0.20,
+      "MANUFACTURING": 0.25,
+      "RETAIL": 0.20,
+      "BANK": 0.10
+    },
+    "perCity": {
+      "min": 2,
+      "max": 4
+    }
+  },
+  "products": {
+    "tiers": ["RAW", "SEMI_RAW", "MANUFACTURED"],
+    "categories": {
+      "raw": ["METALS", "MINERALS", "ENERGY", "TIMBER", "GRAINS", "VEGETABLES", "FRUITS", "INDUSTRIAL_CROPS", "LIVESTOCK", "ANIMAL_PRODUCTS"],
+      "semiRaw": ["REFINED_METALS", "CHEMICALS", "FUELS", "LUMBER", "FOOD_INGREDIENTS", "TEXTILES", "DAIRY", "MEAT"],
+      "manufactured": ["ELECTRONICS", "APPLIANCES", "VEHICLES", "FURNITURE", "CLOTHING", "PACKAGED_FOOD", "PHARMA", "CONSTRUCTION", "MACHINERY"]
     }
   },
   "transportation": {
@@ -111,81 +153,72 @@
       }
     }
   },
-  "products": {
-    "categories": [
-      {
-        "name": "Computers",
-        "category": "ELECTRONICS",
-        "basePrice": 1200,
-        "weight": 1.2,
-        "necessityIndex": 0.6
+  "labor": {
+    "wagesByFirm": {
+      "MINING": {
+        "miners": 4500,
+        "engineers": 8000,
+        "supervisors": 6000,
+        "geologists": 9000,
+        "operators": 5500,
+        "support": 3500
       },
-      {
-        "name": "Smartphones",
-        "category": "ELECTRONICS",
-        "basePrice": 800,
-        "weight": 0.5,
-        "necessityIndex": 0.7
+      "LOGGING": {
+        "lumberjacks": 4000,
+        "operators": 5000,
+        "foresters": 7000,
+        "planters": 3500,
+        "drivers": 4200,
+        "support": 3500
       },
-      {
-        "name": "Clothing",
-        "category": "APPAREL",
-        "basePrice": 50,
-        "weight": 0.8,
-        "necessityIndex": 0.8
+      "FARM": {
+        "farmers": 3500,
+        "agronomists": 6500,
+        "operators": 4000,
+        "specialists": 4500,
+        "harvesters": 3200,
+        "support": 3000
       },
-      {
-        "name": "Furniture",
-        "category": "HOME",
-        "basePrice": 500,
-        "weight": 3.5,
-        "necessityIndex": 0.5
+      "MANUFACTURING": {
+        "productionWorkers": 3800,
+        "assemblyWorkers": 4000,
+        "technicians": 5500,
+        "inspectors": 4500,
+        "engineers": 7500,
+        "managers": 9000,
+        "maintenance": 4200,
+        "support": 3500
       },
-      {
-        "name": "Food",
-        "category": "FOOD",
-        "basePrice": 10,
-        "weight": 1.0,
-        "necessityIndex": 1.0
+      "RETAIL": {
+        "sales": 2800,
+        "cashiers": 2500,
+        "stockers": 2600,
+        "managers": 6500,
+        "security": 3200,
+        "cleaning": 2400,
+        "support": 3000
       },
-      {
-        "name": "Automobiles",
-        "category": "AUTOMOTIVE",
-        "basePrice": 25000,
-        "weight": 8.0,
-        "necessityIndex": 0.6
-      },
-      {
-        "name": "Medicine",
-        "category": "PHARMA",
-        "basePrice": 30,
-        "weight": 0.3,
-        "necessityIndex": 0.9
-      },
-      {
-        "name": "Books",
-        "category": "MEDIA",
-        "basePrice": 20,
-        "weight": 0.6,
-        "necessityIndex": 0.4
+      "BANK": {
+        "loanOfficers": 6500,
+        "tellers": 3200,
+        "analysts": 8500,
+        "advisors": 10000,
+        "riskManagers": 12000,
+        "managers": 12000,
+        "itStaff": 7000,
+        "compliance": 9000,
+        "support": 4000
       }
-    ]
-  },
-  "corporations": {
-    "initial": 6,
-    "characters": [
-      "CONSERVATIVE",
-      "MODERATE",
-      "AGGRESSIVE",
-      "VERY_AGGRESSIVE"
-    ],
-    "initialCapital": {
-      "min": 10000000,
-      "max": 30000000
     },
-    "initialEmployees": {
-      "min": 100,
-      "max": 1000
-    }
+    "benefitsMultiplier": 1.30
+  },
+  "banking": {
+    "reserveRequirement": 0.10,
+    "baseInterestRate": 0.05,
+    "bankMargin": 0.03,
+    "depositRate": 0.02,
+    "minCreditScore": 40,
+    "maxLoanToAssetRatio": 0.80,
+    "defaultThreshold": 3
   }
 }
