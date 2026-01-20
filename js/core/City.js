@@ -1,30 +1,39 @@
-// js/core/City.js
+// js/core/City.js (Updated)
 export class City {
-    constructor(name, population, salaryLevel = 0.5) {
+    constructor(name, population, salaryLevel = 0.5, country) {
         this.id = this.generateId();
         this.name = name;
         this.population = this.validatePopulation(population);
         this.salaryLevel = Math.max(0.1, Math.min(1.0, salaryLevel));
+        this.country = country; // Reference to Country object
         
+        // Economic structure
         this.demographics = this.calculateDemographics();
         this.economicClasses = this.calculateEconomicClasses();
         this.totalPurchasingPower = this.calculateTotalPurchasingPower();
         this.unemploymentRate = 0.15;
         
-        this.costOfLiving = 1.0;
+        // Market factors
+        this.costOfLiving = country ? country.economicLevel === 'DEVELOPED' ? 1.2 : 
+                           country.economicLevel === 'EMERGING' ? 1.0 : 0.8 : 1.0;
         this.marketSize = this.calculateMarketSize();
         this.consumerConfidence = 0.7;
         
+        // Location and infrastructure
         this.coordinates = { x: 0, y: 0 };
+        this.climate = 'TEMPERATE';
         this.isCoastal = false;
         this.hasAirport = this.population > 500000;
         this.hasSeaport = false;
         this.hasRailway = this.population > 250000;
         this.infrastructureQuality = 0.5 + (Math.random() * 0.5);
         
+        // Industry presence
         this.industries = new Map();
         this.localCompetitors = this.generateLocalCompetitors();
+        this.firms = []; // Firms operating in this city
         
+        // Statistics tracking
         this.monthlyStats = {
             totalSales: 0,
             avgProductPrice: 0,
@@ -155,6 +164,37 @@ export class City {
         }
         
         return competitors;
+    }
+    
+    addEmployment(count, avgSalary) {
+        const currentUnemployed = this.demographics.unemployed;
+        const hired = Math.min(count, currentUnemployed);
+        
+        this.demographics.unemployed -= hired;
+        this.demographics.employed += hired;
+        
+        const className = this.determineClassFromSalary(avgSalary);
+        if (this.economicClasses[className]) {
+            this.economicClasses[className].count += hired;
+            this.totalPurchasingPower = this.calculateTotalPurchasingPower();
+        }
+        
+        return hired;
+    }
+    
+    removeEmployment(count) {
+        this.demographics.employed -= count;
+        this.demographics.unemployed += count;
+        this.totalPurchasingPower = this.calculateTotalPurchasingPower();
+    }
+    
+    determineClassFromSalary(salary) {
+        if (salary < 35000) return 'lower';
+        if (salary < 55000) return 'working';
+        if (salary < 110000) return 'lowerMiddle';
+        if (salary < 375000) return 'upperMiddle';
+        if (salary < 1500000) return 'upper';
+        return 'rich';
     }
     
     updateMonthly(gameTime) {
