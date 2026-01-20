@@ -1,52 +1,81 @@
 // js/core/CityManager.js
 import { City } from './City.js';
 import { TransportationNetwork } from './TransportationNetwork.js';
+import { CityNameGenerator } from '../data/CityNames.js';
 
 export class CityManager {
-    constructor() {
+    constructor(countries) {
         this.cities = new Map();
+        this.countries = countries;
         this.transportation = new TransportationNetwork();
-        this.cityNames = [
-            'New York', 'Los Angeles', 'Chicago', 'Houston', 'Phoenix',
-            'Philadelphia', 'San Antonio', 'San Diego', 'Dallas', 'San Jose',
-            'Austin', 'Jacksonville', 'Fort Worth', 'Columbus', 'Charlotte',
-            'San Francisco', 'Indianapolis', 'Seattle', 'Denver', 'Boston'
-        ];
+        this.cityNameGenerator = new CityNameGenerator(countries);
     }
 
     generateInitialCities(count = 8) {
+        const countriesArray = Array.from(this.countries.values());
+        
         for (let i = 0; i < count; i++) {
-            const city = this.generateRandomCity(i);
+            // Distribute cities among countries
+            const country = countriesArray[i % countriesArray.length];
+            const city = this.generateCityForCountry(country);
             this.cities.set(city.id, city);
+            country.addCity(city);
         }
 
+        // Designate some coastal cities
         this.designateCoastalCities();
+        
         return Array.from(this.cities.values());
     }
 
-    generateRandomCity(index) {
-        const name = this.cityNames[index % this.cityNames.length];
+    generateCityForCountry(country) {
+        const name = this.cityNameGenerator.getNameForCountry(country);
 
+        // Population distribution
         const rand = Math.random();
         let population;
 
         if (rand < 0.4) {
-            population = 250000 + Math.random() * 250000;
+            population = 250000 + Math.random() * 250000; // Small: 250K-500K
         } else if (rand < 0.7) {
-            population = 500000 + Math.random() * 1000000;
+            population = 500000 + Math.random() * 1000000; // Medium: 500K-1.5M
         } else if (rand < 0.9) {
-            population = 1500000 + Math.random() * 1500000;
+            population = 1500000 + Math.random() * 1500000; // Large: 1.5M-3M
         } else {
-            population = 3000000 + Math.random() * 2000000;
+            population = 3000000 + Math.random() * 2000000; // Major: 3M-5M
         }
 
-        const salaryLevel = 0.3 + Math.random() * 0.5;
-        const city = new City(name, Math.floor(population), salaryLevel);
+        // Salary level influenced by country economic level
+        let baseSalaryLevel = 0.5;
+        if (country.economicLevel === 'DEVELOPED') {
+            baseSalaryLevel = 0.6 + Math.random() * 0.3; // 0.6-0.9
+        } else if (country.economicLevel === 'EMERGING') {
+            baseSalaryLevel = 0.4 + Math.random() * 0.3; // 0.4-0.7
+        } else {
+            baseSalaryLevel = 0.3 + Math.random() * 0.3; // 0.3-0.6
+        }
+
+        const city = new City(name, Math.floor(population), baseSalaryLevel, country);
+
+        // Random location on country's territory
+        // Each country gets a region of the map
+        const countryIndex = Array.from(this.countries.values()).indexOf(country);
+        const regionX = (countryIndex % 5) * 200;
+        const regionY = Math.floor(countryIndex / 5) * 200;
 
         city.coordinates = {
-            x: Math.random() * 1000,
-            y: Math.random() * 1000
+            x: regionX + Math.random() * 200,
+            y: regionY + Math.random() * 200
         };
+
+        // Climate based on coordinates
+        if (city.coordinates.y < 200) {
+            city.climate = 'COLD';
+        } else if (city.coordinates.y > 800) {
+            city.climate = 'TROPICAL';
+        } else {
+            city.climate = 'TEMPERATE';
+        }
 
         return city;
     }
@@ -76,6 +105,10 @@ export class CityManager {
         return Array.from(this.cities.values());
     }
 
+    getCitiesByCountry(countryId) {
+        return this.getAllCities().filter(city => city.country.id === countryId);
+    }
+
     calculateShippingCost(originCityId, destinationCityId, cargoUnits, priority = 'cost') {
         const origin = this.cities.get(originCityId);
         const destination = this.cities.get(destinationCityId);
@@ -84,7 +117,24 @@ export class CityManager {
             return { error: 'City not found' };
         }
 
-        return this.transportation.findOptimalRoute(origin, destination, cargoUnits, priority);
+        const route = this.transportation.findOptimalRoute(origin, destination, cargoUnits, priority);
+
+        // Add tariff if crossing borders
+        if (origin.country.id !== destination.country.id) {
+            const tariffRate = destination.country.getTariff(
+                { tier: 'MANUFACTURED', category: 'GENERAL' },
+                origin.country
+            );
+            
+            if (route.optimalRoute) {
+                const tariffCost = route.optimalRoute.baseCost * tariffRate;
+                route.optimalRoute.tariff = tariffCost;
+                route.optimalRoute.baseCost += tariffCost;
+                route.optimalRoute.costPerUnit = route.optimalRoute.baseCost / cargoUnits;
+            }
+        }
+
+        return route;
     }
 
     getNearbyCities(cityId, maxDistance = 200) {
@@ -100,7 +150,8 @@ export class CityManager {
                 nearby.push({
                     city: otherCity,
                     distance: distance,
-                    distanceFormatted: `${distance.toFixed(1)} km`
+                    distanceFormatted: `${distance.toFixed(1)} km`,
+                    sameCountry: city.country.id === otherCity.country.id
                 });
             }
         }
@@ -149,5 +200,25 @@ export class CityManager {
             total += city.salaryLevel;
         }
         return cities.length > 0 ? total / cities.length : 0;
+    }
+
+    getStatisticsByCountry() {
+        const stats = new Map();
+        
+        this.countries.forEach(country => {
+            const countryCities = this.getCitiesByCountry(country.id);
+            const population = countryCities.reduce((sum, c) => sum + c.population, 0);
+            const gdp = countryCities.reduce((sum, c) => sum + c.totalPurchasingPower, 0);
+            
+            stats.set(country.id, {
+                country: country.name,
+                cities: countryCities.length,
+                population: population,
+                gdp: gdp,
+                avgSalaryLevel: countryCities.reduce((sum, c) => sum + c.salaryLevel, 0) / countryCities.length
+            });
+        });
+        
+        return stats;
     }
 }
