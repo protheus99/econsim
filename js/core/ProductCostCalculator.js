@@ -16,7 +16,7 @@ export class ProductCostCalculator {
      * Calculate the full cost breakdown for a product
      * @param {Product|string|number} product - Product instance, name, or ID
      * @param {Object} options - Calculation options
-     * @param {number} options.laborCostPerHour - Labor cost per production hour (default: 50)
+     * @param {number} options.laborCostPerHour - Labor cost per production hour (default: 0)
      * @param {number} options.overheadMultiplier - Overhead as multiplier of material cost (default: 0.15)
      * @param {boolean} options.useCurrentPrices - Use currentPrice instead of basePrice (default: false)
      * @returns {ProductCostBreakdown}
@@ -28,7 +28,7 @@ export class ProductCostCalculator {
         }
 
         const {
-            laborCostPerHour = 50,
+            laborCostPerHour = 0,
             overheadMultiplier = 0.15,
             useCurrentPrices = false
         } = options;

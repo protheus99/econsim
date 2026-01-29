@@ -107,103 +107,106 @@ export class ProductRegistry {
     }
     
     registerSemiRawMaterials() {
+        // Target: 150% profit margin (totalCost = basePrice / 2.5)
+        // totalCost = materialCost * 1.15 (materials + 15% overhead, no labor)
+        // materialCost = basePrice / 2.875
         const semiRaw = [
             // Refined Metals
-            { 
-                id: 101, name: 'Steel', category: 'REFINED_METALS', icon: '🔩', 
+            {
+                id: 101, name: 'Steel', category: 'REFINED_METALS', icon: '🔩',
                 basePrice: 200, weight: 2.0, necessityIndex: 0.5,
                 inputs: [
-                    { material: 'Iron Ore', quantity: 1.5 },
-                    { material: 'Coal', quantity: 0.3 }
+                    { material: 'Iron Ore', quantity: 1.2 },
+                    { material: 'Coal', quantity: 0.24 }
                 ],
                 technologyRequired: 2
             },
-            { 
-                id: 102, name: 'Copper Wire', category: 'REFINED_METALS', icon: '📡', 
+            {
+                id: 102, name: 'Copper Wire', category: 'REFINED_METALS', icon: '📡',
                 basePrice: 180, weight: 1.0, necessityIndex: 0.4,
-                inputs: [{ material: 'Copper Ore', quantity: 1.2 }],
+                inputs: [{ material: 'Copper Ore', quantity: 0.78 }],
                 technologyRequired: 2
             },
-            { 
-                id: 103, name: 'Aluminum Sheets', category: 'REFINED_METALS', icon: '📄', 
+            {
+                id: 103, name: 'Aluminum Sheets', category: 'REFINED_METALS', icon: '📄',
                 basePrice: 160, weight: 0.8, necessityIndex: 0.4,
-                inputs: [{ material: 'Aluminum Ore', quantity: 1.3 }],
+                inputs: [{ material: 'Aluminum Ore', quantity: 0.79 }],
                 technologyRequired: 2
             },
-            
+
             // Fuels
-            { 
-                id: 104, name: 'Gasoline', category: 'FUELS', icon: '⛽', 
+            {
+                id: 104, name: 'Gasoline', category: 'FUELS', icon: '⛽',
                 basePrice: 150, weight: 0.75, necessityIndex: 0.8,
-                inputs: [{ material: 'Crude Oil', quantity: 1.2 }],
+                inputs: [{ material: 'Crude Oil', quantity: 0.52 }],
                 technologyRequired: 3
             },
-            { 
-                id: 105, name: 'Diesel', category: 'FUELS', icon: '🚛', 
+            {
+                id: 105, name: 'Diesel', category: 'FUELS', icon: '🚛',
                 basePrice: 140, weight: 0.8, necessityIndex: 0.7,
-                inputs: [{ material: 'Crude Oil', quantity: 1.15 }],
+                inputs: [{ material: 'Crude Oil', quantity: 0.49 }],
                 technologyRequired: 3
             },
-            
+
             // Lumber
-            { 
-                id: 106, name: 'Plywood', category: 'LUMBER', icon: '🪚', 
+            {
+                id: 106, name: 'Plywood', category: 'LUMBER', icon: '🪚',
                 basePrice: 80, weight: 1.2, necessityIndex: 0.4,
-                inputs: [{ material: 'Softwood Logs', quantity: 1.5 }],
+                inputs: [{ material: 'Softwood Logs', quantity: 0.79 }],
                 technologyRequired: 1
             },
-            { 
-                id: 107, name: 'Wood Pulp', category: 'LUMBER', icon: '📃', 
+            {
+                id: 107, name: 'Wood Pulp', category: 'LUMBER', icon: '📃',
                 basePrice: 60, weight: 0.9, necessityIndex: 0.3,
-                inputs: [{ material: 'Softwood Logs', quantity: 1.8 }],
+                inputs: [{ material: 'Softwood Logs', quantity: 0.60 }],
                 technologyRequired: 2
             },
-            
+
             // Food Ingredients
-            { 
-                id: 108, name: 'Flour', category: 'FOOD_INGREDIENTS', icon: '🍞', 
+            {
+                id: 108, name: 'Flour', category: 'FOOD_INGREDIENTS', icon: '🍞',
                 basePrice: 25, weight: 1.0, necessityIndex: 0.9,
-                inputs: [{ material: 'Wheat', quantity: 1.1 }],
+                inputs: [{ material: 'Wheat', quantity: 0.87 }],
                 technologyRequired: 1
             },
-            { 
-                id: 109, name: 'Sugar', category: 'FOOD_INGREDIENTS', icon: '🍬', 
+            {
+                id: 109, name: 'Sugar', category: 'FOOD_INGREDIENTS', icon: '🍬',
                 basePrice: 30, weight: 1.0, necessityIndex: 0.7,
-                inputs: [{ material: 'Sugarcane', quantity: 1.5 }],
+                inputs: [{ material: 'Sugarcane', quantity: 0.70 }],
                 technologyRequired: 1
             },
-            
+
             // Textiles
-            { 
-                id: 110, name: 'Cotton Fabric', category: 'TEXTILES', icon: '🧶', 
+            {
+                id: 110, name: 'Cotton Fabric', category: 'TEXTILES', icon: '🧶',
                 basePrice: 45, weight: 0.4, necessityIndex: 0.6,
-                inputs: [{ material: 'Cotton', quantity: 1.2 }],
+                inputs: [{ material: 'Cotton', quantity: 0.63 }],
                 technologyRequired: 2
             },
-            
+
             // Dairy & Meat
-            { 
-                id: 111, name: 'Pasteurized Milk', category: 'DAIRY', icon: '🥛', 
+            {
+                id: 111, name: 'Pasteurized Milk', category: 'DAIRY', icon: '🥛',
                 basePrice: 8, weight: 1.0, necessityIndex: 0.85,
-                inputs: [{ material: 'Raw Milk', quantity: 1.05 }],
+                inputs: [{ material: 'Raw Milk', quantity: 0.56 }],
                 technologyRequired: 1
             },
-            { 
-                id: 112, name: 'Beef', category: 'MEAT', icon: '🥩', 
+            {
+                id: 112, name: 'Beef', category: 'MEAT', icon: '🥩',
                 basePrice: 800, weight: 50, necessityIndex: 0.75,
-                inputs: [{ material: 'Cattle', quantity: 0.6 }],
+                inputs: [{ material: 'Cattle', quantity: 0.23 }],
                 technologyRequired: 1
             },
-            { 
-                id: 113, name: 'Pork', category: 'MEAT', icon: '🍖', 
+            {
+                id: 113, name: 'Pork', category: 'MEAT', icon: '🍖',
                 basePrice: 300, weight: 25, necessityIndex: 0.7,
-                inputs: [{ material: 'Pigs', quantity: 0.7 }],
+                inputs: [{ material: 'Pigs', quantity: 0.26 }],
                 technologyRequired: 1
             },
-            { 
-                id: 114, name: 'Chicken', category: 'MEAT', icon: '🍗', 
+            {
+                id: 114, name: 'Chicken', category: 'MEAT', icon: '🍗',
                 basePrice: 12, weight: 1.5, necessityIndex: 0.8,
-                inputs: [{ material: 'Chickens', quantity: 0.8 }],
+                inputs: [{ material: 'Chickens', quantity: 0.28 }],
                 technologyRequired: 1
             }
         ];
@@ -215,116 +218,120 @@ export class ProductRegistry {
     }
     
     registerManufacturedGoods() {
+        // Target: 150% profit margin (totalCost = basePrice / 2.5)
+        // totalCost = materialCost * 1.15 (materials + 15% overhead, no labor)
+        // SEMI_RAW costs used: Steel~$80, Copper Wire~$72, Aluminum~$64,
+        // Plywood~$32, Cotton Fabric~$18, Flour~$10, Sugar~$12
         const manufactured = [
             // Electronics
-            { 
-                id: 201, name: 'Smartphones', category: 'ELECTRONICS', icon: '📱', 
+            {
+                id: 201, name: 'Smartphones', category: 'ELECTRONICS', icon: '📱',
                 basePrice: 800, weight: 0.2, necessityIndex: 0.7,
                 inputs: [
-                    { material: 'Aluminum Sheets', quantity: 0.1 },
-                    { material: 'Copper Wire', quantity: 0.05 },
-                    { material: 'Gold Ore', quantity: 0.001 }
+                    { material: 'Aluminum Sheets', quantity: 2.5 },
+                    { material: 'Copper Wire', quantity: 1.2 },
+                    { material: 'Gold Ore', quantity: 0.06 }
                 ],
                 technologyRequired: 8
             },
-            { 
-                id: 202, name: 'Laptops', category: 'ELECTRONICS', icon: '💻', 
+            {
+                id: 202, name: 'Laptops', category: 'ELECTRONICS', icon: '💻',
                 basePrice: 1200, weight: 1.5, necessityIndex: 0.65,
                 inputs: [
-                    { material: 'Aluminum Sheets', quantity: 0.3 },
-                    { material: 'Copper Wire', quantity: 0.1 },
-                    { material: 'Steel', quantity: 0.2 }
+                    { material: 'Aluminum Sheets', quantity: 3.5 },
+                    { material: 'Copper Wire', quantity: 2.0 },
+                    { material: 'Steel', quantity: 0.6 }
                 ],
                 technologyRequired: 8
             },
-            
+
             // Vehicles
-            { 
-                id: 203, name: 'Cars', category: 'VEHICLES', icon: '🚗', 
+            {
+                id: 203, name: 'Cars', category: 'VEHICLES', icon: '🚗',
                 basePrice: 25000, weight: 1200, necessityIndex: 0.6,
                 inputs: [
-                    { material: 'Steel', quantity: 50 },
-                    { material: 'Aluminum Sheets', quantity: 20 },
-                    { material: 'Copper Wire', quantity: 5 }
+                    { material: 'Steel', quantity: 70 },
+                    { material: 'Aluminum Sheets', quantity: 35 },
+                    { material: 'Copper Wire', quantity: 12 }
                 ],
                 technologyRequired: 5
             },
-            { 
-                id: 204, name: 'Motorcycles', category: 'VEHICLES', icon: '🏍️', 
+            {
+                id: 204, name: 'Motorcycles', category: 'VEHICLES', icon: '🏍️',
                 basePrice: 8000, weight: 180, necessityIndex: 0.5,
                 inputs: [
-                    { material: 'Steel', quantity: 15 },
-                    { material: 'Aluminum Sheets', quantity: 5 }
+                    { material: 'Steel', quantity: 25 },
+                    { material: 'Aluminum Sheets', quantity: 12.2 }
                 ],
                 technologyRequired: 4
             },
-            
+
             // Furniture
-            { 
-                id: 205, name: 'Tables', category: 'FURNITURE', icon: '🪑', 
+            {
+                id: 205, name: 'Tables', category: 'FURNITURE', icon: '🪑',
                 basePrice: 300, weight: 25, necessityIndex: 0.5,
                 inputs: [
-                    { material: 'Plywood', quantity: 5 },
-                    { material: 'Steel', quantity: 2 }
+                    { material: 'Plywood', quantity: 2.5 },
+                    { material: 'Steel', quantity: 0.3 }
                 ],
                 technologyRequired: 2
             },
-            { 
-                id: 206, name: 'Beds', category: 'FURNITURE', icon: '🛏️', 
+            {
+                id: 206, name: 'Beds', category: 'FURNITURE', icon: '🛏️',
                 basePrice: 600, weight: 50, necessityIndex: 0.7,
                 inputs: [
-                    { material: 'Plywood', quantity: 8 },
-                    { material: 'Steel', quantity: 5 },
-                    { material: 'Cotton Fabric', quantity: 3 }
+                    { material: 'Plywood', quantity: 4.5 },
+                    { material: 'Steel', quantity: 0.6 },
+                    { material: 'Cotton Fabric', quantity: 0.9 }
                 ],
                 technologyRequired: 2
             },
-            
+
             // Clothing
-            { 
-                id: 207, name: 'Shirts', category: 'CLOTHING', icon: '👕', 
+            {
+                id: 207, name: 'Shirts', category: 'CLOTHING', icon: '👕',
                 basePrice: 30, weight: 0.2, necessityIndex: 0.8,
                 inputs: [
-                    { material: 'Cotton Fabric', quantity: 0.5 }
+                    { material: 'Cotton Fabric', quantity: 0.58 }
                 ],
                 technologyRequired: 2
             },
-            { 
-                id: 208, name: 'Jeans', category: 'CLOTHING', icon: '👖', 
+            {
+                id: 208, name: 'Jeans', category: 'CLOTHING', icon: '👖',
                 basePrice: 50, weight: 0.5, necessityIndex: 0.75,
                 inputs: [
-                    { material: 'Cotton Fabric', quantity: 0.8 }
+                    { material: 'Cotton Fabric', quantity: 0.97 }
                 ],
                 technologyRequired: 2
             },
-            
+
             // Packaged Foods
-            { 
-                id: 209, name: 'Bread', category: 'PACKAGED_FOOD', icon: '🍞', 
+            {
+                id: 209, name: 'Bread', category: 'PACKAGED_FOOD', icon: '🍞',
                 basePrice: 3, weight: 0.5, necessityIndex: 0.95,
                 inputs: [
-                    { material: 'Flour', quantity: 0.4 },
-                    { material: 'Sugar', quantity: 0.05 }
+                    { material: 'Flour', quantity: 0.08 },
+                    { material: 'Sugar', quantity: 0.02 }
                 ],
                 technologyRequired: 1
             },
-            { 
-                id: 210, name: 'Canned Goods', category: 'PACKAGED_FOOD', icon: '🥫', 
+            {
+                id: 210, name: 'Canned Goods', category: 'PACKAGED_FOOD', icon: '🥫',
                 basePrice: 5, weight: 0.4, necessityIndex: 0.8,
                 inputs: [
-                    { material: 'Steel', quantity: 0.05 },
-                    { material: 'Corn', quantity: 0.3 }
+                    { material: 'Steel', quantity: 0.01 },
+                    { material: 'Corn', quantity: 0.12 }
                 ],
                 technologyRequired: 2
             },
-            
+
             // Construction Materials
-            { 
-                id: 211, name: 'Cement', category: 'CONSTRUCTION', icon: '🏗️', 
+            {
+                id: 211, name: 'Cement', category: 'CONSTRUCTION', icon: '🏗️',
                 basePrice: 80, weight: 50, necessityIndex: 0.4,
                 inputs: [
-                    { material: 'Limestone', quantity: 10 },
-                    { material: 'Coal', quantity: 2 }
+                    { material: 'Limestone', quantity: 1.0 },
+                    { material: 'Coal', quantity: 0.2 }
                 ],
                 technologyRequired: 2
             }
