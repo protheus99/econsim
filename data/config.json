@@ -1,6 +1,6 @@
 {
   "simulation": {
-    "version": "1.0.1",
+    "version": "1.0.2",
     "name": "Enhanced Economic Simulation System",
     "startYear": 2025,
     "timeScale": {
@@ -10,6 +10,20 @@
       "gameMonth": 720,
       "gameYear": 8640
     }
+  },
+  "globalMarket": {
+    "enabled": true,
+    "priceMultiplier": 1.5,
+    "availabilityFactor": 0.8,
+    "deliveryDelayHours": 24,
+    "minimumOrderSize": 10,
+    "maxOrdersPerHour": 5
+  },
+  "inventory": {
+    "initialStockWeeks": 1,
+    "reorderThresholdWeeks": 4,
+    "reorderQuantityWeeks": 2,
+    "maxStockWeeks": 8
   },
   "countries": {
     "count": 25,

@@ -2,11 +2,11 @@
 import { Firm } from './Firm.js';
 
 export class Bank extends Firm {
-    constructor(location, country, bankType) {
-        super('BANK', location, country);
+    constructor(location, country, bankType, customId = null) {
+        super('BANK', location, country, customId);
         
         this.bankType = bankType; // COMMERCIAL, INVESTMENT, CENTRAL
-        this.capital = 100000000 + Math.random() * 900000000;
+        this.capital = 2000000000 + Math.random() * 18000000000;
         this.reserves = this.capital * 0.10; // 10% reserve requirement
         
         // Loan portfolio
@@ -101,7 +101,17 @@ export class Bank extends Firm {
     calculateLendingRate() {
         return this.baseInterestRate + this.countryRiskPremium + this.bankMargin;
     }
-    
+
+    produceHourly() {
+        // Banks don't produce physical goods - track financial activity
+        return {
+            type: 'BANKING',
+            activeLoans: this.loanPortfolio.size,
+            deposits: this.deposits,
+            capital: this.capital
+        };
+    }
+
     assessCredit(borrower) {
         let score = 50;
         
@@ -398,5 +408,16 @@ export class Bank extends Firm {
                 profit: this.profit.toFixed(2)
             }
         };
+    }
+
+    // Override: Get display name for this bank
+    getDisplayName() {
+        const bankTypeNames = {
+            'COMMERCIAL': 'Commercial Bank',
+            'INVESTMENT': 'Investment Bank',
+            'CENTRAL': 'Central Bank'
+        };
+        const typeName = bankTypeNames[this.bankType] || this.bankType;
+        return `${typeName} #${this.getShortId()}`;
     }
 }

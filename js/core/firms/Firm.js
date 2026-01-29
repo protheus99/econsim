@@ -1,14 +1,14 @@
 // js/core/firms/Firm.js
 export class Firm {
-    constructor(type, location, country) {
-        this.id = this.generateId();
+    constructor(type, location, country, customId = null) {
+        this.id = customId || this.generateId();
         this.type = type;
         this.location = location;
         this.country = country;
         this.city = location.city;
         
         // Financial
-        this.cash = 100000;
+        this.cash = 2000000;
         this.revenue = 0;
         this.expenses = 0;
         this.profit = 0;
@@ -45,7 +45,19 @@ export class Firm {
     generateId() {
         return `FIRM_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     }
-    
+
+    // Get a human-readable display name for this firm
+    // Override in subclasses for type-specific names
+    getDisplayName() {
+        const shortId = this.id.slice(-6);
+        return `${this.type} #${shortId}`;
+    }
+
+    // Get short ID suffix for display
+    getShortId() {
+        return this.id.slice(-6);
+    }
+
     calculateLaborCosts() {
         // To be overridden by subclasses
         return 0;

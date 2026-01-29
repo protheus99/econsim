@@ -2,8 +2,8 @@
 import { Firm } from './Firm.js';
 
 export class ManufacturingPlant extends Firm {
-    constructor(location, country, productType, productRegistry) {
-        super('MANUFACTURING', location, country);
+    constructor(location, country, productType, productRegistry, customId = null) {
+        super('MANUFACTURING', location, country, customId);
         
         this.productType = productType;
         this.productRegistry = productRegistry;
@@ -91,7 +91,7 @@ export class ManufacturingPlant extends Firm {
     }
     
     initialize() {
-        this.cash = 800000;
+        this.cash = 16000000;
         this.totalAssets = 5000000;
     }
     
@@ -331,5 +331,11 @@ export class ManufacturingPlant extends Firm {
                 costPerUnit: this.calculateProductionCost().toFixed(2)
             }
         };
+    }
+
+    // Override: Get display name for this manufacturing plant
+    getDisplayName() {
+        const productName = this.product?.name || 'Manufacturing';
+        return `${productName} Plant #${this.getShortId()}`;
     }
 }

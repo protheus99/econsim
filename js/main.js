@@ -1,6 +1,6 @@
 // js/main.js
-import { SimulationEngine } from './simulation/SimulationEngine.js';
-import { Dashboard } from './ui/Dashboard.js';
+import { SimulationEngine } from './core/SimulationEngine.js';
+import { Dashboard } from './core/Dashboard.js';
 import { MapRenderer } from './ui/MapRenderer.js';
 
 class Application {
@@ -27,6 +27,7 @@ class Application {
 
             // Populate initial data
             this.dashboard.populateTransportSelectors();
+            this.dashboard.update(); // Initial update to show data immediately
             this.mapRenderer.render();
 
             // Hide loading screen
@@ -61,7 +62,7 @@ class Application {
 ║     Initialized with:                                 ║
 ║     • ${this.simulation.cities.length} cities                                        ║
 ║     • ${this.simulation.corporations.length} corporations                                  ║
-║     • ${this.simulation.products.length} product categories                           ║
+║     • ${this.simulation.productRegistry.getAllProducts().length} products                              ║
 ║                                                       ║
 ║     Time Scale: 1 second = 1 game hour               ║
 ║     Status: Running                                   ║
@@ -113,10 +114,46 @@ window.debug = {
     getCities: () => window.app?.simulation?.cities,
     getCorporations: () => window.app?.simulation?.corporations,
     getProducts: () => window.app?.simulation?.products,
+    getFirms: () => Array.from(window.app?.simulation?.firms?.values() || []),
     pause: () => window.app?.simulation?.pause(),
     resume: () => window.app?.simulation?.resume(),
     setSpeed: (speed) => window.app?.simulation?.setSpeed(speed),
-    addEvent: (type, title, msg) => window.app?.simulation?.addEvent(type, title, msg)
+    addEvent: (type, title, msg) => window.app?.simulation?.addEvent(type, title, msg),
+
+    // Global Market helpers
+    globalMarket: {
+        getStats: () => window.app?.simulation?.getGlobalMarketStats(),
+        getPrices: () => window.app?.simulation?.getGlobalMarketPrices(),
+        setMultiplier: (mult) => window.app?.simulation?.setGlobalMarketMultiplier(mult),
+        getMultiplier: () => window.app?.simulation?.getGlobalMarketMultiplier(),
+        enable: () => window.app?.simulation?.enableGlobalMarket(true),
+        disable: () => window.app?.simulation?.enableGlobalMarket(false)
+    },
+
+    // Config helpers
+    getConfig: () => window.app?.simulation?.getConfig(),
+    setInventoryConfig: (cfg) => window.app?.simulation?.setInventoryConfig(cfg),
+
+    // Inventory inspection
+    getInventoryReport: () => {
+        const firms = Array.from(window.app?.simulation?.firms?.values() || []);
+        return firms
+            .filter(f => f.type === 'MANUFACTURING')
+            .map(f => ({
+                id: f.id,
+                product: f.product?.name,
+                isSemiRaw: f.isSemiRawProducer,
+                finishedGoods: f.finishedGoodsInventory?.quantity?.toFixed(0),
+                rawMaterials: Array.from(f.rawMaterialInventory?.entries() || []).map(([name, inv]) => ({
+                    material: name,
+                    quantity: inv.quantity?.toFixed(0),
+                    minRequired: inv.minRequired?.toFixed(0)
+                }))
+            }));
+    }
 };
 
 console.log('💡 Debug helpers available: window.debug');
+console.log('   - debug.globalMarket.setMultiplier(1.5) - Set global market price multiplier');
+console.log('   - debug.globalMarket.getStats() - View global market statistics');
+console.log('   - debug.getInventoryReport() - View all manufacturing inventory');

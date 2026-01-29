@@ -2,8 +2,8 @@
 import { Firm } from './Firm.js';
 
 export class MiningCompany extends Firm {
-    constructor(location, country, resourceType) {
-        super('MINING', location, country);
+    constructor(location, country, resourceType, customId = null) {
+        super('MINING', location, country, customId);
         
         this.resourceType = resourceType; // 'Iron Ore', 'Coal', 'Gold Ore', etc.
         this.mineType = this.determineMineType(resourceType);
@@ -101,7 +101,7 @@ export class MiningCompany extends Firm {
     }
     
     initialize() {
-        this.cash = 500000; // Mining requires more initial capital
+        this.cash = 10000000; // Mining requires more initial capital
         this.totalAssets = 2000000; // Equipment, land, etc.
     }
     
@@ -135,42 +135,36 @@ export class MiningCompany extends Firm {
     produceHourly() {
         if (this.remainingReserves <= 0) {
             this.currentProduction = 0;
-            return null;
+            return { produced: false, reason: 'NO_RESERVES' };
         }
-        
+
         // Calculate actual production
-        const efficiencyFactor = this.equipmentEfficiency * (1 - this.equipmentDegradation / 100);
-        const technologyBonus = this.technologyLevel * 0.1; // 10% per level
+        const efficiencyFactor = Math.max(0.1, this.equipmentEfficiency * (1 - this.equipmentDegradation / 100));
+        const technologyBonus = this.technologyLevel * 0.1;
         const qualityFactor = this.reserveQuality / 100;
-        
-        this.actualExtractionRate = this.baseExtractionRate * 
-                                    efficiencyFactor * 
-                                    (1 + technologyBonus) * 
-                                    qualityFactor;
-        
+
+        const extractionAmount = this.baseExtractionRate * efficiencyFactor * (1 + technologyBonus) * qualityFactor;
+        this.actualExtractionRate = extractionAmount;
+
         // Deduct from reserves
-        this.remainingReserves -= this.actualExtractionRate;
+        this.remainingReserves = Math.max(0, this.remainingReserves - extractionAmount);
         this.depletionRate = ((this.totalReserves - this.remainingReserves) / this.totalReserves) * 100;
-        
-        // Add to inventory
-        const produced = this.actualExtractionRate;
-        if (this.inventory.quantity + produced <= this.inventory.storageCapacity) {
-            this.inventory.quantity += produced;
-        } else {
-            // Storage full - production wasted or need to sell
-            this.inventory.quantity = this.inventory.storageCapacity;
-        }
-        
-        this.currentProduction = produced;
-        
-        // Equipment degradation
-        this.equipmentDegradation += 0.01; // Degrades slowly over time
-        
+
+        // Add to inventory - direct assignment to ensure it works
+        const newQuantity = this.inventory.quantity + extractionAmount;
+        this.inventory.quantity = Math.min(newQuantity, this.inventory.storageCapacity);
+
+        this.currentProduction = extractionAmount;
+
+        // Equipment degradation (slower rate)
+        this.equipmentDegradation = Math.min(90, this.equipmentDegradation + 0.005);
+
         return {
+            produced: true,
             resource: this.resourceType,
-            quantity: produced,
+            quantity: extractionAmount,
             quality: this.inventory.quality,
-            costPerUnit: this.calculateProductionCost()
+            inventoryLevel: this.inventory.quantity
         };
     }
     
@@ -269,5 +263,10 @@ export class MiningCompany extends Firm {
                 degradation: this.equipmentDegradation.toFixed(0) + '%'
             }
         };
+    }
+
+    // Override: Get display name for this mining company
+    getDisplayName() {
+        return `${this.resourceType} Mine #${this.getShortId()}`;
     }
 }

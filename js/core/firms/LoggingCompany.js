@@ -2,8 +2,8 @@
 import { Firm } from './Firm.js';
 
 export class LoggingCompany extends Firm {
-    constructor(location, country, timberType) {
-        super('LOGGING', location, country);
+    constructor(location, country, timberType, customId = null) {
+        super('LOGGING', location, country, customId);
         
         this.timberType = timberType; // 'Softwood Logs', 'Hardwood Logs', 'Bamboo'
         this.forestType = this.determineForestType(timberType);
@@ -80,7 +80,7 @@ export class LoggingCompany extends Firm {
     }
     
     initialize() {
-        this.cash = 300000;
+        this.cash = 6000000;
         this.totalAssets = 1500000; // Land, equipment, forest value
     }
     
@@ -111,46 +111,40 @@ export class LoggingCompany extends Firm {
         // Check sustainable limits
         const annualSustainableYield = this.forestSize * this.forestDensity * this.sustainableYieldRate;
         const hourlySustainableYield = annualSustainableYield / (365 * 24);
-        
+
         // Calculate actual production
         const efficiencyFactor = this.equipmentEfficiency;
         const technologyBonus = this.technologyLevel * 0.08;
         const healthFactor = this.forestHealth / 100;
-        
+
         let harvestAmount = Math.min(
             this.baseHarvestRate * efficiencyFactor * (1 + technologyBonus),
-            hourlySustainableYield * 1.2 // Allow 20% over sustainable (with consequences)
+            hourlySustainableYield * 1.2
         );
-        
+
         harvestAmount *= healthFactor;
         this.actualHarvestRate = harvestAmount;
-        
-        // Reforestation
-        const hourlyReplanting = (this.forestSize * this.reforestationRate) / (365 * 24);
-        
+
         // Update forest health based on sustainability
         if (harvestAmount > hourlySustainableYield) {
-            this.forestHealth -= 0.01; // Overharvesting damages forest
+            this.forestHealth = Math.max(10, this.forestHealth - 0.01);
         } else {
             this.forestHealth = Math.min(100, this.forestHealth + 0.005);
         }
-        
-        // Add to inventory
-        const produced = harvestAmount;
-        if (this.inventory.quantity + produced <= this.inventory.storageCapacity) {
-            this.inventory.quantity += produced;
-        } else {
-            this.inventory.quantity = this.inventory.storageCapacity;
-        }
-        
-        this.currentProduction = produced;
-        
+
+        // Add to inventory - direct assignment
+        const newQuantity = this.inventory.quantity + harvestAmount;
+        this.inventory.quantity = Math.min(newQuantity, this.inventory.storageCapacity);
+
+        this.currentProduction = harvestAmount;
+
         return {
+            produced: true,
             resource: this.timberType,
-            quantity: produced,
+            quantity: harvestAmount,
             quality: this.inventory.quality,
             sustainable: harvestAmount <= hourlySustainableYield,
-            costPerUnit: this.calculateProductionCost()
+            inventoryLevel: this.inventory.quantity
         };
     }
     
@@ -232,5 +226,10 @@ export class LoggingCompany extends Firm {
                 costPerUnit: this.calculateProductionCost().toFixed(2)
             }
         };
+    }
+
+    // Override: Get display name for this logging company
+    getDisplayName() {
+        return `${this.timberType} Logging #${this.getShortId()}`;
     }
 }

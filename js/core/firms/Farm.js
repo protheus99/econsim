@@ -2,8 +2,8 @@
 import { Firm } from './Firm.js';
 
 export class Farm extends Firm {
-    constructor(location, country, farmType) {
-        super('FARM', location, country);
+    constructor(location, country, farmType, customId = null) {
+        super('FARM', location, country, customId);
         
         this.farmType = farmType; // 'CROP' or 'LIVESTOCK'
         this.landSize = 100 + Math.random() * 400; // Hectares
@@ -63,7 +63,10 @@ export class Farm extends Firm {
         this.herdSize = Math.floor(this.landSize * 2); // 2 animals per hectare
         this.breedingCycle = this.getBreedingCycle(this.livestockType);
         this.currentMaturity = 0; // 0-100%
-        
+
+        // Determine what product this farm outputs for supply chain
+        this.outputProduct = this.getOutputProduct(this.livestockType);
+
         // Labor structure for livestock farm
         this.laborStructure = {
             farmhands: { count: 25, wage: 3500 },
@@ -73,20 +76,31 @@ export class Farm extends Firm {
             butchers: { count: 3, wage: 4200 },
             supportStaff: { count: 5, wage: 3000 }
         };
-        
+
         // Operating costs for livestock farm
         this.feedCosts = 20000;
         this.veterinaryCosts = 10000;
         this.shelterMaintenanceCosts = 8000;
         this.equipmentCosts = 20000;
         this.operationalExpenses = 18000;
-        
-        // Inventory
+
+        // Inventory - stores the primary output product
         this.inventory = {
             quantity: 0,
             quality: 65,
             storageCapacity: this.herdSize * 50 // kg
         };
+    }
+
+    getOutputProduct(livestockType) {
+        // Map livestock type to primary output product for supply chain
+        const outputs = {
+            'Cattle': 'Cattle',      // Cattle farms supply cattle for beef
+            'Pigs': 'Pigs',          // Pig farms supply pigs for pork
+            'Chickens': 'Chickens',  // Chicken farms supply chickens
+            'Sheep': 'Sheep'
+        };
+        return outputs[livestockType] || livestockType;
     }
     
     selectCrop() {
@@ -146,7 +160,7 @@ export class Farm extends Firm {
     }
     
     initialize() {
-        this.cash = 200000;
+        this.cash = 4000000;
         this.totalAssets = 1000000;
     }
     
@@ -195,67 +209,73 @@ export class Farm extends Firm {
         // Growing cycle in hours
         const seasonHours = this.growingSeasonLength * 24;
         const growthPerHour = 100 / seasonHours;
-        
+
         this.currentGrowthStage += growthPerHour;
-        
+
         // Harvest when fully grown
         if (this.currentGrowthStage >= 100) {
             const totalYield = this.landSize * this.yieldPerHectare;
             const technologyBonus = this.technologyLevel * 0.05;
             const actualYield = totalYield * (1 + technologyBonus);
-            
-            this.inventory.quantity = Math.min(actualYield, this.inventory.storageCapacity);
+
+            // Add harvest to existing inventory
+            const newQuantity = this.inventory.quantity + actualYield;
+            this.inventory.quantity = Math.min(newQuantity, this.inventory.storageCapacity);
             this.currentGrowthStage = 0; // Reset for next season
-            
+
             return {
+                produced: true,
                 resource: this.cropType,
                 quantity: actualYield,
                 quality: this.inventory.quality,
-                costPerUnit: this.calculateProductionCost(),
+                inventoryLevel: this.inventory.quantity,
                 harvest: true
             };
         }
-        
+
         return {
+            produced: false,
             resource: this.cropType,
             quantity: 0,
-            quality: this.inventory.quality,
             growthStage: this.currentGrowthStage.toFixed(1) + '%',
             harvest: false
         };
     }
-    
+
     produceLivestock() {
         // Maturity cycle in hours
         const cycleHours = this.breedingCycle * 24;
         const maturityPerHour = 100 / cycleHours;
-        
+
         this.currentMaturity += maturityPerHour;
-        
-        // Products available
-        const hourlyOutput = this.getHourlyLivestockOutput();
-        
+
+        // Continuous production: add livestock units to inventory hourly
+        // This represents animals ready for market
+        const baseProductionRate = this.herdSize * 0.001; // 0.1% of herd per hour available
+        const technologyBonus = this.technologyLevel * 0.05;
+        const hourlyOutput = baseProductionRate * (1 + technologyBonus);
+
         if (hourlyOutput > 0) {
-            this.inventory.quantity = Math.min(
-                this.inventory.quantity + hourlyOutput,
-                this.inventory.storageCapacity
-            );
+            const newQuantity = this.inventory.quantity + hourlyOutput;
+            this.inventory.quantity = Math.min(newQuantity, this.inventory.storageCapacity);
         }
-        
-        // When mature, can sell or process
+
+        // When mature, grow the herd
         const readyForMarket = this.currentMaturity >= 100;
-        
+
         if (readyForMarket) {
             this.currentMaturity = 0;
             // Add new generation
-            this.herdSize = Math.floor(this.herdSize * 1.05); // 5% growth
+            this.herdSize = Math.floor(this.herdSize * 1.05);
+            this.inventory.storageCapacity = this.herdSize * 50;
         }
-        
+
         return {
+            produced: hourlyOutput > 0,
             resource: this.livestockType,
             quantity: hourlyOutput,
             quality: this.inventory.quality,
-            costPerUnit: this.calculateProductionCost(),
+            inventoryLevel: this.inventory.quantity,
             readyForMarket: readyForMarket,
             herdSize: this.herdSize
         };
@@ -364,7 +384,16 @@ export class Farm extends Firm {
                 inventory: this.inventory.quantity.toFixed(0) + ' kg'
             };
         }
-        
+
         return status;
+    }
+
+    // Override: Get display name for this farm
+    getDisplayName() {
+        if (this.farmType === 'CROP') {
+            return `${this.cropType} Farm #${this.getShortId()}`;
+        } else {
+            return `${this.livestockType} Ranch #${this.getShortId()}`;
+        }
     }
 }
