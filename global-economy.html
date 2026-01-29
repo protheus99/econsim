@@ -1,0 +1,168 @@
+<!-- global-economy.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Global Economy - Economic Simulation</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="page-nav">
+        <a href="index.html" class="nav-link">Dashboard</a>
+        <a href="global-economy.html" class="nav-link active">Global Economy</a>
+        <a href="corporations.html" class="nav-link">Corporations</a>
+        <a href="market-activity.html" class="nav-link">Market Activity</a>
+        <a href="world-map.html" class="nav-link">World Map</a>
+        <a href="cities.html" class="nav-link">Cities</a>
+        <a href="products.html" class="nav-link">Products</a>
+        <a href="transportation.html" class="nav-link">Transportation</a>
+        <a href="feed.html" class="nav-link">Feed</a>
+    </nav>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="game-clock">
+            <div class="clock-display">
+                <div class="clock-info">
+                    <div class="date-time" id="game-date">2025-01-01 00:00</div>
+                    <div class="time-meta">
+                        <span class="status-indicator status-running" id="status-indicator"></span>
+                        <span id="status-text">Running</span> • 1 second = 1 game hour
+                    </div>
+                </div>
+                <div class="real-time-info">
+                    <div class="time-meta">Real Time Elapsed</div>
+                    <div class="real-time-display" id="real-time">00:00:00</div>
+                </div>
+            </div>
+            <div class="controls">
+                <button class="btn btn-play" id="btn-play">Play</button>
+                <button class="btn btn-pause" id="btn-pause">Pause</button>
+                <button class="btn btn-speed" data-speed="8">8x</button>
+                <button class="btn btn-speed" data-speed="4">4x</button>
+                <button class="btn btn-speed" data-speed="2">2x</button>
+                <button class="btn btn-speed" data-speed="1">1x</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-container">
+        <section class="page-header">
+            <h1>Global Economy</h1>
+        </section>
+
+        <!-- Key Metrics -->
+        <section class="grid">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Population</div>
+                </div>
+                <div class="metric-big" id="total-population">0</div>
+                <div class="metric-label">Total World Population</div>
+            </div>
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">GDP</div>
+                </div>
+                <div class="metric-big" id="total-gdp">$0</div>
+                <div class="metric-label">Total Global GDP</div>
+            </div>
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Employment</div>
+                </div>
+                <div class="metric-big" id="total-employed">0</div>
+                <div class="metric-label">Total Employed</div>
+            </div>
+        </section>
+
+        <!-- Detailed Stats -->
+        <section class="grid">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Economic Indicators</div>
+                </div>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <span class="stat-label">Cities</span>
+                        <span class="stat-value" id="city-count">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Countries</span>
+                        <span class="stat-value" id="country-count">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Avg Salary Level</span>
+                        <span class="stat-value" id="avg-salary-level">0%</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Corporations</span>
+                        <span class="stat-value" id="corp-count">0</span>
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Industry Overview</div>
+                </div>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <span class="stat-label">Total Firms</span>
+                        <span class="stat-value" id="total-firms">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Mining</span>
+                        <span class="stat-value" id="mining-count">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Manufacturing</span>
+                        <span class="stat-value" id="manufacturing-count">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Retail</span>
+                        <span class="stat-value" id="retail-count">0</span>
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Trade Statistics</div>
+                </div>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <span class="stat-label">Hourly Transactions</span>
+                        <span class="stat-value" id="hourly-transactions">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Avg Transaction</span>
+                        <span class="stat-value" id="avg-transaction">$0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">B2B Trades</span>
+                        <span class="stat-value" id="b2b-count">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Global Market Orders</span>
+                        <span class="stat-value" id="gm-orders-count">0</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- GDP by Country -->
+        <section class="card full-width">
+            <div class="card-header">
+                <div class="card-title">GDP by Country</div>
+            </div>
+            <div class="country-gdp-list" id="country-gdp-list">
+                <!-- Filled by JS -->
+            </div>
+        </section>
+    </main>
+
+    <script type="module" src="js/pages/global-economy.js"></script>
+</body>
+</html>

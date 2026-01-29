@@ -1,0 +1,158 @@
+<!-- cities.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cities - Economic Simulation</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="page-nav">
+        <a href="index.html" class="nav-link">Dashboard</a>
+        <a href="global-economy.html" class="nav-link">Global Economy</a>
+        <a href="corporations.html" class="nav-link">Corporations</a>
+        <a href="market-activity.html" class="nav-link">Market Activity</a>
+        <a href="world-map.html" class="nav-link">World Map</a>
+        <a href="cities.html" class="nav-link active">Cities</a>
+        <a href="products.html" class="nav-link">Products</a>
+        <a href="transportation.html" class="nav-link">Transportation</a>
+        <a href="feed.html" class="nav-link">Feed</a>
+    </nav>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="game-clock">
+            <div class="clock-display">
+                <div class="clock-info">
+                    <div class="date-time" id="game-date">2025-01-01 00:00</div>
+                    <div class="time-meta">
+                        <span class="status-indicator status-running" id="status-indicator"></span>
+                        <span id="status-text">Running</span> • 1 second = 1 game hour
+                    </div>
+                </div>
+                <div class="real-time-info">
+                    <div class="time-meta">Real Time Elapsed</div>
+                    <div class="real-time-display" id="real-time">00:00:00</div>
+                </div>
+            </div>
+            <div class="controls">
+                <button class="btn btn-play" id="btn-play">Play</button>
+                <button class="btn btn-pause" id="btn-pause">Pause</button>
+                <button class="btn btn-speed" data-speed="8">8x</button>
+                <button class="btn btn-speed" data-speed="4">4x</button>
+                <button class="btn btn-speed" data-speed="2">2x</button>
+                <button class="btn btn-speed" data-speed="1">1x</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-container">
+        <section class="page-header">
+            <h1>Cities</h1>
+            <div class="card-badge" id="all-cities-count">0 Cities</div>
+        </section>
+
+        <!-- Summary Stats -->
+        <section class="card full-width">
+            <div class="card-header">
+                <div class="card-title">Global Overview</div>
+            </div>
+            <div class="cities-summary-stats" id="cities-summary-stats">
+                <!-- Filled by JS -->
+            </div>
+        </section>
+
+        <!-- Sort and Filter -->
+        <section class="cities-controls">
+            <div class="cities-sort">
+                <label>Sort by:</label>
+                <select id="cities-sort-select">
+                    <option value="population-desc">Population (High to Low)</option>
+                    <option value="population-asc">Population (Low to High)</option>
+                    <option value="gdp-desc">GDP (High to Low)</option>
+                    <option value="gdp-asc">GDP (Low to High)</option>
+                    <option value="firms-desc">Firms (High to Low)</option>
+                    <option value="salary-desc">Salary Level (High to Low)</option>
+                    <option value="name-asc">Name (A-Z)</option>
+                </select>
+            </div>
+            <div class="cities-filter">
+                <label>Infrastructure:</label>
+                <select id="cities-infra-filter">
+                    <option value="all">All Cities</option>
+                    <option value="airport">Has Airport</option>
+                    <option value="seaport">Has Seaport</option>
+                    <option value="railway">Has Railway</option>
+                    <option value="coastal">Coastal</option>
+                </select>
+            </div>
+            <div class="cities-filter">
+                <label>Country:</label>
+                <select id="cities-country-filter">
+                    <option value="all">All Countries</option>
+                    <!-- Filled by JS -->
+                </select>
+            </div>
+            <div class="cities-search">
+                <input type="text" id="cities-search-input" placeholder="Search cities...">
+            </div>
+        </section>
+
+        <!-- Cities Grid -->
+        <section class="cities-grid" id="all-cities-grid">
+            <!-- Filled by JS -->
+        </section>
+    </main>
+
+    <!-- City Detail View -->
+    <div id="city-detail-view" class="detail-view hidden">
+        <div class="detail-header">
+            <button class="btn btn-back" id="btn-back-city">← Back to List</button>
+            <h2 id="city-detail-name">City Name</h2>
+            <span class="city-detail-country" id="city-detail-country"></span>
+        </div>
+        <div class="detail-content">
+            <div class="city-detail-grid">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">City Overview</div>
+                    </div>
+                    <div class="city-overview-stats" id="city-overview-stats"></div>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Infrastructure</div>
+                    </div>
+                    <div class="city-infrastructure-detail" id="city-infrastructure-detail"></div>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Economy</div>
+                    </div>
+                    <div class="city-economy-stats" id="city-economy-stats"></div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Industry Summary</div>
+                    <div class="card-badge" id="city-industry-count">0 Industries</div>
+                </div>
+                <div class="industry-summary" id="city-industry-summary"></div>
+            </div>
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Firms in City</div>
+                    <div class="card-badge" id="city-firms-count">0 Firms</div>
+                </div>
+                <div class="city-firms-filter" id="city-firms-filter"></div>
+                <div class="firms-list" id="city-detail-firms-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="js/pages/cities.js"></script>
+</body>
+</html>

@@ -1,0 +1,176 @@
+<!-- products.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Products - Economic Simulation</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="page-nav">
+        <a href="index.html" class="nav-link">Dashboard</a>
+        <a href="global-economy.html" class="nav-link">Global Economy</a>
+        <a href="corporations.html" class="nav-link">Corporations</a>
+        <a href="market-activity.html" class="nav-link">Market Activity</a>
+        <a href="world-map.html" class="nav-link">World Map</a>
+        <a href="cities.html" class="nav-link">Cities</a>
+        <a href="products.html" class="nav-link active">Products</a>
+        <a href="transportation.html" class="nav-link">Transportation</a>
+        <a href="feed.html" class="nav-link">Feed</a>
+    </nav>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="game-clock">
+            <div class="clock-display">
+                <div class="clock-info">
+                    <div class="date-time" id="game-date">2025-01-01 00:00</div>
+                    <div class="time-meta">
+                        <span class="status-indicator status-running" id="status-indicator"></span>
+                        <span id="status-text">Running</span> • 1 second = 1 game hour
+                    </div>
+                </div>
+                <div class="real-time-info">
+                    <div class="time-meta">Real Time Elapsed</div>
+                    <div class="real-time-display" id="real-time">00:00:00</div>
+                </div>
+            </div>
+            <div class="controls">
+                <button class="btn btn-play" id="btn-play">Play</button>
+                <button class="btn btn-pause" id="btn-pause">Pause</button>
+                <button class="btn btn-speed" data-speed="8">8x</button>
+                <button class="btn btn-speed" data-speed="4">4x</button>
+                <button class="btn btn-speed" data-speed="2">2x</button>
+                <button class="btn btn-speed" data-speed="1">1x</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-container">
+        <section class="page-header">
+            <h1>Active Products</h1>
+            <div class="card-badge" id="product-count">0 Products</div>
+        </section>
+
+        <!-- Product Tiers -->
+        <section class="card full-width">
+            <div class="card-header">
+                <div class="card-title">Product Tiers</div>
+            </div>
+            <div class="product-tiers-summary" id="product-tiers-summary">
+                <div class="tier-stat">
+                    <span class="tier-label">RAW</span>
+                    <span class="tier-count" id="raw-count">0</span>
+                </div>
+                <div class="tier-stat">
+                    <span class="tier-label">SEMI_RAW</span>
+                    <span class="tier-count" id="semi-raw-count">0</span>
+                </div>
+                <div class="tier-stat">
+                    <span class="tier-label">MANUFACTURED</span>
+                    <span class="tier-count" id="manufactured-count">0</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Filter Controls -->
+        <section class="products-controls">
+            <div class="products-filter">
+                <label>Tier:</label>
+                <select id="products-tier-filter">
+                    <option value="all">All Tiers</option>
+                    <option value="RAW">RAW</option>
+                    <option value="SEMI_RAW">SEMI_RAW</option>
+                    <option value="MANUFACTURED">MANUFACTURED</option>
+                </select>
+            </div>
+            <div class="products-filter">
+                <label>Category:</label>
+                <select id="products-category-filter">
+                    <option value="all">All Categories</option>
+                    <!-- Filled by JS -->
+                </select>
+            </div>
+            <div class="products-search">
+                <input type="text" id="products-search-input" placeholder="Search products...">
+            </div>
+        </section>
+
+        <!-- RAW Products -->
+        <section class="card full-width">
+            <div class="card-header">
+                <div class="card-title">RAW Materials</div>
+                <div class="card-badge" id="raw-badge">0 Products</div>
+            </div>
+            <div class="products-grid" id="raw-products-grid">
+                <!-- Filled by JS -->
+            </div>
+        </section>
+
+        <!-- SEMI_RAW Products -->
+        <section class="card full-width">
+            <div class="card-header">
+                <div class="card-title">SEMI_RAW Products</div>
+                <div class="card-badge" id="semi-raw-badge">0 Products</div>
+            </div>
+            <div class="products-grid" id="semi-raw-products-grid">
+                <!-- Filled by JS -->
+            </div>
+        </section>
+
+        <!-- MANUFACTURED Products -->
+        <section class="card full-width">
+            <div class="card-header">
+                <div class="card-title">MANUFACTURED Products</div>
+                <div class="card-badge" id="manufactured-badge">0 Products</div>
+            </div>
+            <div class="products-grid" id="manufactured-products-grid">
+                <!-- Filled by JS -->
+            </div>
+        </section>
+    </main>
+
+    <!-- Product Detail View -->
+    <div id="product-detail-view" class="detail-view hidden">
+        <div class="detail-header">
+            <button class="btn btn-back" id="btn-back-product">← Back to List</button>
+            <h2 id="product-detail-name">Product Name</h2>
+            <span class="product-tier-badge" id="product-tier-badge"></span>
+        </div>
+        <div class="detail-content">
+            <div class="product-detail-grid">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Product Info</div>
+                    </div>
+                    <div id="product-info"></div>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Pricing</div>
+                    </div>
+                    <div id="product-pricing"></div>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Inputs Required</div>
+                    </div>
+                    <div id="product-inputs"></div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Producers</div>
+                    <div class="card-badge" id="product-producers-count">0 Producers</div>
+                </div>
+                <div class="firms-list" id="product-producers-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="js/pages/products.js"></script>
+</body>
+</html>

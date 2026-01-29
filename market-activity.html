@@ -1,0 +1,323 @@
+<!-- market-activity.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Market Activity - Economic Simulation</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="page-nav">
+        <a href="index.html" class="nav-link">Dashboard</a>
+        <a href="global-economy.html" class="nav-link">Global Economy</a>
+        <a href="corporations.html" class="nav-link">Corporations</a>
+        <a href="market-activity.html" class="nav-link active">Market Activity</a>
+        <a href="world-map.html" class="nav-link">World Map</a>
+        <a href="cities.html" class="nav-link">Cities</a>
+        <a href="products.html" class="nav-link">Products</a>
+        <a href="transportation.html" class="nav-link">Transportation</a>
+        <a href="feed.html" class="nav-link">Feed</a>
+    </nav>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="game-clock">
+            <div class="clock-display">
+                <div class="clock-info">
+                    <div class="date-time" id="game-date">2025-01-01 00:00</div>
+                    <div class="time-meta">
+                        <span class="status-indicator status-running" id="status-indicator"></span>
+                        <span id="status-text">Running</span> • 1 second = 1 game hour
+                    </div>
+                </div>
+                <div class="real-time-info">
+                    <div class="time-meta">Real Time Elapsed</div>
+                    <div class="real-time-display" id="real-time">00:00:00</div>
+                </div>
+            </div>
+            <div class="controls">
+                <button class="btn btn-play" id="btn-play">Play</button>
+                <button class="btn btn-pause" id="btn-pause">Pause</button>
+                <button class="btn btn-speed" data-speed="8">8x</button>
+                <button class="btn btn-speed" data-speed="4">4x</button>
+                <button class="btn btn-speed" data-speed="2">2x</button>
+                <button class="btn btn-speed" data-speed="1">1x</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-container">
+        <section class="page-header">
+            <h1>Market Activity</h1>
+            <div class="card-badge" id="market-activity-badge">Live</div>
+        </section>
+
+        <!-- Bidding Status Banner -->
+        <section class="bidding-status-banner" id="bidding-status-banner">
+            <div class="bidding-status-content">
+                <span class="bidding-status-icon" id="bidding-status-icon">🔔</span>
+                <span class="bidding-status-text" id="bidding-status-text">Bidding opens at 9:00 AM</span>
+            </div>
+            <div class="bidding-stats">
+                <span class="bidding-stat"><strong id="available-orders-count">0</strong> Available</span>
+                <span class="bidding-stat"><strong id="bidding-orders-count">0</strong> Bidding</span>
+                <span class="bidding-stat"><strong id="awarded-orders-count">0</strong> Awarded</span>
+            </div>
+        </section>
+
+        <!-- Order Summary Stats -->
+        <section class="market-summary-grid">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Order Summary</div>
+                </div>
+                <div class="market-summary-stats">
+                    <div class="summary-stat">
+                        <span class="summary-label">Total Orders</span>
+                        <span class="summary-value" id="total-orders">0</span>
+                    </div>
+                    <div class="summary-stat">
+                        <span class="summary-label">Orders Awarded</span>
+                        <span class="summary-value" id="orders-awarded">0</span>
+                    </div>
+                    <div class="summary-stat">
+                        <span class="summary-label">Orders Delivered</span>
+                        <span class="summary-value" id="orders-delivered">0</span>
+                    </div>
+                    <div class="summary-stat">
+                        <span class="summary-label">Total Bids</span>
+                        <span class="summary-value" id="total-bids">0</span>
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Transaction Summary</div>
+                </div>
+                <div class="market-summary-stats">
+                    <div class="summary-stat">
+                        <span class="summary-label">Total Transactions</span>
+                        <span class="summary-value" id="total-transactions">0</span>
+                    </div>
+                    <div class="summary-stat">
+                        <span class="summary-label">Total Value</span>
+                        <span class="summary-value" id="total-value">$0</span>
+                    </div>
+                    <div class="summary-stat">
+                        <span class="summary-label">Avg/Hour</span>
+                        <span class="summary-value" id="avg-per-hour">0</span>
+                    </div>
+                    <div class="summary-stat">
+                        <span class="summary-label">Pending Deliveries</span>
+                        <span class="summary-value" id="pending-orders">0</span>
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Pricing Info</div>
+                </div>
+                <div class="global-market-status">
+                    <div class="gm-stat">
+                        <span class="gm-label">Market Status</span>
+                        <span class="gm-value" id="gm-status">Enabled</span>
+                    </div>
+                    <div class="gm-stat">
+                        <span class="gm-label">Company Price</span>
+                        <span class="gm-value" id="gm-multiplier">1.5x</span>
+                    </div>
+                    <div class="gm-stat">
+                        <span class="gm-label">Market Price</span>
+                        <span class="gm-value" id="gm-market-price">0.75x</span>
+                    </div>
+                    <div class="gm-stat">
+                        <span class="gm-label">Total Spent</span>
+                        <span class="gm-value" id="gm-total-spent">$0</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Orders Currently In Bidding -->
+        <section class="card full-width">
+            <div class="card-header">
+                <div class="card-title">Orders In Bidding (9AM - 12PM)</div>
+                <div class="card-badge status-bidding" id="bidding-count-badge">0 Orders</div>
+            </div>
+            <div class="orders-grid" id="bidding-orders-grid">
+                <p class="empty-state">No orders currently in bidding</p>
+            </div>
+        </section>
+
+        <!-- Available Orders -->
+        <section class="card full-width">
+            <div class="card-header">
+                <div class="card-title">Available Orders</div>
+                <div class="card-badge" id="available-count-badge">0 Orders</div>
+            </div>
+            <div class="order-filters">
+                <select id="order-tier-filter">
+                    <option value="all">All Tiers</option>
+                    <option value="RAW">Raw Materials</option>
+                    <option value="SEMI_RAW">Semi-Raw</option>
+                    <option value="MANUFACTURED">Manufactured</option>
+                </select>
+                <select id="order-type-filter">
+                    <option value="all">All Types</option>
+                    <option value="company">Company Orders (High Pay)</option>
+                    <option value="market">Market Orders</option>
+                </select>
+            </div>
+            <div class="orders-table-container">
+                <table class="orders-table">
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>Tier</th>
+                            <th>Quantity</th>
+                            <th>Price/Unit</th>
+                            <th>Total Value</th>
+                            <th>Delivery Fee</th>
+                            <th>Deadline</th>
+                            <th>Type</th>
+                            <th>Location</th>
+                        </tr>
+                    </thead>
+                    <tbody id="available-orders-tbody">
+                        <!-- Filled by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Awarded Orders (Pending Delivery) -->
+        <section class="card full-width">
+            <div class="card-header">
+                <div class="card-title">Awarded Orders (Pending Delivery)</div>
+                <div class="card-badge" id="pending-delivery-count">0 Orders</div>
+            </div>
+            <div class="orders-table-container">
+                <table class="orders-table">
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>Tier</th>
+                            <th>Qty</th>
+                            <th>Delivering Firm</th>
+                            <th>Corporation</th>
+                            <th>Total Value</th>
+                            <th>Time Left</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="awarded-orders-tbody">
+                        <!-- Filled by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Completed Orders (Delivered) -->
+        <section class="card full-width">
+            <div class="card-header">
+                <div class="card-title">Recently Completed Deliveries</div>
+                <div class="card-badge" id="completed-orders-count">0 Orders</div>
+            </div>
+            <div class="orders-table-container">
+                <table class="orders-table">
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>Tier</th>
+                            <th>Qty</th>
+                            <th>Delivered By</th>
+                            <th>Corporation</th>
+                            <th>Total Value</th>
+                            <th>Destination</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="completed-orders-tbody">
+                        <!-- Filled by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Transaction Breakdown -->
+        <section class="card full-width">
+            <div class="card-header">
+                <div class="card-title">Transaction Breakdown</div>
+            </div>
+            <div class="transaction-breakdown" id="transaction-breakdown">
+                <div class="breakdown-item">
+                    <span class="breakdown-type b2b">B2B (Raw to Semi)</span>
+                    <span class="breakdown-count" id="b2b-raw-count">0</span>
+                </div>
+                <div class="breakdown-item">
+                    <span class="breakdown-type b2b">B2B (Semi to Mfg)</span>
+                    <span class="breakdown-count" id="b2b-semi-count">0</span>
+                </div>
+                <div class="breakdown-item">
+                    <span class="breakdown-type retail">Retail Purchases</span>
+                    <span class="breakdown-count" id="retail-purchase-count">0</span>
+                </div>
+                <div class="breakdown-item">
+                    <span class="breakdown-type consumer">Consumer Sales</span>
+                    <span class="breakdown-count" id="consumer-sale-count">0</span>
+                </div>
+                <div class="breakdown-item">
+                    <span class="breakdown-type global">Global Market</span>
+                    <span class="breakdown-count" id="global-market-count">0</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Recent Transactions Table -->
+        <section class="card full-width">
+            <div class="card-header">
+                <div class="card-title">Recent Transactions</div>
+                <div class="card-badge" id="showing-transactions">Showing 50</div>
+            </div>
+            <div class="transaction-controls">
+                <select id="transaction-type-filter">
+                    <option value="all">All Transactions</option>
+                    <option value="B2B">B2B Transactions</option>
+                    <option value="RETAIL_PURCHASE">Retail Purchases</option>
+                    <option value="CONSUMER_SALE">Consumer Sales</option>
+                    <option value="GLOBAL_MARKET">Global Market Orders</option>
+                </select>
+                <select id="transaction-city-filter">
+                    <option value="all">All Cities</option>
+                </select>
+                <input type="text" id="transaction-search" placeholder="Search...">
+            </div>
+            <div class="transactions-table-container">
+                <table class="transactions-table" id="transactions-table">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Type</th>
+                            <th>From</th>
+                            <th>To</th>
+                            <th>Product/Material</th>
+                            <th>Quantity</th>
+                            <th>Unit Price</th>
+                            <th>Total</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="transactions-tbody">
+                        <!-- Filled by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <script type="module" src="js/pages/market-activity.js"></script>
+</body>
+</html>

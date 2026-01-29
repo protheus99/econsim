@@ -8,6 +8,19 @@
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
+    <!-- Navigation -->
+    <nav class="page-nav" role="navigation" aria-label="Main navigation">
+        <a href="index.html" class="nav-link active" aria-current="page">Dashboard</a>
+        <a href="global-economy.html" class="nav-link">Global Economy</a>
+        <a href="corporations.html" class="nav-link">Corporations</a>
+        <a href="market-activity.html" class="nav-link">Market Activity</a>
+        <a href="world-map.html" class="nav-link">World Map</a>
+        <a href="cities.html" class="nav-link">Cities</a>
+        <a href="products.html" class="nav-link">Products</a>
+        <a href="transportation.html" class="nav-link">Transportation</a>
+        <a href="feed.html" class="nav-link">Feed</a>
+    </nav>
+
     <!-- Header -->
     <header class="header">
         <div class="game-clock">
@@ -24,18 +37,20 @@
                     <div class="real-time-display" id="real-time">00:00:00</div>
                 </div>
             </div>
-            <div class="controls">
-                <button class="btn btn-play" id="btn-play">▶ Play</button>
-                <button class="btn btn-pause" id="btn-pause">⏸ Pause</button>
-                <button class="btn btn-speed" data-speed="2">2x</button>
-                <button class="btn btn-speed" data-speed="1">1x</button>
-                <button class="btn btn-speed" data-speed="0.5">0.5x</button>
+            <div class="controls" role="group" aria-label="Simulation controls">
+                <button class="btn btn-play" id="btn-play" aria-label="Play simulation">Play</button>
+                <button class="btn btn-pause" id="btn-pause" aria-label="Pause simulation">Pause</button>
+                <button class="btn btn-speed" data-speed="8" aria-label="Set speed to 8x">8x</button>
+                <button class="btn btn-speed" data-speed="4" aria-label="Set speed to 4x">4x</button>
+                <button class="btn btn-speed" data-speed="2" aria-label="Set speed to 2x">2x</button>
+                <button class="btn btn-speed" data-speed="1" aria-label="Set speed to 1x">1x</button>
+                <button class="btn btn-speed" data-speed="0.5" aria-label="Set speed to 0.5x">0.5x</button>
             </div>
         </div>
     </header>
 
     <!-- Main Container -->
-    <main class="main-container">
+    <main class="main-container" id="main-dashboard">
         <!-- World Overview -->
         <section class="grid">
             <!-- Economic Overview -->
@@ -69,7 +84,10 @@
             <div class="card">
                 <div class="card-header">
                     <div class="card-title">🏢 Top Corporations</div>
-                    <div class="card-badge" id="corp-count">0 Active</div>
+                    <div class="card-header-actions">
+                        <div class="card-badge" id="corp-count">0 Active</div>
+                        <a href="corporations.html" class="btn-view-all">View All →</a>
+                    </div>
                 </div>
                 <div id="corp-list"></div>
             </div>
@@ -78,6 +96,7 @@
             <div class="card">
                 <div class="card-header">
                     <div class="card-title">💰 Market Activity</div>
+                    <a href="market-activity.html" class="btn-view-all">View Details →</a>
                 </div>
                 <div class="chart-container">
                     <svg class="chart-svg" id="market-chart"></svg>
@@ -91,7 +110,58 @@
                         <span class="stat-label">Avg Transaction</span>
                         <span class="stat-value" id="avg-transaction">$0</span>
                     </div>
+                    <div class="stat-item">
+                        <span class="stat-label">B2B</span>
+                        <span class="stat-value" id="b2b-count">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Global Market</span>
+                        <span class="stat-value" id="gm-orders-count">0</span>
+                    </div>
                 </div>
+            </div>
+        </section>
+
+        <!-- Orders Overview -->
+        <section class="card full-width">
+            <div class="card-header">
+                <div class="card-title">📦 Global Market Orders</div>
+                <div class="card-header-actions">
+                    <div class="bidding-status-mini" id="bidding-status-mini">
+                        <span class="bidding-icon" id="dash-bidding-icon">🔔</span>
+                        <span id="dash-bidding-text">Bidding opens at 9:00 AM</span>
+                    </div>
+                    <a href="market-activity.html" class="btn-view-all">View All Orders →</a>
+                </div>
+            </div>
+            <div class="orders-summary-grid" id="orders-summary-grid">
+                <div class="orders-summary-stat">
+                    <span class="orders-stat-value" id="dash-available-orders">0</span>
+                    <span class="orders-stat-label">Available</span>
+                </div>
+                <div class="orders-summary-stat">
+                    <span class="orders-stat-value" id="dash-bidding-orders">0</span>
+                    <span class="orders-stat-label">In Bidding</span>
+                </div>
+                <div class="orders-summary-stat">
+                    <span class="orders-stat-value" id="dash-awarded-orders">0</span>
+                    <span class="orders-stat-label">Awarded</span>
+                </div>
+                <div class="orders-summary-stat">
+                    <span class="orders-stat-value" id="dash-delivered-orders">0</span>
+                    <span class="orders-stat-label">Delivered</span>
+                </div>
+                <div class="orders-summary-stat">
+                    <span class="orders-stat-value" id="dash-total-bids">0</span>
+                    <span class="orders-stat-label">Total Bids</span>
+                </div>
+                <div class="orders-summary-stat">
+                    <span class="orders-stat-value" id="dash-total-spent">$0</span>
+                    <span class="orders-stat-label">Total Spent</span>
+                </div>
+            </div>
+            <div class="recent-orders-list" id="recent-orders-list">
+                <!-- Filled by JS - shows recent awarded orders -->
             </div>
         </section>
 
@@ -109,7 +179,10 @@
             <div class="card">
                 <div class="card-header">
                     <div class="card-title">🏙️ Cities</div>
-                    <div class="card-badge" id="cities-badge">0 Cities</div>
+                    <div class="card-header-actions">
+                        <div class="card-badge" id="cities-badge">0 Cities</div>
+                        <a href="cities.html" class="btn-view-all">View All →</a>
+                    </div>
                 </div>
                 <div class="city-list" id="city-list"></div>
             </div>

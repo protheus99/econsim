@@ -1,0 +1,161 @@
+<!-- corporations.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Corporations - Economic Simulation</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="page-nav" role="navigation" aria-label="Main navigation">
+        <a href="index.html" class="nav-link">Dashboard</a>
+        <a href="global-economy.html" class="nav-link">Global Economy</a>
+        <a href="corporations.html" class="nav-link active" aria-current="page">Corporations</a>
+        <a href="market-activity.html" class="nav-link">Market Activity</a>
+        <a href="world-map.html" class="nav-link">World Map</a>
+        <a href="cities.html" class="nav-link">Cities</a>
+        <a href="products.html" class="nav-link">Products</a>
+        <a href="transportation.html" class="nav-link">Transportation</a>
+        <a href="feed.html" class="nav-link">Feed</a>
+    </nav>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="game-clock">
+            <div class="clock-display">
+                <div class="clock-info">
+                    <div class="date-time" id="game-date" aria-live="polite">2025-01-01 00:00</div>
+                    <div class="time-meta">
+                        <span class="status-indicator status-running" id="status-indicator" aria-hidden="true"></span>
+                        <span id="status-text">Running</span> • 1 second = 1 game hour
+                    </div>
+                </div>
+                <div class="real-time-info">
+                    <div class="time-meta">Real Time Elapsed</div>
+                    <div class="real-time-display" id="real-time" aria-live="off">00:00:00</div>
+                </div>
+            </div>
+            <div class="controls" role="group" aria-label="Simulation controls">
+                <button class="btn btn-play" id="btn-play" aria-label="Play simulation">Play</button>
+                <button class="btn btn-pause" id="btn-pause" aria-label="Pause simulation">Pause</button>
+                <button class="btn btn-speed" data-speed="8" aria-label="Set speed to 8x">8x</button>
+                <button class="btn btn-speed" data-speed="4" aria-label="Set speed to 4x">4x</button>
+                <button class="btn btn-speed" data-speed="2" aria-label="Set speed to 2x">2x</button>
+                <button class="btn btn-speed" data-speed="1" aria-label="Set speed to 1x">1x</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-container">
+        <section class="page-header">
+            <h1>Corporations</h1>
+            <div class="card-badge" id="all-corps-count">0 Corporations</div>
+        </section>
+
+        <!-- Summary Stats -->
+        <section class="card full-width">
+            <div class="card-header">
+                <div class="card-title">Corporations Summary</div>
+            </div>
+            <div class="corps-summary-stats" id="corps-summary-stats">
+                <!-- Filled by JS -->
+            </div>
+        </section>
+
+        <!-- Sort and Filter -->
+        <section class="corps-controls" role="search" aria-label="Corporation filters">
+            <div class="corps-sort">
+                <label for="corps-sort-select">Sort by:</label>
+                <select id="corps-sort-select" aria-label="Sort corporations">
+                    <option value="profit-desc">Profit (High to Low)</option>
+                    <option value="profit-asc">Profit (Low to High)</option>
+                    <option value="revenue-desc">Revenue (High to Low)</option>
+                    <option value="revenue-asc">Revenue (Low to High)</option>
+                    <option value="employees-desc">Employees (High to Low)</option>
+                    <option value="employees-asc">Employees (Low to High)</option>
+                    <option value="facilities-desc">Facilities (High to Low)</option>
+                    <option value="name-asc">Name (A-Z)</option>
+                </select>
+            </div>
+            <div class="corps-filter">
+                <label for="corps-filter-select">Filter:</label>
+                <select id="corps-filter-select" aria-label="Filter by character type">
+                    <option value="all">All Characters</option>
+                    <option value="CONSERVATIVE">Conservative</option>
+                    <option value="MODERATE">Moderate</option>
+                    <option value="AGGRESSIVE">Aggressive</option>
+                    <option value="VERY_AGGRESSIVE">Very Aggressive</option>
+                </select>
+            </div>
+            <div class="corps-search">
+                <label for="corps-search-input" class="visually-hidden">Search corporations</label>
+                <input type="search" id="corps-search-input" placeholder="Search corporations..." aria-label="Search corporations">
+            </div>
+        </section>
+
+        <!-- Corporations Grid -->
+        <section class="corps-grid" id="all-corps-grid">
+            <!-- Filled by JS -->
+        </section>
+    </main>
+
+    <!-- Corporation Detail View (hidden by default) -->
+    <div id="corp-detail-view" class="detail-view hidden">
+        <div class="detail-header">
+            <button class="btn btn-back" id="btn-back">← Back to List</button>
+            <h2 id="corp-detail-name">Corporation Name</h2>
+            <span class="corp-character-badge" id="corp-character-badge"></span>
+        </div>
+        <div class="detail-content">
+            <div class="corp-detail-grid">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Financial Overview</div>
+                    </div>
+                    <div class="corp-financial-stats" id="corp-financial-stats"></div>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Performance Metrics</div>
+                    </div>
+                    <div class="corp-performance-stats" id="corp-performance-stats"></div>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Industry Breakdown</div>
+                    </div>
+                    <div class="corp-industry-breakdown" id="corp-industry-breakdown"></div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Geographic Presence</div>
+                    <div class="card-badge" id="corp-cities-count">0 Cities</div>
+                </div>
+                <div class="corp-cities-list" id="corp-cities-list"></div>
+            </div>
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Facilities & Firms</div>
+                    <div class="card-badge" id="facilities-count">0 Facilities</div>
+                </div>
+                <div class="corp-firms-filter" id="corp-firms-filter"></div>
+                <div class="firms-list" id="corp-firms-list"></div>
+            </div>
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Market Orders Won</div>
+                    <div class="card-badge" id="corp-orders-count">0 Orders</div>
+                </div>
+                <div class="corp-orders-stats" id="corp-orders-stats"></div>
+                <div class="corp-orders-list" id="corp-orders-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="js/pages/corporations.js"></script>
+</body>
+</html>

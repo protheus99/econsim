@@ -1,0 +1,147 @@
+<!-- world-map.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>World Map - Economic Simulation</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="page-nav">
+        <a href="index.html" class="nav-link">Dashboard</a>
+        <a href="global-economy.html" class="nav-link">Global Economy</a>
+        <a href="corporations.html" class="nav-link">Corporations</a>
+        <a href="market-activity.html" class="nav-link">Market Activity</a>
+        <a href="world-map.html" class="nav-link active">World Map</a>
+        <a href="cities.html" class="nav-link">Cities</a>
+        <a href="products.html" class="nav-link">Products</a>
+        <a href="transportation.html" class="nav-link">Transportation</a>
+        <a href="feed.html" class="nav-link">Feed</a>
+    </nav>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="game-clock">
+            <div class="clock-display">
+                <div class="clock-info">
+                    <div class="date-time" id="game-date">2025-01-01 00:00</div>
+                    <div class="time-meta">
+                        <span class="status-indicator status-running" id="status-indicator"></span>
+                        <span id="status-text">Running</span> • 1 second = 1 game hour
+                    </div>
+                </div>
+                <div class="real-time-info">
+                    <div class="time-meta">Real Time Elapsed</div>
+                    <div class="real-time-display" id="real-time">00:00:00</div>
+                </div>
+            </div>
+            <div class="controls">
+                <button class="btn btn-play" id="btn-play">Play</button>
+                <button class="btn btn-pause" id="btn-pause">Pause</button>
+                <button class="btn btn-speed" data-speed="8">8x</button>
+                <button class="btn btn-speed" data-speed="4">4x</button>
+                <button class="btn btn-speed" data-speed="2">2x</button>
+                <button class="btn btn-speed" data-speed="1">1x</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-container">
+        <section class="page-header">
+            <h1>World Map</h1>
+            <div class="card-badge" id="map-info">0 Cities</div>
+        </section>
+
+        <!-- Map Controls -->
+        <section class="card full-width">
+            <div class="card-header">
+                <div class="card-title">Map View</div>
+                <div class="map-controls">
+                    <label>Display:</label>
+                    <select id="map-display-mode">
+                        <option value="cities">Cities</option>
+                        <option value="gdp">GDP Heat</option>
+                        <option value="population">Population</option>
+                        <option value="firms">Firms Density</option>
+                    </select>
+                </div>
+            </div>
+            <div class="map-container large-map" id="world-map"></div>
+        </section>
+
+        <!-- Map Legend -->
+        <section class="grid">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Cities by Country</div>
+                </div>
+                <div class="country-cities-list" id="country-cities-list">
+                    <!-- Filled by JS -->
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Map Legend</div>
+                </div>
+                <div class="map-legend">
+                    <div class="legend-item">
+                        <span class="legend-dot large"></span>
+                        <span>Large City (1M+ pop)</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-dot medium"></span>
+                        <span>Medium City (500K-1M)</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-dot small"></span>
+                        <span>Small City (&lt;500K)</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- City Detail View -->
+    <div id="city-detail-view" class="detail-view hidden">
+        <div class="detail-header">
+            <button class="btn btn-back" id="btn-back-city">← Back to Map</button>
+            <h2 id="city-detail-name">City Name</h2>
+            <span class="city-detail-country" id="city-detail-country"></span>
+        </div>
+        <div class="detail-content">
+            <div class="city-detail-grid">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">City Overview</div>
+                    </div>
+                    <div class="city-overview-stats" id="city-overview-stats"></div>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Infrastructure</div>
+                    </div>
+                    <div class="city-infrastructure-detail" id="city-infrastructure-detail"></div>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Economy</div>
+                    </div>
+                    <div class="city-economy-stats" id="city-economy-stats"></div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Firms in City</div>
+                    <div class="card-badge" id="city-firms-count">0 Firms</div>
+                </div>
+                <div class="firms-list" id="city-detail-firms-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="js/pages/world-map.js"></script>
+</body>
+</html>

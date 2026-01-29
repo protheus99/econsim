@@ -1,0 +1,200 @@
+<!-- transportation.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transportation - Economic Simulation</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="page-nav">
+        <a href="index.html" class="nav-link">Dashboard</a>
+        <a href="global-economy.html" class="nav-link">Global Economy</a>
+        <a href="corporations.html" class="nav-link">Corporations</a>
+        <a href="market-activity.html" class="nav-link">Market Activity</a>
+        <a href="world-map.html" class="nav-link">World Map</a>
+        <a href="cities.html" class="nav-link">Cities</a>
+        <a href="products.html" class="nav-link">Products</a>
+        <a href="transportation.html" class="nav-link active">Transportation</a>
+        <a href="feed.html" class="nav-link">Feed</a>
+    </nav>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="game-clock">
+            <div class="clock-display">
+                <div class="clock-info">
+                    <div class="date-time" id="game-date">2025-01-01 00:00</div>
+                    <div class="time-meta">
+                        <span class="status-indicator status-running" id="status-indicator"></span>
+                        <span id="status-text">Running</span> • 1 second = 1 game hour
+                    </div>
+                </div>
+                <div class="real-time-info">
+                    <div class="time-meta">Real Time Elapsed</div>
+                    <div class="real-time-display" id="real-time">00:00:00</div>
+                </div>
+            </div>
+            <div class="controls">
+                <button class="btn btn-play" id="btn-play">Play</button>
+                <button class="btn btn-pause" id="btn-pause">Pause</button>
+                <button class="btn btn-speed" data-speed="8">8x</button>
+                <button class="btn btn-speed" data-speed="4">4x</button>
+                <button class="btn btn-speed" data-speed="2">2x</button>
+                <button class="btn btn-speed" data-speed="1">1x</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-container">
+        <section class="page-header">
+            <h1>Transportation Calculator</h1>
+        </section>
+
+        <!-- Transportation Calculator -->
+        <section class="card full-width">
+            <div class="card-header">
+                <div class="card-title">Route Calculator</div>
+            </div>
+            <div class="transport-calculator">
+                <div class="transport-form">
+                    <div class="form-group">
+                        <label>Origin City</label>
+                        <select id="origin-city"></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Destination City</label>
+                        <select id="destination-city"></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Cargo Units</label>
+                        <input type="number" id="cargo-units" value="10" min="1">
+                    </div>
+                    <div class="form-group">
+                        <label>Priority</label>
+                        <select id="priority">
+                            <option value="cost">Lowest Cost</option>
+                            <option value="speed">Fastest</option>
+                            <option value="reliability">Most Reliable</option>
+                            <option value="balanced" selected>Balanced</option>
+                        </select>
+                    </div>
+                </div>
+                <button class="btn btn-primary" id="calculate-route">Calculate Route</button>
+                <div id="route-results"></div>
+            </div>
+        </section>
+
+        <!-- Transportation Modes -->
+        <section class="grid">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Road Transport</div>
+                </div>
+                <div class="transport-mode-info">
+                    <div class="stat-item">
+                        <span class="stat-label">Speed</span>
+                        <span class="stat-value">60 km/h avg</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Cost</span>
+                        <span class="stat-value">$0.50/km/unit</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Reliability</span>
+                        <span class="stat-value">85%</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Max Cargo</span>
+                        <span class="stat-value">40 units</span>
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Rail Transport</div>
+                </div>
+                <div class="transport-mode-info">
+                    <div class="stat-item">
+                        <span class="stat-label">Speed</span>
+                        <span class="stat-value">80 km/h avg</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Cost</span>
+                        <span class="stat-value">$0.30/km/unit</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Reliability</span>
+                        <span class="stat-value">95%</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Max Cargo</span>
+                        <span class="stat-value">500 units</span>
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Sea Transport</div>
+                </div>
+                <div class="transport-mode-info">
+                    <div class="stat-item">
+                        <span class="stat-label">Speed</span>
+                        <span class="stat-value">30 km/h avg</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Cost</span>
+                        <span class="stat-value">$0.10/km/unit</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Reliability</span>
+                        <span class="stat-value">90%</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Max Cargo</span>
+                        <span class="stat-value">10000 units</span>
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Air Transport</div>
+                </div>
+                <div class="transport-mode-info">
+                    <div class="stat-item">
+                        <span class="stat-label">Speed</span>
+                        <span class="stat-value">800 km/h avg</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Cost</span>
+                        <span class="stat-value">$2.00/km/unit</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Reliability</span>
+                        <span class="stat-value">99%</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Max Cargo</span>
+                        <span class="stat-value">100 units</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Route History -->
+        <section class="card full-width">
+            <div class="card-header">
+                <div class="card-title">Recent Route Calculations</div>
+            </div>
+            <div class="route-history" id="route-history">
+                <p class="empty-state">No routes calculated yet</p>
+            </div>
+        </section>
+    </main>
+
+    <script type="module" src="js/pages/transportation.js"></script>
+</body>
+</html>

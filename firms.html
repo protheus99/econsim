@@ -1,0 +1,235 @@
+<!-- firms.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firms - Economic Simulation</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="page-nav">
+        <a href="index.html" class="nav-link">Dashboard</a>
+        <a href="global-economy.html" class="nav-link">Global Economy</a>
+        <a href="corporations.html" class="nav-link">Corporations</a>
+        <a href="market-activity.html" class="nav-link">Market Activity</a>
+        <a href="world-map.html" class="nav-link">World Map</a>
+        <a href="cities.html" class="nav-link">Cities</a>
+        <a href="products.html" class="nav-link">Products</a>
+        <a href="transportation.html" class="nav-link">Transportation</a>
+        <a href="feed.html" class="nav-link">Feed</a>
+    </nav>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="game-clock">
+            <div class="clock-display">
+                <div class="clock-info">
+                    <div class="date-time" id="game-date">2025-01-01 00:00</div>
+                    <div class="time-meta">
+                        <span class="status-indicator status-running" id="status-indicator"></span>
+                        <span id="status-text">Running</span> • 1 second = 1 game hour
+                    </div>
+                </div>
+                <div class="real-time-info">
+                    <div class="time-meta">Real Time Elapsed</div>
+                    <div class="real-time-display" id="real-time">00:00:00</div>
+                </div>
+            </div>
+            <div class="controls">
+                <button class="btn btn-play" id="btn-play">Play</button>
+                <button class="btn btn-pause" id="btn-pause">Pause</button>
+                <button class="btn btn-speed" data-speed="8">8x</button>
+                <button class="btn btn-speed" data-speed="4">4x</button>
+                <button class="btn btn-speed" data-speed="2">2x</button>
+                <button class="btn btn-speed" data-speed="1">1x</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content - Firm List -->
+    <main class="main-container" id="firms-list-view">
+        <section class="page-header">
+            <h1>Firms</h1>
+            <div class="card-badge" id="all-firms-count">0 Firms</div>
+        </section>
+
+        <!-- Summary Stats -->
+        <section class="card full-width">
+            <div class="card-header">
+                <div class="card-title">Firms Summary</div>
+            </div>
+            <div class="firms-summary-stats" id="firms-summary-stats">
+                <!-- Filled by JS -->
+            </div>
+        </section>
+
+        <!-- Sort and Filter -->
+        <section class="firms-controls">
+            <div class="firms-sort">
+                <label>Sort by:</label>
+                <select id="firms-sort-select">
+                    <option value="profit-desc">Profit (High to Low)</option>
+                    <option value="profit-asc">Profit (Low to High)</option>
+                    <option value="revenue-desc">Revenue (High to Low)</option>
+                    <option value="employees-desc">Employees (High to Low)</option>
+                    <option value="orders-desc">Orders Won (High to Low)</option>
+                    <option value="name-asc">Name (A-Z)</option>
+                </select>
+            </div>
+            <div class="firms-filter">
+                <label>Type:</label>
+                <select id="firms-type-filter">
+                    <option value="all">All Types</option>
+                    <option value="MINING">Mining</option>
+                    <option value="LOGGING">Logging</option>
+                    <option value="FARM">Farm</option>
+                    <option value="MANUFACTURING">Manufacturing</option>
+                    <option value="RETAIL">Retail</option>
+                </select>
+            </div>
+            <div class="firms-filter">
+                <label>Corporation:</label>
+                <select id="firms-corp-filter">
+                    <option value="all">All Corporations</option>
+                    <!-- Filled by JS -->
+                </select>
+            </div>
+            <div class="firms-search">
+                <input type="text" id="firms-search-input" placeholder="Search firms...">
+            </div>
+        </section>
+
+        <!-- Firms Grid -->
+        <section class="firms-grid" id="all-firms-grid">
+            <!-- Filled by JS -->
+        </section>
+    </main>
+
+    <!-- Firm Detail View (hidden by default) -->
+    <div id="firm-detail-view" class="detail-view hidden">
+        <div class="detail-header">
+            <button class="btn btn-back" id="btn-back">← Back to Firms</button>
+            <h2 id="firm-detail-name">Firm Name</h2>
+            <span class="firm-type-badge large" id="firm-type-badge"></span>
+        </div>
+        <div class="detail-content">
+            <!-- Overview Grid -->
+            <div class="firm-detail-grid">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Overview</div>
+                    </div>
+                    <div id="firm-overview-stats"></div>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Financials</div>
+                    </div>
+                    <div id="firm-financial-stats"></div>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Production</div>
+                    </div>
+                    <div id="firm-production-stats"></div>
+                </div>
+            </div>
+
+            <!-- Type-specific details -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title" id="firm-specific-title">Details</div>
+                </div>
+                <div id="firm-specific-details"></div>
+            </div>
+
+            <!-- Products & Sales -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Products & Inventory</div>
+                </div>
+                <div id="firm-products-info"></div>
+            </div>
+
+            <!-- Labor Structure -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Labor Structure</div>
+                    <div class="card-badge" id="firm-employees-count">0 Employees</div>
+                </div>
+                <div id="firm-labor-stats"></div>
+            </div>
+
+            <!-- Market Orders & Bids -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Market Orders & Bids</div>
+                    <div class="card-badge" id="firm-orders-count">0 Orders</div>
+                </div>
+                <div class="firm-bids-summary" id="firm-bids-summary"></div>
+                <div class="firm-bids-section">
+                    <div class="bids-section-header">Orders Won (Pending Delivery)</div>
+                    <div class="firm-orders-won-list" id="firm-orders-won-list"></div>
+                </div>
+                <div class="firm-bids-section">
+                    <div class="bids-section-header">Active Bids</div>
+                    <div class="firm-active-bids-list" id="firm-active-bids-list"></div>
+                </div>
+                <div class="firm-bids-section">
+                    <div class="bids-section-header">Completed Deliveries</div>
+                    <div class="firm-completed-orders-list" id="firm-completed-orders-list"></div>
+                </div>
+            </div>
+
+            <!-- Recent Transactions -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Recent Sales</div>
+                    <div class="card-badge" id="firm-sales-count">0 Sales</div>
+                </div>
+                <div class="firm-sales-table-container">
+                    <table class="firm-sales-table">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Buyer</th>
+                                <th>Product</th>
+                                <th>Qty</th>
+                                <th>Price</th>
+                                <th>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody id="firm-sales-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Recent Purchases</div>
+                    <div class="card-badge" id="firm-purchases-count">0 Purchases</div>
+                </div>
+                <div class="firm-sales-table-container">
+                    <table class="firm-sales-table">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Seller</th>
+                                <th>Product</th>
+                                <th>Qty</th>
+                                <th>Price</th>
+                                <th>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody id="firm-purchases-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="js/pages/firms.js"></script>
+</body>
+</html>

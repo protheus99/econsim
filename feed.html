@@ -1,0 +1,148 @@
+<!-- feed.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Event Feed - Economic Simulation</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="page-nav">
+        <a href="index.html" class="nav-link">Dashboard</a>
+        <a href="global-economy.html" class="nav-link">Global Economy</a>
+        <a href="corporations.html" class="nav-link">Corporations</a>
+        <a href="market-activity.html" class="nav-link">Market Activity</a>
+        <a href="world-map.html" class="nav-link">World Map</a>
+        <a href="cities.html" class="nav-link">Cities</a>
+        <a href="products.html" class="nav-link">Products</a>
+        <a href="transportation.html" class="nav-link">Transportation</a>
+        <a href="feed.html" class="nav-link active">Feed</a>
+    </nav>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="game-clock">
+            <div class="clock-display">
+                <div class="clock-info">
+                    <div class="date-time" id="game-date">2025-01-01 00:00</div>
+                    <div class="time-meta">
+                        <span class="status-indicator status-running" id="status-indicator"></span>
+                        <span id="status-text">Running</span> • 1 second = 1 game hour
+                    </div>
+                </div>
+                <div class="real-time-info">
+                    <div class="time-meta">Real Time Elapsed</div>
+                    <div class="real-time-display" id="real-time">00:00:00</div>
+                </div>
+            </div>
+            <div class="controls">
+                <button class="btn btn-play" id="btn-play">Play</button>
+                <button class="btn btn-pause" id="btn-pause">Pause</button>
+                <button class="btn btn-speed" data-speed="8">8x</button>
+                <button class="btn btn-speed" data-speed="4">4x</button>
+                <button class="btn btn-speed" data-speed="2">2x</button>
+                <button class="btn btn-speed" data-speed="1">1x</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-container">
+        <section class="page-header">
+            <h1>Event Feed</h1>
+            <div class="card-badge">Live Updates</div>
+        </section>
+
+        <!-- Feed Filters -->
+        <section class="feed-controls">
+            <div class="feed-filter">
+                <label>Event Type:</label>
+                <select id="feed-type-filter">
+                    <option value="all">All Events</option>
+                    <option value="transaction">Transactions</option>
+                    <option value="production">Production</option>
+                    <option value="market">Market</option>
+                    <option value="corporation">Corporation</option>
+                    <option value="city">City</option>
+                </select>
+            </div>
+            <div class="feed-filter">
+                <label>Severity:</label>
+                <select id="feed-severity-filter">
+                    <option value="all">All</option>
+                    <option value="info">Info</option>
+                    <option value="warning">Warning</option>
+                    <option value="critical">Critical</option>
+                </select>
+            </div>
+            <button class="btn" id="btn-clear-feed">Clear Feed</button>
+            <button class="btn" id="btn-pause-feed">Pause Feed</button>
+        </section>
+
+        <!-- Event Statistics -->
+        <section class="grid">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Event Statistics</div>
+                </div>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <span class="stat-label">Total Events</span>
+                        <span class="stat-value" id="total-events">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Events/Hour</span>
+                        <span class="stat-value" id="events-per-hour">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Warnings</span>
+                        <span class="stat-value" id="warning-count">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Critical</span>
+                        <span class="stat-value" id="critical-count">0</span>
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Event Breakdown</div>
+                </div>
+                <div class="event-breakdown" id="event-breakdown">
+                    <div class="breakdown-item">
+                        <span class="breakdown-type">Transactions</span>
+                        <span class="breakdown-count" id="transaction-events">0</span>
+                    </div>
+                    <div class="breakdown-item">
+                        <span class="breakdown-type">Production</span>
+                        <span class="breakdown-count" id="production-events">0</span>
+                    </div>
+                    <div class="breakdown-item">
+                        <span class="breakdown-type">Market</span>
+                        <span class="breakdown-count" id="market-events">0</span>
+                    </div>
+                    <div class="breakdown-item">
+                        <span class="breakdown-type">Other</span>
+                        <span class="breakdown-count" id="other-events">0</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Event Feed -->
+        <section class="card full-width">
+            <div class="card-header">
+                <div class="card-title">Live Event Stream</div>
+                <div class="card-badge" id="feed-status">Live</div>
+            </div>
+            <div class="event-feed large-feed" id="event-feed">
+                <!-- Filled by JS -->
+            </div>
+        </section>
+    </main>
+
+    <script type="module" src="js/pages/feed.js"></script>
+</body>
+</html>
