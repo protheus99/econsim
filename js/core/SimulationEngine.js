@@ -11,6 +11,7 @@ import { RetailStore } from '../core/firms/RetailStore.js';
 import { Bank } from '../core/firms/Bank.js';
 import { GlobalMarket } from '../core/GlobalMarket.js';
 import { TransactionLog } from '../core/TransactionLog.js';
+import { ProductCostCalculator } from '../core/ProductCostCalculator.js';
 
 export class SimulationEngine {
     constructor() {
@@ -39,6 +40,9 @@ export class SimulationEngine {
 
         // Transaction Log for detailed activity tracking
         this.transactionLog = new TransactionLog(1000);
+
+        // Product Cost Calculator for balancing
+        this.costCalculator = null;
 
         // Configuration settings (loaded from config.json or use defaults)
         this.config = {
@@ -114,6 +118,10 @@ export class SimulationEngine {
         // Initialize market with 500 orders for non-retail products
         this.globalMarket.initializeOrders();
         console.log(`✅ Global Market initialized (multiplier: ${this.config.globalMarket.priceMultiplier}x, orders: ${this.globalMarket.availableOrders.length})`);
+
+        // Initialize Product Cost Calculator for game balancing
+        this.costCalculator = new ProductCostCalculator(this.productRegistry);
+        console.log('✅ Product Cost Calculator initialized');
 
         // Initialize countries first
         this.initializeCountries();
@@ -1373,6 +1381,36 @@ export class SimulationEngine {
 
     getPendingGlobalOrders() {
         return this.transactionLog.getPendingGlobalOrders();
+    }
+
+    // Product Cost Calculator methods
+    getCostCalculator() {
+        return this.costCalculator;
+    }
+
+    calculateProductCost(productNameOrId, options = {}) {
+        if (!this.costCalculator) return null;
+        return this.costCalculator.calculateCost(productNameOrId, options);
+    }
+
+    getProductCostAnalysis(options = {}) {
+        if (!this.costCalculator) return [];
+        return this.costCalculator.analyzeAllProducts(options);
+    }
+
+    getSuggestedPrices(options = {}) {
+        if (!this.costCalculator) return new Map();
+        return this.costCalculator.getSuggestedPrices(options);
+    }
+
+    getProductCostReport(productNameOrId, options = {}) {
+        if (!this.costCalculator) return 'Cost calculator not initialized';
+        return this.costCalculator.generateReport(productNameOrId, options);
+    }
+
+    getBalanceReport(options = {}) {
+        if (!this.costCalculator) return 'Cost calculator not initialized';
+        return this.costCalculator.generateBalanceReport(options);
     }
 
     destroy() {

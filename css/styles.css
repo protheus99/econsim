@@ -4599,3 +4599,280 @@ body {
     font-weight: 500;
     font-size: 0.85rem;
 }
+
+/* ===== Cost Analysis Styles ===== */
+.cost-analysis-summary {
+    padding: 15px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.cost-analysis-summary .stats-grid {
+    display: flex;
+    gap: 30px;
+    justify-content: center;
+}
+
+.cost-warning {
+    color: var(--accent-red) !important;
+}
+
+.cost-ok {
+    color: var(--accent-green) !important;
+}
+
+.cost-note {
+    color: var(--accent-orange) !important;
+}
+
+.cost-analysis-table {
+    padding: 15px;
+}
+
+.cost-analysis-header {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr;
+    gap: 10px;
+    padding: 10px 15px;
+    background: var(--bg-primary);
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+}
+
+.cost-analysis-rows {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.cost-analysis-row {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr;
+    gap: 10px;
+    padding: 12px 15px;
+    background: var(--bg-tertiary);
+    border-radius: 6px;
+    margin-bottom: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    align-items: center;
+    font-size: 0.9rem;
+}
+
+.cost-analysis-row:hover {
+    background: var(--bg-secondary);
+    transform: translateX(3px);
+}
+
+.cost-analysis-row.underpriced {
+    border-left: 3px solid var(--accent-red);
+}
+
+.cost-analysis-row.overpriced {
+    border-left: 3px solid var(--accent-orange);
+}
+
+.cost-analysis-row.balanced {
+    border-left: 3px solid var(--accent-green);
+}
+
+.cost-analysis-row .col-product {
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.cost-analysis-row .col-tier {
+    font-size: 0.75rem;
+    padding: 2px 8px;
+    border-radius: 4px;
+    text-align: center;
+}
+
+.cost-analysis-row .col-tier.tier-semi_raw {
+    background: rgba(255, 152, 0, 0.2);
+    color: var(--accent-orange);
+}
+
+.cost-analysis-row .col-tier.tier-manufactured {
+    background: rgba(33, 150, 243, 0.2);
+    color: var(--accent-blue);
+}
+
+.cost-analysis-row .col-cost,
+.cost-analysis-row .col-price {
+    text-align: right;
+    color: var(--text-primary);
+}
+
+.cost-analysis-row .col-margin {
+    text-align: right;
+    font-weight: 600;
+    color: var(--accent-green);
+}
+
+.cost-analysis-row .col-margin.negative {
+    color: var(--accent-red);
+}
+
+.cost-analysis-row .col-status {
+    text-align: center;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+.col-status.status-underpriced {
+    background: rgba(244, 67, 54, 0.2);
+    color: var(--accent-red);
+}
+
+.col-status.status-overpriced {
+    background: rgba(255, 152, 0, 0.2);
+    color: var(--accent-orange);
+}
+
+.col-status.status-balanced {
+    background: rgba(76, 175, 80, 0.2);
+    color: var(--accent-green);
+}
+
+/* Product Cost Breakdown */
+.cost-breakdown-detail {
+    display: grid;
+    gap: 20px;
+}
+
+.cost-inputs-section h4 {
+    margin-bottom: 12px;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    text-transform: uppercase;
+}
+
+.cost-input-item {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 15px;
+    padding: 10px 12px;
+    background: var(--bg-primary);
+    border-radius: 6px;
+    margin-bottom: 6px;
+    font-size: 0.9rem;
+}
+
+.cost-input-item .input-name {
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.cost-input-item .input-detail {
+    color: var(--text-secondary);
+}
+
+.cost-input-item .input-total {
+    color: var(--accent-blue);
+    font-weight: 600;
+}
+
+.cost-summary-section .stats-grid {
+    margin-bottom: 15px;
+}
+
+.cost-total {
+    color: var(--accent-blue) !important;
+    font-weight: 700 !important;
+    font-size: 1.1rem !important;
+}
+
+.cost-margin-section {
+    margin-bottom: 15px;
+}
+
+.margin-bar {
+    display: flex;
+    height: 20px;
+    background: var(--bg-primary);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 8px;
+}
+
+.margin-fill {
+    height: 100%;
+}
+
+.margin-legend {
+    display: flex;
+    gap: 20px;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.margin-legend span {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.legend-color {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+}
+
+.profit-margin-display {
+    display: flex;
+    justify-content: space-between;
+    padding: 15px;
+    background: rgba(76, 175, 80, 0.1);
+    border-radius: 8px;
+    border: 1px solid rgba(76, 175, 80, 0.3);
+}
+
+.profit-margin-display.negative {
+    background: rgba(244, 67, 54, 0.1);
+    border-color: rgba(244, 67, 54, 0.3);
+}
+
+.margin-label {
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.margin-value {
+    font-weight: 700;
+    color: var(--accent-green);
+}
+
+.profit-margin-display.negative .margin-value {
+    color: var(--accent-red);
+}
+
+.cost-warning-msg {
+    margin-top: 10px;
+    padding: 10px 15px;
+    background: rgba(244, 67, 54, 0.15);
+    border: 1px solid rgba(244, 67, 54, 0.3);
+    border-radius: 6px;
+    color: var(--accent-red);
+    font-weight: 500;
+    text-align: center;
+}
+
+.card-badge.cost-warning {
+    background: rgba(244, 67, 54, 0.2);
+    color: var(--accent-red);
+}
+
+.card-badge.cost-ok {
+    background: rgba(76, 175, 80, 0.2);
+    color: var(--accent-green);
+}
+
+.card-badge.cost-note {
+    background: rgba(255, 152, 0, 0.2);
+    color: var(--accent-orange);
+}

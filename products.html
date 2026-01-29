@@ -131,6 +131,33 @@
                 <!-- Filled by JS -->
             </div>
         </section>
+
+        <!-- Cost Analysis Section -->
+        <section class="card full-width">
+            <div class="card-header">
+                <div class="card-title">Cost Balance Analysis</div>
+                <div class="card-badge" id="balance-status">Analyzing...</div>
+            </div>
+            <div class="cost-analysis-summary" id="cost-analysis-summary">
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <span class="stat-label">Underpriced</span>
+                        <span class="stat-value cost-warning" id="underpriced-count">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Balanced</span>
+                        <span class="stat-value cost-ok" id="balanced-count">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Overpriced</span>
+                        <span class="stat-value cost-note" id="overpriced-count">0</span>
+                    </div>
+                </div>
+            </div>
+            <div class="cost-analysis-table" id="cost-analysis-table">
+                <!-- Filled by JS -->
+            </div>
+        </section>
     </main>
 
     <!-- Product Detail View -->
@@ -160,6 +187,13 @@
                     </div>
                     <div id="product-inputs"></div>
                 </div>
+            </div>
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Cost Breakdown</div>
+                    <div class="card-badge" id="product-cost-status">-</div>
+                </div>
+                <div id="product-cost-breakdown"></div>
             </div>
             <div class="card">
                 <div class="card-header">

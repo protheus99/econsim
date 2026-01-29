@@ -68,6 +68,7 @@ function updateDisplay() {
     document.getElementById('manufactured-count').textContent = manufactured;
 
     renderProducts();
+    renderCostAnalysis();
 }
 
 function renderProducts() {
@@ -182,6 +183,177 @@ function showProductDetail(productId) {
     } else {
         producersList.innerHTML = '<p class="empty-state">No producers found</p>';
     }
+
+    // Cost breakdown
+    renderProductCostBreakdown(product);
+}
+
+function renderProductCostBreakdown(product) {
+    const costBreakdown = document.getElementById('product-cost-breakdown');
+    const costStatus = document.getElementById('product-cost-status');
+
+    if (!simulation.costCalculator) {
+        costBreakdown.innerHTML = '<p class="empty-state">Cost calculator not available</p>';
+        return;
+    }
+
+    const breakdown = simulation.costCalculator.calculateCost(product);
+    if (!breakdown) {
+        costBreakdown.innerHTML = '<p class="empty-state">Unable to calculate cost</p>';
+        return;
+    }
+
+    const margin = product.basePrice - breakdown.totalCost;
+    const marginPct = (margin / breakdown.totalCost) * 100;
+
+    // Set status badge
+    if (margin < 0) {
+        costStatus.textContent = 'Underpriced';
+        costStatus.className = 'card-badge cost-warning';
+    } else if (marginPct > 100) {
+        costStatus.textContent = 'High Margin';
+        costStatus.className = 'card-badge cost-note';
+    } else {
+        costStatus.textContent = 'Balanced';
+        costStatus.className = 'card-badge cost-ok';
+    }
+
+    if (breakdown.isRawMaterial) {
+        costBreakdown.innerHTML = `
+            <div class="cost-breakdown-raw">
+                <p>This is a RAW material with no production inputs.</p>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <span class="stat-label">Base Cost</span>
+                        <span class="stat-value">${formatCurrency(breakdown.totalCost)}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+        return;
+    }
+
+    const pct = breakdown.getCostPercentages();
+
+    costBreakdown.innerHTML = `
+        <div class="cost-breakdown-detail">
+            <div class="cost-inputs-section">
+                <h4>Input Costs</h4>
+                ${breakdown.inputs.map(input => `
+                    <div class="cost-input-item">
+                        <span class="input-name">${input.material}</span>
+                        <span class="input-detail">${input.quantity.toFixed(2)} × ${formatCurrency(input.unitCost)}</span>
+                        <span class="input-total">${formatCurrency(input.totalCost)}</span>
+                    </div>
+                `).join('')}
+            </div>
+            <div class="cost-summary-section">
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <span class="stat-label">Material Cost</span>
+                        <span class="stat-value">${formatCurrency(breakdown.totalMaterialCost)}</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Labor Cost</span>
+                        <span class="stat-value">${formatCurrency(breakdown.laborCost)}</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Overhead</span>
+                        <span class="stat-value">${formatCurrency(breakdown.overheadCost)}</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Total Cost</span>
+                        <span class="stat-value cost-total">${formatCurrency(breakdown.totalCost)}</span>
+                    </div>
+                </div>
+                <div class="cost-margin-section">
+                    <div class="margin-bar">
+                        <div class="margin-fill" style="width: ${Math.min(pct.materials, 100)}%; background: #3498db;"></div>
+                        <div class="margin-fill" style="width: ${Math.min(pct.labor, 100)}%; background: #e74c3c;"></div>
+                        <div class="margin-fill" style="width: ${Math.min(pct.overhead, 100)}%; background: #f39c12;"></div>
+                    </div>
+                    <div class="margin-legend">
+                        <span><span class="legend-color" style="background:#3498db"></span> Materials ${pct.materials.toFixed(0)}%</span>
+                        <span><span class="legend-color" style="background:#e74c3c"></span> Labor ${pct.labor.toFixed(0)}%</span>
+                        <span><span class="legend-color" style="background:#f39c12"></span> Overhead ${pct.overhead.toFixed(0)}%</span>
+                    </div>
+                </div>
+                <div class="profit-margin-display ${margin < 0 ? 'negative' : ''}">
+                    <span class="margin-label">Profit Margin:</span>
+                    <span class="margin-value">${formatCurrency(margin)} (${marginPct.toFixed(1)}%)</span>
+                </div>
+                ${margin < 0 ? '<div class="cost-warning-msg">Base price is below production cost!</div>' : ''}
+            </div>
+        </div>
+    `;
+}
+
+function renderCostAnalysis() {
+    const container = document.getElementById('cost-analysis-table');
+    const statusBadge = document.getElementById('balance-status');
+
+    if (!simulation.costCalculator) {
+        container.innerHTML = '<p class="empty-state">Cost calculator not initialized</p>';
+        return;
+    }
+
+    const analysis = simulation.costCalculator.analyzeAllProducts();
+
+    // Count by status
+    const underpriced = analysis.filter(a => a.isUnderpriced);
+    const overpriced = analysis.filter(a => a.isOverpriced);
+    const balanced = analysis.filter(a => !a.isUnderpriced && !a.isOverpriced);
+
+    document.getElementById('underpriced-count').textContent = underpriced.length;
+    document.getElementById('balanced-count').textContent = balanced.length;
+    document.getElementById('overpriced-count').textContent = overpriced.length;
+
+    // Set status badge
+    if (underpriced.length > 0) {
+        statusBadge.textContent = `${underpriced.length} Issues`;
+        statusBadge.className = 'card-badge cost-warning';
+    } else {
+        statusBadge.textContent = 'Balanced';
+        statusBadge.className = 'card-badge cost-ok';
+    }
+
+    // Only show non-raw products (those with production costs)
+    const producedProducts = analysis.filter(a => !a.breakdown.isRawMaterial);
+
+    container.innerHTML = `
+        <div class="cost-analysis-header">
+            <span class="col-product">Product</span>
+            <span class="col-tier">Tier</span>
+            <span class="col-cost">Calc Cost</span>
+            <span class="col-price">Base Price</span>
+            <span class="col-margin">Margin</span>
+            <span class="col-status">Status</span>
+        </div>
+        <div class="cost-analysis-rows">
+            ${producedProducts.map(a => {
+                const statusClass = a.isUnderpriced ? 'underpriced' : (a.isOverpriced ? 'overpriced' : 'balanced');
+                const statusText = a.isUnderpriced ? 'Underpriced' : (a.isOverpriced ? 'High Margin' : 'OK');
+                const marginStr = a.marginPercent >= 0 ? `+${a.marginPercent.toFixed(0)}%` : `${a.marginPercent.toFixed(0)}%`;
+                return `
+                    <div class="cost-analysis-row ${statusClass}" data-product-id="${a.product.id}">
+                        <span class="col-product">${a.product.name}</span>
+                        <span class="col-tier tier-${a.product.tier.toLowerCase()}">${a.product.tier}</span>
+                        <span class="col-cost">${formatCurrency(a.calculatedCost)}</span>
+                        <span class="col-price">${formatCurrency(a.basePrice)}</span>
+                        <span class="col-margin ${a.marginPercent < 0 ? 'negative' : ''}">${marginStr}</span>
+                        <span class="col-status status-${statusClass}">${statusText}</span>
+                    </div>
+                `;
+            }).join('')}
+        </div>
+    `;
+
+    // Add click handlers
+    container.querySelectorAll('.cost-analysis-row').forEach(row => {
+        row.addEventListener('click', () => {
+            showProductDetail(parseInt(row.dataset.productId));
+        });
+    });
 }
 
 init();
