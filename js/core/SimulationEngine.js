@@ -219,10 +219,12 @@ export class SimulationEngine {
             id: i + 1,
             name: name,
             character: characters[Math.floor(Math.random() * characters.length)],
-            cash: 50000000 + Math.random() * 50000000,
+            cash: 0, // Will be aggregated from firms
             revenue: 0,
+            expenses: 0,
             profit: 0,
             monthlyRevenue: 0,
+            monthlyExpenses: 0,
             monthlyProfit: 0,
             employees: 0,
             facilities: [],
@@ -371,19 +373,29 @@ export class SimulationEngine {
                     break;
 
                 case 'RETAIL':
-                    const storeTypes = ['SUPERMARKET', 'DEPARTMENT', 'ELECTRONICS', 'FURNITURE'];
+                    const storeTypes = ['SUPERMARKET', 'DEPARTMENT', 'ELECTRONICS', 'FURNITURE', 'FASHION', 'HARDWARE', 'AUTO'];
                     const storeType = storeTypes[Math.floor(Math.random() * storeTypes.length)];
                     firm = new RetailStore({ city: city }, country, storeType, firmId);
 
-                    // Initialize with some products to sell immediately
+                    // Initialize with products matching the store's allowed categories
                     if (firm) {
                         const allProducts = this.productRegistry.getAllProducts();
-                        const numProducts = 5 + Math.floor(Math.random() * 10); // 5-15 products
-                        for (let p = 0; p < numProducts && p < allProducts.length; p++) {
-                            const product = allProducts[Math.floor(Math.random() * allProducts.length)];
-                            const quantity = 50 + Math.floor(Math.random() * 150); // 50-200 units
-                            const wholesalePrice = product.basePrice * 0.7; // 70% of base price
-                            firm.purchaseInventory(product.id, quantity, wholesalePrice);
+                        // Filter to only products this store type can sell
+                        const allowedProducts = allProducts.filter(p => firm.canSellProduct(p.category));
+
+                        if (allowedProducts.length > 0) {
+                            const numProducts = Math.min(5 + Math.floor(Math.random() * 10), allowedProducts.length);
+                            const selectedProducts = new Set();
+
+                            while (selectedProducts.size < numProducts) {
+                                const product = allowedProducts[Math.floor(Math.random() * allowedProducts.length)];
+                                if (!selectedProducts.has(product.id)) {
+                                    selectedProducts.add(product.id);
+                                    const quantity = 50 + Math.floor(Math.random() * 150);
+                                    const wholesalePrice = product.basePrice * 0.7;
+                                    firm.purchaseInventory(product.id, quantity, wholesalePrice, product.name);
+                                }
+                            }
                         }
                     }
                     break;
@@ -769,6 +781,8 @@ export class SimulationEngine {
             corp.employees = 0;
             corp.revenue = 0;
             corp.profit = 0;
+            corp.cash = 0;
+            corp.expenses = 0;
         });
 
         this.firms.forEach(firm => {
@@ -777,6 +791,8 @@ export class SimulationEngine {
                 corp.employees += firm.totalEmployees || 0;
                 corp.revenue += firm.revenue || 0;
                 corp.profit += firm.profit || 0;
+                corp.cash += firm.cash || 0;
+                corp.expenses += firm.expenses || 0;
             }
         });
     }
@@ -969,13 +985,24 @@ export class SimulationEngine {
     executeManufacturerToManufacturerTrade(seller, buyer, materialName, requestedQuantity) {
         if (!seller.finishedGoodsInventory || seller.finishedGoodsInventory.quantity <= 0) return;
 
+        // Get product info for minimum B2B quantity
+        const product = seller.product || this.productRegistry.getProductByName(materialName);
+        const price = product ? product.basePrice : 100;
+        const minB2BQuantity = product ? product.minB2BQuantity : 1;
+
         const availableQuantity = seller.finishedGoodsInventory.quantity;
-        const tradeQuantity = Math.floor(Math.min(requestedQuantity, availableQuantity));
 
-        if (tradeQuantity <= 0) return;
+        // Enforce minimum B2B quantity
+        if (availableQuantity < minB2BQuantity) return;
 
-        // Get price from product or calculate
-        const price = seller.product ? seller.product.basePrice : 100;
+        // Trade quantity must be at least minB2BQuantity
+        const tradeQuantity = Math.floor(Math.min(
+            Math.max(requestedQuantity, minB2BQuantity),
+            availableQuantity
+        ));
+
+        if (tradeQuantity < minB2BQuantity) return;
+
         const totalCost = tradeQuantity * price;
 
         // Check if buyer can afford
@@ -1013,14 +1040,24 @@ export class SimulationEngine {
     executeTrade(seller, buyer, materialName, requestedQuantity) {
         if (!seller.inventory || seller.inventory.quantity <= 0) return;
 
-        const availableQuantity = seller.inventory.quantity;
-        const tradeQuantity = Math.floor(Math.min(requestedQuantity, availableQuantity));
-
-        if (tradeQuantity <= 0) return;
-
-        // Get market price
-        const product = this.productRegistry.getProduct(materialName);
+        // Get product info by name
+        const product = this.productRegistry.getProductByName(materialName);
         const price = product ? product.basePrice : 50;
+        const minB2BQuantity = product ? product.minB2BQuantity : 1;
+
+        const availableQuantity = seller.inventory.quantity;
+
+        // Enforce minimum B2B quantity - only trade if we can meet minimum
+        if (availableQuantity < minB2BQuantity) return;
+
+        // Trade quantity must be at least minB2BQuantity
+        const tradeQuantity = Math.floor(Math.min(
+            Math.max(requestedQuantity, minB2BQuantity),
+            availableQuantity
+        ));
+
+        if (tradeQuantity < minB2BQuantity) return;
+
         const totalCost = tradeQuantity * price;
 
         // Check if buyer can afford
@@ -1059,16 +1096,28 @@ export class SimulationEngine {
         if (!manufacturer.finishedGoodsInventory || manufacturer.finishedGoodsInventory.quantity <= 0) return;
 
         // Get product info
-        const productId = manufacturer.product?.id || manufacturer.productType || 'generic';
-        const productName = manufacturer.product?.name || manufacturer.productType || 'Unknown Product';
+        const product = manufacturer.product;
+        const productId = product?.id || manufacturer.productType || 'generic';
+        const productName = product?.name || manufacturer.productType || 'Unknown Product';
+        const minB2BQuantity = product?.minB2BQuantity || 1;
 
         // Check if retailer can sell this type of product
         if (productId && !retailer.canSellProductById(productId, this.productRegistry)) {
             return; // Retailer doesn't sell this category of product
         }
 
-        const tradeQuantity = Math.floor(Math.min(quantity, manufacturer.finishedGoodsInventory.quantity));
-        if (tradeQuantity <= 0) return;
+        const availableQuantity = manufacturer.finishedGoodsInventory.quantity;
+
+        // Enforce minimum B2B quantity
+        if (availableQuantity < minB2BQuantity) return;
+
+        // Trade quantity must be at least minB2BQuantity
+        const tradeQuantity = Math.floor(Math.min(
+            Math.max(quantity, minB2BQuantity),
+            availableQuantity
+        ));
+
+        if (tradeQuantity < minB2BQuantity) return;
 
         // Calculate price based on production cost + markup
         const costPerUnit = manufacturer.calculateProductionCost ? manufacturer.calculateProductionCost() : 100;
@@ -1166,6 +1215,8 @@ export class SimulationEngine {
             corp.employees = 0;
             corp.revenue = 0;
             corp.profit = 0;
+            corp.cash = 0;
+            corp.expenses = 0;
         });
 
         // Update all firms and aggregate to corporations
@@ -1179,6 +1230,8 @@ export class SimulationEngine {
                     corp.employees += firm.totalEmployees;
                     corp.revenue += firm.monthlyRevenue;
                     corp.profit += firm.monthlyProfit;
+                    corp.cash += firm.cash || 0;
+                    corp.expenses += firm.monthlyExpenses || 0;
                 }
             } catch (error) {
                 console.error(`Error updating firm ${firm.id}:`, error);

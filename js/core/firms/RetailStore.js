@@ -105,9 +105,9 @@ export class RetailStore extends Firm {
     }
 
     canSellProductById(productId, productRegistry) {
-        if (!productRegistry) return true; // Allow if no registry to check
+        if (!productRegistry) return false; // Deny if no registry to verify
         const product = productRegistry.getProduct(productId);
-        if (!product) return true; // Allow unknown products
+        if (!product) return false; // Deny unknown products
         return this.canSellProduct(product.category);
     }
     
@@ -172,6 +172,11 @@ export class RetailStore extends Firm {
         const products = starterProducts[this.storeType] || starterProducts['DEPARTMENT'];
 
         products.forEach(product => {
+            // Validate that starter products match allowed categories
+            if (!this.canSellProduct(product.category)) {
+                console.warn(`Starter product ${product.name} category ${product.category} not allowed for ${this.storeType}`);
+                return;
+            }
             const wholesalePrice = product.price * 0.7; // 70% of retail = wholesale cost
             this.productInventory.set(product.id, {
                 productName: product.name,
@@ -216,7 +221,12 @@ export class RetailStore extends Firm {
         );
     }
     
-    purchaseInventory(productId, quantity, wholesalePrice, productName = null) {
+    purchaseInventory(productId, quantity, wholesalePrice, productName = null, productCategory = null) {
+        // Validate product category if provided
+        if (productCategory && !this.canSellProduct(productCategory)) {
+            return false; // Store cannot sell this category
+        }
+
         const totalCost = quantity * wholesalePrice;
 
         if (this.cash >= totalCost && this.currentInventoryValue + totalCost <= this.maxInventoryValue) {
@@ -225,6 +235,7 @@ export class RetailStore extends Firm {
             if (!this.productInventory.has(productId)) {
                 this.productInventory.set(productId, {
                     productName: productName || productId,
+                    productCategory: productCategory,
                     quantity: 0,
                     wholesalePrice: wholesalePrice,
                     retailPrice: wholesalePrice * (1 + this.markupPercentage),
@@ -255,12 +266,18 @@ export class RetailStore extends Firm {
     }
 
     // Receive delivery from GlobalMarket - cash was already paid when order was placed
-    receiveDelivery(productId, quantity, unitPrice, productName = null) {
+    receiveDelivery(productId, quantity, unitPrice, productName = null, productCategory = null) {
+        // Validate product category if provided
+        if (productCategory && !this.canSellProduct(productCategory)) {
+            return false; // Store cannot sell this category
+        }
+
         const totalValue = quantity * unitPrice;
 
         if (!this.productInventory.has(productId)) {
             this.productInventory.set(productId, {
                 productName: productName || productId,
+                productCategory: productCategory,
                 quantity: 0,
                 wholesalePrice: unitPrice,
                 retailPrice: unitPrice * (1 + this.markupPercentage),
@@ -529,7 +546,10 @@ export class RetailStore extends Firm {
             'SUPERMARKET': 'Supermarket',
             'DEPARTMENT': 'Department Store',
             'ELECTRONICS': 'Electronics Store',
-            'FURNITURE': 'Furniture Store'
+            'FURNITURE': 'Furniture Store',
+            'FASHION': 'Fashion Boutique',
+            'HARDWARE': 'Hardware Store',
+            'AUTO': 'Auto Dealership'
         };
         const typeName = storeTypeNames[this.storeType] || this.storeType;
         return `${typeName} #${this.getShortId()}`;

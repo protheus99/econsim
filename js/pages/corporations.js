@@ -2,7 +2,7 @@
 import { getSimulation, onUpdate, setupClock, setupControls, formatNumber, formatCurrency, getFirmTypeName } from './shared.js';
 
 let simulation;
-let currentSort = 'profit-desc';
+let currentSort = 'cash-desc';
 let currentFilter = 'all';
 let searchTerm = '';
 
@@ -165,6 +165,7 @@ function renderCorporations() {
     corps.sort((a, b) => {
         let aVal, bVal;
         switch (field) {
+            case 'cash': aVal = a.cash || 0; bVal = b.cash || 0; break;
             case 'profit': aVal = a.profit || 0; bVal = b.profit || 0; break;
             case 'revenue': aVal = a.revenue || 0; bVal = b.revenue || 0; break;
             case 'employees': aVal = a.employees || 0; bVal = b.employees || 0; break;
@@ -186,16 +187,16 @@ function renderCorporations() {
             </div>
             <div class="corp-card-stats">
                 <div class="stat-item">
+                    <span class="stat-label">Cash</span>
+                    <span class="stat-value">${formatCurrency(corp.cash || 0)}</span>
+                </div>
+                <div class="stat-item">
                     <span class="stat-label">Revenue</span>
                     <span class="stat-value">${formatCurrency(corp.revenue || 0)}</span>
                 </div>
                 <div class="stat-item">
                     <span class="stat-label">Profit</span>
-                    <span class="stat-value">${formatCurrency(corp.profit || 0)}</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-label">Employees</span>
-                    <span class="stat-value">${formatNumber(corp.employees || 0)}</span>
+                    <span class="stat-value ${(corp.profit || 0) < 0 ? 'negative' : ''}">${formatCurrency(corp.profit || 0)}</span>
                 </div>
                 <div class="stat-item">
                     <span class="stat-label">Facilities</span>
@@ -257,9 +258,10 @@ function showCorpDetail(corpId) {
     // Financial stats
     document.getElementById('corp-financial-stats').innerHTML = `
         <div class="stats-grid">
-            <div class="stat-item"><span class="stat-label">Revenue</span><span class="stat-value">${formatCurrency(corp.revenue || 0)}</span></div>
-            <div class="stat-item"><span class="stat-label">Profit</span><span class="stat-value">${formatCurrency(corp.profit || 0)}</span></div>
             <div class="stat-item"><span class="stat-label">Cash</span><span class="stat-value">${formatCurrency(corp.cash || 0)}</span></div>
+            <div class="stat-item"><span class="stat-label">Revenue</span><span class="stat-value">${formatCurrency(corp.revenue || 0)}</span></div>
+            <div class="stat-item"><span class="stat-label">Expenses</span><span class="stat-value">${formatCurrency(corp.expenses || 0)}</span></div>
+            <div class="stat-item"><span class="stat-label">Profit</span><span class="stat-value ${(corp.profit || 0) < 0 ? 'negative' : ''}">${formatCurrency(corp.profit || 0)}</span></div>
         </div>
     `;
 

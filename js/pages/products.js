@@ -114,7 +114,7 @@ function renderProductGrid(containerId, products, badgeId) {
         <div class="product-card" data-product-id="${p.id}">
             <div class="product-name">${p.name}</div>
             <div class="product-category">${p.category || 'Uncategorized'}</div>
-            <div class="product-price">${formatCurrency(p.basePrice)}</div>
+            <div class="product-price">${formatCurrency(p.basePrice)}/${p.unit || 'unit'}</div>
         </div>
     `).join('');
 
@@ -139,25 +139,36 @@ function showProductDetail(productId) {
             <div class="stat-item"><span class="stat-label">ID</span><span class="stat-value">${product.id}</span></div>
             <div class="stat-item"><span class="stat-label">Category</span><span class="stat-value">${product.category || '-'}</span></div>
             <div class="stat-item"><span class="stat-label">Tier</span><span class="stat-value">${product.tier}</span></div>
+            <div class="stat-item"><span class="stat-label">Unit</span><span class="stat-value">${product.unit || 'unit'}</span></div>
         </div>
     `;
 
+    const minB2B = product.minB2BQuantity || 1;
+    const minRetail = product.minRetailQuantity;
+    const retailText = minRetail === 0 ? 'Not sold retail' : `${minRetail} ${product.unit || 'unit'}`;
+
     document.getElementById('product-pricing').innerHTML = `
         <div class="stats-grid">
-            <div class="stat-item"><span class="stat-label">Base Price</span><span class="stat-value">${formatCurrency(product.basePrice)}</span></div>
+            <div class="stat-item"><span class="stat-label">Base Price</span><span class="stat-value">${formatCurrency(product.basePrice)}/${product.unit || 'unit'}</span></div>
             <div class="stat-item"><span class="stat-label">Tech Required</span><span class="stat-value">${product.technologyRequired || 1}</span></div>
+            <div class="stat-item"><span class="stat-label">Min B2B Order</span><span class="stat-value">${minB2B} ${product.unit || 'units'}</span></div>
+            <div class="stat-item"><span class="stat-label">Min Retail</span><span class="stat-value">${retailText}</span></div>
         </div>
     `;
 
     // Inputs
     const inputsContainer = document.getElementById('product-inputs');
     if (product.inputs && product.inputs.length > 0) {
-        inputsContainer.innerHTML = product.inputs.map(input => `
-            <div class="input-item">
-                <span class="input-material">${input.material}</span>
-                <span class="input-qty">${input.quantity} units</span>
-            </div>
-        `).join('');
+        inputsContainer.innerHTML = product.inputs.map(input => {
+            const inputProduct = simulation.productRegistry.getAllProducts().find(p => p.name === input.material);
+            const inputUnit = inputProduct?.unit || 'units';
+            return `
+                <div class="input-item">
+                    <span class="input-material">${input.material}</span>
+                    <span class="input-qty">${input.quantity} ${inputUnit}</span>
+                </div>
+            `;
+        }).join('');
     } else {
         inputsContainer.innerHTML = '<p class="empty-state">No inputs (raw material)</p>';
     }
@@ -239,13 +250,17 @@ function renderProductCostBreakdown(product) {
         <div class="cost-breakdown-detail">
             <div class="cost-inputs-section">
                 <h4>Input Costs</h4>
-                ${breakdown.inputs.map(input => `
-                    <div class="cost-input-item">
-                        <span class="input-name">${input.material}</span>
-                        <span class="input-detail">${input.quantity.toFixed(2)} × ${formatCurrency(input.unitCost)}</span>
-                        <span class="input-total">${formatCurrency(input.totalCost)}</span>
-                    </div>
-                `).join('')}
+                ${breakdown.inputs.map(input => {
+                    const inputProduct = simulation.productRegistry.getAllProducts().find(p => p.name === input.material);
+                    const inputUnit = inputProduct?.unit || 'units';
+                    return `
+                        <div class="cost-input-item">
+                            <span class="input-name">${input.material}</span>
+                            <span class="input-detail">${input.quantity.toFixed(2)} ${inputUnit} × ${formatCurrency(input.unitCost)}</span>
+                            <span class="input-total">${formatCurrency(input.totalCost)}</span>
+                        </div>
+                    `;
+                }).join('')}
             </div>
             <div class="cost-summary-section">
                 <div class="stats-grid">
@@ -254,11 +269,7 @@ function renderProductCostBreakdown(product) {
                         <span class="stat-value">${formatCurrency(breakdown.totalMaterialCost)}</span>
                     </div>
                     <div class="stat-item">
-                        <span class="stat-label">Labor Cost</span>
-                        <span class="stat-value">${formatCurrency(breakdown.laborCost)}</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Overhead</span>
+                        <span class="stat-label">Overhead (15%)</span>
                         <span class="stat-value">${formatCurrency(breakdown.overheadCost)}</span>
                     </div>
                     <div class="stat-item">
@@ -269,12 +280,10 @@ function renderProductCostBreakdown(product) {
                 <div class="cost-margin-section">
                     <div class="margin-bar">
                         <div class="margin-fill" style="width: ${Math.min(pct.materials, 100)}%; background: #3498db;"></div>
-                        <div class="margin-fill" style="width: ${Math.min(pct.labor, 100)}%; background: #e74c3c;"></div>
                         <div class="margin-fill" style="width: ${Math.min(pct.overhead, 100)}%; background: #f39c12;"></div>
                     </div>
                     <div class="margin-legend">
                         <span><span class="legend-color" style="background:#3498db"></span> Materials ${pct.materials.toFixed(0)}%</span>
-                        <span><span class="legend-color" style="background:#e74c3c"></span> Labor ${pct.labor.toFixed(0)}%</span>
                         <span><span class="legend-color" style="background:#f39c12"></span> Overhead ${pct.overhead.toFixed(0)}%</span>
                     </div>
                 </div>
@@ -334,12 +343,13 @@ function renderCostAnalysis() {
                 const statusClass = a.isUnderpriced ? 'underpriced' : (a.isOverpriced ? 'overpriced' : 'balanced');
                 const statusText = a.isUnderpriced ? 'Underpriced' : (a.isOverpriced ? 'High Margin' : 'OK');
                 const marginStr = a.marginPercent >= 0 ? `+${a.marginPercent.toFixed(0)}%` : `${a.marginPercent.toFixed(0)}%`;
+                const unit = a.product.unit || 'unit';
                 return `
                     <div class="cost-analysis-row ${statusClass}" data-product-id="${a.product.id}">
                         <span class="col-product">${a.product.name}</span>
                         <span class="col-tier tier-${a.product.tier.toLowerCase()}">${a.product.tier}</span>
-                        <span class="col-cost">${formatCurrency(a.calculatedCost)}</span>
-                        <span class="col-price">${formatCurrency(a.basePrice)}</span>
+                        <span class="col-cost">${formatCurrency(a.calculatedCost)}/${unit}</span>
+                        <span class="col-price">${formatCurrency(a.basePrice)}/${unit}</span>
                         <span class="col-margin ${a.marginPercent < 0 ? 'negative' : ''}">${marginStr}</span>
                         <span class="col-status status-${statusClass}">${statusText}</span>
                     </div>

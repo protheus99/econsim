@@ -176,8 +176,7 @@ export class ProductCostCalculator {
             });
             lines.push('');
             lines.push(`Material Cost: $${breakdown.totalMaterialCost.toFixed(2)}`);
-            lines.push(`Labor Cost: $${breakdown.laborCost.toFixed(2)} (${breakdown.product.productionTime || 1}h)`);
-            lines.push(`Overhead: $${breakdown.overheadCost.toFixed(2)}`);
+            lines.push(`Overhead (15%): $${breakdown.overheadCost.toFixed(2)}`);
             lines.push(`---------------------------------`);
             lines.push(`Total Cost: $${breakdown.totalCost.toFixed(2)}`);
         }
