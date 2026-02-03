@@ -55,8 +55,11 @@ export class Farm extends Firm {
             quality: 60,
             storageCapacity: this.landSize * 100 // kg
         };
+
+        // Production tracking
+        this.actualProductionRate = 0;
     }
-    
+
     initializeLivestockFarm() {
         // Livestock selection
         this.livestockType = this.selectLivestock();
@@ -90,6 +93,9 @@ export class Farm extends Firm {
             quality: 65,
             storageCapacity: this.herdSize * 50 // kg
         };
+
+        // Production tracking
+        this.actualProductionRate = 0;
     }
 
     getOutputProduct(livestockType) {
@@ -218,6 +224,9 @@ export class Farm extends Firm {
             const technologyBonus = this.technologyLevel * 0.05;
             const actualYield = totalYield * (1 + technologyBonus);
 
+            // Track production rate (average over growing season)
+            this.actualProductionRate = actualYield / seasonHours;
+
             // Add harvest to existing inventory
             const newQuantity = this.inventory.quantity + actualYield;
             this.inventory.quantity = Math.min(newQuantity, this.inventory.storageCapacity);
@@ -254,6 +263,9 @@ export class Farm extends Firm {
         const baseProductionRate = this.herdSize * 0.001; // 0.1% of herd per hour available
         const technologyBonus = this.technologyLevel * 0.05;
         const hourlyOutput = baseProductionRate * (1 + technologyBonus);
+
+        // Track actual production rate
+        this.actualProductionRate = hourlyOutput;
 
         if (hourlyOutput > 0) {
             const newQuantity = this.inventory.quantity + hourlyOutput;

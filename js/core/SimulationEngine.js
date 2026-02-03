@@ -46,6 +46,11 @@ export class SimulationEngine {
 
         // Configuration settings (loaded from config.json or use defaults)
         this.config = {
+            simulation: {
+                version: '1.0.0',
+                startYear: 2025,
+                timeScale: { realSecond: 1000, gameHour: 1 }
+            },
             globalMarket: {
                 enabled: true,
                 priceMultiplier: 1.5,
@@ -60,8 +65,46 @@ export class SimulationEngine {
                 reorderQuantityWeeks: 2,
                 maxStockWeeks: 8
             },
+            countries: {
+                count: 25,
+                tariffs: { raw: 0.05, semiRaw: 0.10, manufactured: 0.15 }
+            },
+            cities: {
+                initial: 8,
+                minPopulation: 250000,
+                maxPopulation: 5000000,
+                salaryLevel: { min: 0.1, max: 1.0, default: 0.5 },
+                demographics: { nonWorkingPercentage: 0.30, employmentRate: 0.85 },
+                infrastructure: { airportThreshold: 500000, seaportRequiresCoastal: true, railwayThreshold: 250000 }
+            },
             firms: {
-                perCity: { min: 5, max: 10 }
+                perCity: { min: 5, max: 10 },
+                distribution: { MINING: 0.15, LOGGING: 0.10, FARM: 0.20, MANUFACTURING: 0.25, RETAIL: 0.20, BANK: 0.10 }
+            },
+            products: {
+                tiers: ['RAW', 'SEMI_RAW', 'MANUFACTURED']
+            },
+            transportation: {
+                types: {
+                    LOCAL_ROAD: { costPerKm: 0.50, speedKmh: 50, reliability: 0.85 },
+                    HIGHWAY: { costPerKm: 0.30, speedKmh: 90, reliability: 0.95 },
+                    TRAIN: { costPerKm: 0.15, speedKmh: 80, reliability: 0.90 },
+                    AIR: { costPerKm: 2.50, speedKmh: 600, reliability: 0.92, baseCost: 500 },
+                    SEA: { costPerKm: 0.08, speedKmh: 40, reliability: 0.85, baseCost: 1000 }
+                }
+            },
+            labor: {
+                benefitsMultiplier: 1.30,
+                wagesByFirm: {}
+            },
+            banking: {
+                reserveRequirement: 0.10,
+                baseInterestRate: 0.05,
+                bankMargin: 0.03,
+                depositRate: 0.02,
+                minCreditScore: 40,
+                maxLoanToAssetRatio: 0.80,
+                defaultThreshold: 3
             }
         };
 
@@ -86,21 +129,43 @@ export class SimulationEngine {
             const response = await fetch('data/config.json');
             if (response.ok) {
                 const loadedConfig = await response.json();
-                // Merge loaded config with defaults
-                if (loadedConfig.globalMarket) {
-                    this.config.globalMarket = { ...this.config.globalMarket, ...loadedConfig.globalMarket };
-                }
-                if (loadedConfig.inventory) {
-                    this.config.inventory = { ...this.config.inventory, ...loadedConfig.inventory };
-                }
-                if (loadedConfig.firms) {
-                    this.config.firms = { ...this.config.firms, ...loadedConfig.firms };
-                }
+                // Merge all config sections with defaults
+                this.mergeConfig(loadedConfig);
                 this.configLoaded = true;
                 console.log('✅ Configuration loaded from config.json');
             }
         } catch (error) {
             console.warn('⚠️ Could not load config.json, using defaults:', error.message);
+        }
+    }
+
+    mergeConfig(loadedConfig) {
+        // Deep merge helper for nested objects
+        const deepMerge = (target, source) => {
+            for (const key of Object.keys(source)) {
+                if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
+                    if (!target[key]) target[key] = {};
+                    deepMerge(target[key], source[key]);
+                } else {
+                    target[key] = source[key];
+                }
+            }
+            return target;
+        };
+
+        // Merge each config section
+        const sections = [
+            'simulation', 'globalMarket', 'inventory', 'countries', 'cities',
+            'firms', 'products', 'transportation', 'labor', 'banking'
+        ];
+
+        for (const section of sections) {
+            if (loadedConfig[section]) {
+                if (!this.config[section]) {
+                    this.config[section] = {};
+                }
+                deepMerge(this.config[section], loadedConfig[section]);
+            }
         }
     }
 
@@ -126,9 +191,9 @@ export class SimulationEngine {
         // Initialize countries first
         this.initializeCountries();
 
-        // Initialize city manager with countries
-        this.cityManager = new CityManager(this.countries);
-        this.cities = this.cityManager.generateInitialCities(8);
+        // Initialize city manager with countries and config
+        this.cityManager = new CityManager(this.countries, this.config);
+        this.cities = this.cityManager.generateInitialCities(); // Uses config.cities.initial
 
         // Generate corporations
         this.corporations = this.generateCorporations();

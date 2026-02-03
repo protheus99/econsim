@@ -70,6 +70,11 @@ export class GlobalMarket {
 
     // Initialize with 3500+ orders for all non-retail products
     initializeOrders() {
+        if (!this.config.enabled) {
+            console.log('GlobalMarket disabled - skipping order initialization');
+            return;
+        }
+
         const products = this.productRegistry.getAllProducts();
         // Filter non-retail products (RAW, SEMI_RAW, MANUFACTURED)
         const nonRetailProducts = products.filter(p =>

@@ -55,7 +55,9 @@ export class ManufacturingPlant extends Firm {
         // Production metrics
         this.defectRate = 0.05; // 5% defect rate initially
         this.downtimePercentage = 0.10; // 10% downtime
-        
+        this.actualProductionRate = 0; // Updated each hour during production
+        this.productionCapacity = this.productionLine.outputPerHour; // Max theoretical output
+
         this.initialize();
     }
     
@@ -159,40 +161,45 @@ export class ManufacturingPlant extends Firm {
     produceHourly() {
         // Check if we can produce
         if (!this.checkRawMaterials()) {
+            this.actualProductionRate = 0;
             return {
                 produced: false,
                 reason: 'INSUFFICIENT_RAW_MATERIALS',
                 needed: this.getRawMaterialNeeds()
             };
         }
-        
+
         // Account for downtime
         if (Math.random() < this.downtimePercentage) {
+            this.actualProductionRate = 0;
             return {
                 produced: false,
                 reason: 'DOWNTIME'
             };
         }
-        
+
         // Calculate production
         const techBonus = (this.technologyLevel - this.product.technologyRequired) * 0.1;
         const efficiencyFactor = this.productionEfficiency;
         const workerSkillBonus = this.laborStructure.productionWorkers.count / 100;
-        
-        const actualOutput = this.productionLine.outputPerHour * 
-                            (1 + techBonus) * 
-                            efficiencyFactor * 
+
+        const actualOutput = this.productionLine.outputPerHour *
+                            (1 + techBonus) *
+                            efficiencyFactor *
                             (1 + workerSkillBonus);
-        
+
         // Consume materials
         this.consumeRawMaterials(actualOutput / this.productionLine.outputPerHour);
-        
+
         // Calculate quality
         const productQuality = this.calculateQuality();
-        
+
         // Apply defect rate
         const goodUnits = actualOutput * (1 - this.defectRate);
-        
+
+        // Track actual production rate (good units produced per hour)
+        this.actualProductionRate = goodUnits;
+
         // Add to finished goods
         if (this.finishedGoodsInventory.quantity + goodUnits <= this.finishedGoodsInventory.storageCapacity) {
             this.finishedGoodsInventory.quantity += goodUnits;
@@ -200,7 +207,7 @@ export class ManufacturingPlant extends Firm {
         } else {
             this.finishedGoodsInventory.quantity = this.finishedGoodsInventory.storageCapacity;
         }
-        
+
         return {
             produced: true,
             product: this.productType,

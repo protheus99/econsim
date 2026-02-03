@@ -4,17 +4,20 @@ import { TransportationNetwork } from './TransportationNetwork.js';
 import { CityNameGenerator } from '../data/CityNames.js';
 
 export class CityManager {
-    constructor(countries) {
+    constructor(countries, config = {}) {
         this.cities = new Map();
         this.countries = countries;
+        this.config = config;
         this.transportation = new TransportationNetwork();
         this.cityNameGenerator = new CityNameGenerator(countries);
     }
 
-    generateInitialCities(count = 8) {
+    generateInitialCities(count = null) {
+        // Use config value if count not specified
+        const cityCount = count ?? this.config.cities?.initial ?? 8;
         const countriesArray = Array.from(this.countries.values());
-        
-        for (let i = 0; i < count; i++) {
+
+        for (let i = 0; i < cityCount; i++) {
             // Distribute cities among countries
             const country = countriesArray[i % countriesArray.length];
             const city = this.generateCityForCountry(country);
@@ -24,29 +27,40 @@ export class CityManager {
 
         // Designate some coastal cities
         this.designateCoastalCities();
-        
+
         return Array.from(this.cities.values());
     }
 
     generateCityForCountry(country) {
         const name = this.cityNameGenerator.getNameForCountry(country);
 
-        // Population distribution
+        // Get population range from config
+        const minPop = this.config.cities?.minPopulation ?? 250000;
+        const maxPop = this.config.cities?.maxPopulation ?? 5000000;
+        const popRange = maxPop - minPop;
+
+        // Population distribution using config ranges
         const rand = Math.random();
         let population;
 
         if (rand < 0.4) {
-            population = 250000 + Math.random() * 250000; // Small: 250K-500K
+            // Small: minPop to minPop + 10% of range
+            population = minPop + Math.random() * (popRange * 0.1);
         } else if (rand < 0.7) {
-            population = 500000 + Math.random() * 1000000; // Medium: 500K-1.5M
+            // Medium: 10% to 35% of range
+            population = minPop + (popRange * 0.1) + Math.random() * (popRange * 0.25);
         } else if (rand < 0.9) {
-            population = 1500000 + Math.random() * 1500000; // Large: 1.5M-3M
+            // Large: 35% to 65% of range
+            population = minPop + (popRange * 0.35) + Math.random() * (popRange * 0.30);
         } else {
-            population = 3000000 + Math.random() * 2000000; // Major: 3M-5M
+            // Major: 65% to 100% of range
+            population = minPop + (popRange * 0.65) + Math.random() * (popRange * 0.35);
         }
 
         // Salary level influenced by country economic level
-        let baseSalaryLevel = 0.5;
+        const salaryConfig = this.config.cities?.salaryLevel ?? { min: 0.1, max: 1.0, default: 0.5 };
+        let baseSalaryLevel = salaryConfig.default;
+
         if (country.economicLevel === 'DEVELOPED') {
             baseSalaryLevel = 0.6 + Math.random() * 0.3; // 0.6-0.9
         } else if (country.economicLevel === 'EMERGING') {
@@ -55,7 +69,10 @@ export class CityManager {
             baseSalaryLevel = 0.3 + Math.random() * 0.3; // 0.3-0.6
         }
 
-        const city = new City(name, Math.floor(population), baseSalaryLevel, country);
+        // Clamp salary level to config bounds
+        baseSalaryLevel = Math.max(salaryConfig.min, Math.min(salaryConfig.max, baseSalaryLevel));
+
+        const city = new City(name, Math.floor(population), baseSalaryLevel, country, this.config);
 
         // Random location on country's territory
         // Each country gets a region of the map

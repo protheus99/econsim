@@ -378,6 +378,7 @@ function showFirmDetail(firmId) {
 
 function renderProductionStats(firm) {
     const container = document.getElementById('firm-production-stats');
+    if (!container) return;
     let html = '<div class="production-stats-grid">';
 
     switch (firm.type) {
@@ -386,6 +387,30 @@ function renderProductionStats(firm) {
                 <div class="production-stat">
                     <div class="production-stat-value">${firm.actualExtractionRate?.toFixed(2) || 0}</div>
                     <div class="production-stat-label">Extraction/Hour</div>
+                </div>
+                <div class="production-stat">
+                    <div class="production-stat-value">${firm.inventory?.quantity?.toFixed(0) || 0}</div>
+                    <div class="production-stat-label">Inventory</div>
+                </div>
+            `;
+            break;
+        case 'LOGGING':
+            html += `
+                <div class="production-stat">
+                    <div class="production-stat-value">${firm.actualHarvestRate?.toFixed(2) || 0}</div>
+                    <div class="production-stat-label">Harvest/Hour (m³)</div>
+                </div>
+                <div class="production-stat">
+                    <div class="production-stat-value">${firm.inventory?.quantity?.toFixed(0) || 0}</div>
+                    <div class="production-stat-label">Inventory</div>
+                </div>
+            `;
+            break;
+        case 'FARM':
+            html += `
+                <div class="production-stat">
+                    <div class="production-stat-value">${firm.actualProductionRate?.toFixed(2) || 0}</div>
+                    <div class="production-stat-label">Output/Hour</div>
                 </div>
                 <div class="production-stat">
                     <div class="production-stat-value">${firm.inventory?.quantity?.toFixed(0) || 0}</div>
@@ -402,6 +427,20 @@ function renderProductionStats(firm) {
                 <div class="production-stat">
                     <div class="production-stat-value">${firm.finishedGoodsInventory?.quantity?.toFixed(0) || 0}</div>
                     <div class="production-stat-label">Finished Goods</div>
+                </div>
+            `;
+            break;
+        case 'RETAIL':
+            const totalInventory = firm.productInventory ?
+                Array.from(firm.productInventory.values()).reduce((sum, inv) => sum + (inv.quantity || 0), 0) : 0;
+            html += `
+                <div class="production-stat">
+                    <div class="production-stat-value">${totalInventory.toFixed(0)}</div>
+                    <div class="production-stat-label">Total Inventory</div>
+                </div>
+                <div class="production-stat">
+                    <div class="production-stat-value">${firm.productInventory?.size || 0}</div>
+                    <div class="production-stat-label">Product Types</div>
                 </div>
             `;
             break;

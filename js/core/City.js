@@ -1,38 +1,43 @@
 // js/core/City.js (Updated)
 export class City {
-    constructor(name, population, salaryLevel = 0.5, country) {
+    constructor(name, population, salaryLevel = 0.5, country, config = {}) {
         this.id = this.generateId();
         this.name = name;
+        this.config = config;
         this.population = this.validatePopulation(population);
-        this.salaryLevel = Math.max(0.1, Math.min(1.0, salaryLevel));
+
+        // Salary level bounds from config
+        const salaryBounds = config.cities?.salaryLevel ?? { min: 0.1, max: 1.0 };
+        this.salaryLevel = Math.max(salaryBounds.min, Math.min(salaryBounds.max, salaryLevel));
         this.country = country; // Reference to Country object
-        
+
         // Economic structure
         this.demographics = this.calculateDemographics();
         this.economicClasses = this.calculateEconomicClasses();
         this.totalPurchasingPower = this.calculateTotalPurchasingPower();
         this.unemploymentRate = 0.15;
-        
+
         // Market factors
-        this.costOfLiving = country ? country.economicLevel === 'DEVELOPED' ? 1.2 : 
+        this.costOfLiving = country ? country.economicLevel === 'DEVELOPED' ? 1.2 :
                            country.economicLevel === 'EMERGING' ? 1.0 : 0.8 : 1.0;
         this.marketSize = this.calculateMarketSize();
         this.consumerConfidence = 0.7;
-        
-        // Location and infrastructure
+
+        // Location and infrastructure (thresholds from config)
+        const infraConfig = config.cities?.infrastructure ?? {};
         this.coordinates = { x: 0, y: 0 };
         this.climate = 'TEMPERATE';
         this.isCoastal = false;
-        this.hasAirport = this.population > 500000;
+        this.hasAirport = this.population > (infraConfig.airportThreshold ?? 500000);
         this.hasSeaport = false;
-        this.hasRailway = this.population > 250000;
+        this.hasRailway = this.population > (infraConfig.railwayThreshold ?? 250000);
         this.infrastructureQuality = 0.5 + (Math.random() * 0.5);
-        
+
         // Industry presence
         this.industries = new Map();
         this.localCompetitors = this.generateLocalCompetitors();
         this.firms = []; // Firms operating in this city
-        
+
         // Statistics tracking
         this.monthlyStats = {
             totalSales: 0,
@@ -41,26 +46,27 @@ export class City {
             populationGrowth: 0
         };
     }
-    
+
     generateId() {
         return `CITY_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     }
-    
+
     validatePopulation(pop) {
-        const MIN_POP = 250000;
-        const MAX_POP = 5000000;
-        return Math.max(MIN_POP, Math.min(MAX_POP, pop));
+        const minPop = this.config?.cities?.minPopulation ?? 250000;
+        const maxPop = this.config?.cities?.maxPopulation ?? 5000000;
+        return Math.max(minPop, Math.min(maxPop, pop));
     }
-    
+
     calculateDemographics() {
-        const NON_WORKING_PERCENT = 0.30;
-        const EMPLOYED_PERCENT = 0.85;
-        
+        const demographicsConfig = this.config?.cities?.demographics ?? {};
+        const NON_WORKING_PERCENT = demographicsConfig.nonWorkingPercentage ?? 0.30;
+        const EMPLOYED_PERCENT = demographicsConfig.employmentRate ?? 0.85;
+
         const workingAgePop = Math.floor(this.population * (1 - NON_WORKING_PERCENT));
         const employedPop = Math.floor(workingAgePop * EMPLOYED_PERCENT);
         const unemployedPop = workingAgePop - employedPop;
         const nonWorkingPop = this.population - workingAgePop;
-        
+
         return {
             total: this.population,
             nonWorking: nonWorkingPop,
@@ -198,18 +204,25 @@ export class City {
     }
     
     updateMonthly(gameTime) {
-        const growthRate = 0.001 + (Math.random() * 0.002);
+        // Get growth rate from config
+        const growthConfig = this.config?.cities?.populationGrowthRate ?? { min: 0.001, max: 0.003 };
+        const growthRange = growthConfig.max - growthConfig.min;
+        const growthRate = growthConfig.min + (Math.random() * growthRange);
+
         this.population = Math.floor(this.population * (1 + growthRate));
-        this.population = Math.min(5000000, this.population);
-        
+
+        // Clamp to max population from config
+        const maxPop = this.config?.cities?.maxPopulation ?? 5000000;
+        this.population = Math.min(maxPop, this.population);
+
         this.monthlyStats.populationGrowth = growthRate;
         this.demographics = this.calculateDemographics();
         this.economicClasses = this.calculateEconomicClasses();
         this.totalPurchasingPower = this.calculateTotalPurchasingPower();
-        
+
         this.consumerConfidence += (Math.random() - 0.5) * 0.1;
         this.consumerConfidence = Math.max(0.3, Math.min(1.0, this.consumerConfidence));
-        
+
         this.marketSize = this.calculateMarketSize();
         this.monthlyStats.totalSales = 0;
     }
