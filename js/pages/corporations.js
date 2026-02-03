@@ -182,6 +182,7 @@ function renderCorporations() {
         return `
         <div class="corp-card" data-corp-id="${corp.id}">
             <div class="corp-card-header">
+                <span class="corp-abbr">${corp.abbreviation || '???'}</span>
                 <span class="corp-name">${corp.name}</span>
                 <span class="corp-badge ${corp.character?.toLowerCase()}">${corp.character || 'Unknown'}</span>
             </div>
@@ -251,7 +252,7 @@ function showCorpDetail(corpId) {
     document.querySelector('.main-container').style.display = 'none';
     document.getElementById('corp-detail-view').classList.remove('hidden');
 
-    document.getElementById('corp-detail-name').textContent = corp.name;
+    document.getElementById('corp-detail-name').textContent = `[${corp.abbreviation || '???'}] ${corp.name}`;
     document.getElementById('corp-character-badge').textContent = corp.character || 'Unknown';
     document.getElementById('corp-character-badge').className = `corp-character-badge ${corp.character?.toLowerCase()}`;
 

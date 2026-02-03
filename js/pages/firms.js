@@ -65,7 +65,7 @@ function populateCorpFilter() {
     simulation.corporations.forEach(corp => {
         const option = document.createElement('option');
         option.value = corp.id;
-        option.textContent = corp.name;
+        option.textContent = `[${corp.abbreviation || '???'}] ${corp.name}`;
         select.appendChild(option);
     });
 }
@@ -221,7 +221,7 @@ function renderFirms() {
                 </div>
                 <div class="firm-card-location">
                     <span class="firm-city">${firm.city?.name || 'Unknown'}</span>
-                    <span class="firm-corp">${corp?.name || 'Independent'}</span>
+                    <span class="firm-corp"><span class="corp-abbr">${corp?.abbreviation || '---'}</span> ${corp?.name || 'Independent'}</span>
                 </div>
                 <div class="firm-card-stats">
                     <div class="stat-item">
@@ -317,6 +317,7 @@ function showFirmDetail(firmId) {
             <div class="firm-overview-item">
                 <div class="firm-overview-label">Corporation</div>
                 <div class="firm-overview-value">
+                    <span class="corp-abbr">${corp?.abbreviation || '---'}</span>
                     <a href="corporations.html?id=${firm.corporationId}">${corp?.name || 'Independent'}</a>
                 </div>
             </div>

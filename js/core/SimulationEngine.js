@@ -280,9 +280,25 @@ export class SimulationEngine {
         ];
         const characters = ['CONSERVATIVE', 'MODERATE', 'AGGRESSIVE', 'VERY_AGGRESSIVE'];
 
+        // Generate 3-letter abbreviation from name
+        const generateAbbreviation = (name) => {
+            const words = name.replace(/[^a-zA-Z\s]/g, '').split(/\s+/).filter(w => w.length > 0);
+            if (words.length >= 3) {
+                // Take first letter of first 3 significant words
+                return (words[0][0] + words[1][0] + words[2][0]).toUpperCase();
+            } else if (words.length === 2) {
+                // Take first letter of first word + first two letters of second
+                return (words[0][0] + words[1].substring(0, 2)).toUpperCase();
+            } else {
+                // Single word - take first 3 letters
+                return words[0].substring(0, 3).toUpperCase();
+            }
+        };
+
         return names.map((name, i) => ({
             id: i + 1,
             name: name,
+            abbreviation: generateAbbreviation(name),
             character: characters[Math.floor(this.random() * characters.length)],
             cash: 0, // Will be aggregated from firms
             revenue: 0,
