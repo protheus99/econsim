@@ -377,6 +377,18 @@ export class GlobalMarket {
     processHourly(currentHour, currentDay) {
         this.currentHour = currentHour;
         this.currentDay = currentDay;
+
+        // Skip all processing if market is disabled
+        if (!this.config.enabled) {
+            return {
+                delivered: 0,
+                deliveredOrders: [],
+                pending: 0,
+                availableOrders: 0,
+                biddingOrders: 0
+            };
+        }
+
         this.hourlyOrderCount = 0;
 
         // Handle bidding window
