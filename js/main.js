@@ -30,17 +30,17 @@ class Application {
             this.dashboard.update(); // Initial update to show data immediately
             this.mapRenderer.render();
 
-            // Hide loading screen
-            this.hideLoadingScreen();
-
             console.log('✅ Application initialized successfully');
-            
+
             // Show welcome message
             this.showWelcomeMessage();
 
         } catch (error) {
             console.error('❌ Failed to initialize application:', error);
             this.showErrorMessage(error);
+        } finally {
+            // Always restore UI even if initialization failed
+            this.hideLoadingScreen();
         }
     }
 

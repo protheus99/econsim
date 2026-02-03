@@ -1315,8 +1315,9 @@ export class SimulationEngine {
     }
 
     setSpeed(multiplier) {
-        this.speed = multiplier;
-        this.addEvent('info', 'Speed Changed', `Simulation speed set to ${multiplier}x`);
+        // Clamp to positive integer (min 1, max 16) for use as loop bound
+        this.speed = Math.max(1, Math.min(16, Math.floor(multiplier) || 1));
+        this.addEvent('info', 'Speed Changed', `Simulation speed set to ${this.speed}x`);
     }
 
     emit(event) {
