@@ -10,6 +10,21 @@ export class Dashboard {
         return this.simulation || window.app?.simulation;
     }
 
+    // Safe DOM helpers to prevent crashes on pages with partial layouts
+    setText(id, value) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = value;
+    }
+
+    setHTML(id, value) {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = value;
+    }
+
+    getEl(id) {
+        return document.getElementById(id);
+    }
+
     setupEventListeners() {
         window.addEventListener('simulation-update', () => {
             this.update();
@@ -2207,16 +2222,22 @@ export class Dashboard {
     update() {
         const state = this.getSimulation().getState();
 
+        // Helper to safely set element text content
+        const setText = (id, value) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = value;
+        };
+
         // Update clock
-        document.getElementById('game-date').textContent = this.getSimulation().clock.getFormatted();
-        document.getElementById('real-time').textContent = this.getSimulation().clock.getElapsed();
+        setText('game-date', this.getSimulation().clock.getFormatted());
+        setText('real-time', this.getSimulation().clock.getElapsed());
 
         // Update global stats
-        document.getElementById('total-population').textContent = state.stats.totalPopulation.toLocaleString();
-        document.getElementById('total-gdp').textContent = this.getSimulation().formatMoney(state.stats.totalGDP);
-        document.getElementById('city-count').textContent = state.cities.length;
-        document.getElementById('total-employed').textContent = state.stats.totalEmployed.toLocaleString();
-        document.getElementById('avg-salary-level').textContent = (state.stats.avgSalaryLevel * 100).toFixed(0) + '%';
+        setText('total-population', state.stats.totalPopulation.toLocaleString());
+        setText('total-gdp', this.getSimulation().formatMoney(state.stats.totalGDP));
+        setText('city-count', state.cities.length);
+        setText('total-employed', state.stats.totalEmployed.toLocaleString());
+        setText('avg-salary-level', (state.stats.avgSalaryLevel * 100).toFixed(0) + '%');
 
         // Update corporations
         this.updateCorporations(state.corporations);
@@ -2235,16 +2256,16 @@ export class Dashboard {
 
         // Update market stats
         const recentTransactions = state.marketHistory.slice(-1)[0]?.transactions || 0;
-        document.getElementById('hourly-transactions').textContent = Math.floor(recentTransactions).toLocaleString();
+        setText('hourly-transactions', Math.floor(recentTransactions).toLocaleString());
 
         const totalRevenue = state.corporations.reduce((sum, c) => sum + c.revenue, 0);
-        document.getElementById('avg-transaction').textContent = this.getSimulation().formatMoney(totalRevenue / (recentTransactions || 1));
+        setText('avg-transaction', this.getSimulation().formatMoney(totalRevenue / (recentTransactions || 1)));
 
         // Update badges
-        document.getElementById('corp-count').textContent = `${state.corporations.length} Active`;
-        document.getElementById('cities-badge').textContent = `${state.cities.length} Cities`;
-        document.getElementById('product-count').textContent = `${state.products.length} Products`;
-        document.getElementById('map-info').textContent = `${state.cities.length} Cities`;
+        setText('corp-count', `${state.corporations.length} Active`);
+        setText('cities-badge', `${state.cities.length} Cities`);
+        setText('product-count', `${state.products.length} Products`);
+        setText('map-info', `${state.cities.length} Cities`);
 
         // Update orders summary
         this.updateOrdersSummary();
@@ -2335,6 +2356,7 @@ export class Dashboard {
     updateStatus(status) {
         const indicator = document.getElementById('status-indicator');
         const text = document.getElementById('status-text');
+        if (!indicator || !text) return;
 
         if (status === 'running') {
             indicator.className = 'status-indicator status-running';
@@ -2347,6 +2369,7 @@ export class Dashboard {
 
     updateCorporations(corporations) {
         const corpList = document.getElementById('corp-list');
+        if (!corpList) return;
         corpList.innerHTML = corporations
             .sort((a, b) => b.profit - a.profit)
             .slice(0, 5)
@@ -2383,6 +2406,7 @@ export class Dashboard {
 
     updateCities(cities) {
         const cityList = document.getElementById('city-list');
+        if (!cityList) return;
         const simulation = this.getSimulation();
 
         cityList.innerHTML = cities.map(city => `
@@ -2489,6 +2513,7 @@ export class Dashboard {
 
     updateProducts(products) {
         const productGrid = document.getElementById('product-grid');
+        if (!productGrid) return;
         productGrid.innerHTML = products.map(p => `
             <div class="product-card">
                 <div class="product-icon">${p.icon}</div>
@@ -2507,6 +2532,7 @@ export class Dashboard {
 
     updateEvents(events) {
         const eventFeed = document.getElementById('event-feed');
+        if (!eventFeed) return;
         eventFeed.innerHTML = events.slice(0, 20).map(e => `
             <div class="event-item ${e.type}">
                 <div class="event-time">${e.time}</div>
@@ -2517,6 +2543,7 @@ export class Dashboard {
 
     updateMarketChart(history) {
         const svg = document.getElementById('market-chart');
+        if (!svg) return;
         const width = svg.clientWidth;
         const height = svg.clientHeight;
 
@@ -2650,36 +2677,36 @@ export class Dashboard {
 
         // Update summary stats
         const stats = transactionLog.getStats();
-        document.getElementById('total-transactions').textContent = stats.totalTransactions.toLocaleString();
-        document.getElementById('total-value').textContent = simulation.formatMoney(stats.totalValue);
-        document.getElementById('avg-per-hour').textContent =
+        this.setText('total-transactions', stats.totalTransactions.toLocaleString());
+        this.setText('total-value', simulation.formatMoney(stats.totalValue));
+        this.setText('avg-per-hour',
             stats.hourlyStats.length > 0
                 ? (stats.hourlyStats.reduce((sum, h) => sum + h.transactions, 0) / stats.hourlyStats.length).toFixed(1)
-                : '0';
-        document.getElementById('pending-orders').textContent = transactionLog.getPendingGlobalOrders().length;
+                : '0');
+        this.setText('pending-orders', transactionLog.getPendingGlobalOrders().length);
 
         // Update transaction breakdown - count B2B by tier
         const b2bTransactions = transactionLog.b2bTransactions || [];
         const rawToSemi = b2bTransactions.filter(t => t.tier === 'RAW_TO_SEMI').length;
         const semiToMfg = b2bTransactions.filter(t => t.tier === 'SEMI_TO_MANUFACTURED').length;
 
-        document.getElementById('b2b-raw-count').textContent = rawToSemi.toLocaleString();
-        document.getElementById('b2b-semi-count').textContent = semiToMfg.toLocaleString();
-        document.getElementById('retail-purchase-count').textContent = stats.totalRetail.toLocaleString();
-        document.getElementById('consumer-sale-count').textContent = stats.totalConsumerSales.toLocaleString();
-        document.getElementById('global-market-count').textContent = stats.totalGlobalMarket.toLocaleString();
+        this.setText('b2b-raw-count', rawToSemi.toLocaleString());
+        this.setText('b2b-semi-count', semiToMfg.toLocaleString());
+        this.setText('retail-purchase-count', stats.totalRetail.toLocaleString());
+        this.setText('consumer-sale-count', stats.totalConsumerSales.toLocaleString());
+        this.setText('global-market-count', stats.totalGlobalMarket.toLocaleString());
 
         // Update global market status
         const globalMarketStats = simulation.getGlobalMarketStats?.() || { totalOrders: 0, pendingOrders: 0, totalSpent: 0 };
         const priceMultiplier = simulation.config?.globalMarket?.priceMultiplier || 1.5;
-        document.getElementById('gm-status').textContent = simulation.config?.globalMarket?.enabled ? 'Enabled' : 'Disabled';
-        document.getElementById('gm-multiplier').textContent = `${priceMultiplier}x`;
-        document.getElementById('gm-total-orders').textContent = globalMarketStats.totalOrders?.toLocaleString() || '0';
-        document.getElementById('gm-total-spent').textContent = simulation.formatMoney(globalMarketStats.totalSpent || 0);
+        this.setText('gm-status', simulation.config?.globalMarket?.enabled ? 'Enabled' : 'Disabled');
+        this.setText('gm-multiplier', `${priceMultiplier}x`);
+        this.setText('gm-total-orders', globalMarketStats.totalOrders?.toLocaleString() || '0');
+        this.setText('gm-total-spent', simulation.formatMoney(globalMarketStats.totalSpent || 0));
 
         // Update pending orders count badge
         const pendingCount = transactionLog.getPendingGlobalOrders().length;
-        document.getElementById('pending-orders-count').textContent = `${pendingCount} Pending`;
+        this.setText('pending-orders-count', `${pendingCount} Pending`);
 
         // Populate city filter if not already done
         this.populateCityFilter();
@@ -2726,7 +2753,7 @@ export class Dashboard {
         }
 
         // Update showing count
-        document.getElementById('showing-transactions').textContent = `Showing ${transactions.length}`;
+        this.setText('showing-transactions', `Showing ${transactions.length}`);
 
         // Render transactions table
         this.renderTransactionsTable(transactions);

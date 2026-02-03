@@ -16,7 +16,7 @@ export async function getSimulation() {
 
     // Create and initialize simulation
     simulation = new SimulationEngine();
-    simulation.initialize();
+    await simulation.initialize();
 
     // Setup update listener using window events (SimulationEngine uses dispatchEvent)
     window.addEventListener('simulation-update', (event) => {

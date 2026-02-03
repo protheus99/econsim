@@ -104,14 +104,14 @@ export class SimulationEngine {
         }
     }
 
-    initialize() {
+    async initialize() {
         console.log('🚀 Initializing Enhanced Simulation Engine...');
 
         // Initialize seeded RNG for consistent generation within a session
         this.initializeRng();
 
-        // Load config (non-blocking, uses defaults if fails)
-        this.loadConfig();
+        // Load config and wait for it before initializing systems that depend on it
+        await this.loadConfig();
 
         // Initialize Global Market first (needed for firm initialization)
         this.globalMarket = new GlobalMarket(this.productRegistry, this.config.globalMarket);
@@ -218,7 +218,7 @@ export class SimulationEngine {
         return names.map((name, i) => ({
             id: i + 1,
             name: name,
-            character: characters[Math.floor(Math.random() * characters.length)],
+            character: characters[Math.floor(this.random() * characters.length)],
             cash: 0, // Will be aggregated from firms
             revenue: 0,
             expenses: 0,
@@ -254,7 +254,7 @@ export class SimulationEngine {
         // Create firms for each city
         for (const city of this.cities) {
             const country = city.country;
-            const firmsForThisCity = 5 + Math.floor(Math.random() * 6); // 5-10 firms per city
+            const firmsForThisCity = 5 + Math.floor(this.random() * 6); // 5-10 firms per city
 
             for (let i = 0; i < firmsForThisCity; i++) {
                 // Cycle through corporations
@@ -309,19 +309,19 @@ export class SimulationEngine {
                                                   'Aluminum Ore', 'Limestone', 'Salt', 'Crude Oil', 'Natural Gas'];
                     const miningResources = country.resources.filter(r => validMiningResources.includes(r));
                     if (miningResources.length > 0) {
-                        const resource = miningResources[Math.floor(Math.random() * miningResources.length)];
+                        const resource = miningResources[Math.floor(this.random() * miningResources.length)];
                         firm = new MiningCompany({ city: city }, country, resource, firmId);
                     }
                     break;
 
                 case 'LOGGING':
                     const timberTypes = ['Softwood Logs', 'Hardwood Logs', 'Bamboo'];
-                    const timberType = timberTypes[Math.floor(Math.random() * timberTypes.length)];
+                    const timberType = timberTypes[Math.floor(this.random() * timberTypes.length)];
                     firm = new LoggingCompany({ city: city }, country, timberType, firmId);
                     break;
 
                 case 'FARM':
-                    const farmType = Math.random() < 0.6 ? 'CROP' : 'LIVESTOCK';
+                    const farmType = this.random() < 0.6 ? 'CROP' : 'LIVESTOCK';
                     firm = new Farm({ city: city }, country, farmType, firmId);
                     break;
 
@@ -329,7 +329,7 @@ export class SimulationEngine {
                     // Create manufacturers for SEMI_RAW products (Steel, Copper Wire, etc.)
                     const semiRawProducts = this.productRegistry.getProductsByTier('SEMI_RAW');
                     if (semiRawProducts.length > 0) {
-                        const product = semiRawProducts[Math.floor(Math.random() * semiRawProducts.length)];
+                        const product = semiRawProducts[Math.floor(this.random() * semiRawProducts.length)];
                         firm = new ManufacturingPlant({ city: city }, country, product.id, this.productRegistry, firmId);
                         firm.isSemiRawProducer = true; // Mark as semi-raw producer
 
@@ -352,7 +352,7 @@ export class SimulationEngine {
                 case 'MANUFACTURING':
                     const manufacturedProducts = this.productRegistry.getProductsByTier('MANUFACTURED');
                     if (manufacturedProducts.length > 0) {
-                        const product = manufacturedProducts[Math.floor(Math.random() * manufacturedProducts.length)];
+                        const product = manufacturedProducts[Math.floor(this.random() * manufacturedProducts.length)];
                         firm = new ManufacturingPlant({ city: city }, country, product.id, this.productRegistry, firmId);
                         firm.isSemiRawProducer = false;
 
@@ -374,7 +374,7 @@ export class SimulationEngine {
 
                 case 'RETAIL':
                     const storeTypes = ['SUPERMARKET', 'DEPARTMENT', 'ELECTRONICS', 'FURNITURE', 'FASHION', 'HARDWARE', 'AUTO'];
-                    const storeType = storeTypes[Math.floor(Math.random() * storeTypes.length)];
+                    const storeType = storeTypes[Math.floor(this.random() * storeTypes.length)];
                     firm = new RetailStore({ city: city }, country, storeType, firmId);
 
                     // Initialize with products matching the store's allowed categories
@@ -384,14 +384,14 @@ export class SimulationEngine {
                         const allowedProducts = allProducts.filter(p => firm.canSellProduct(p.category));
 
                         if (allowedProducts.length > 0) {
-                            const numProducts = Math.min(5 + Math.floor(Math.random() * 10), allowedProducts.length);
+                            const numProducts = Math.min(5 + Math.floor(this.random() * 10), allowedProducts.length);
                             const selectedProducts = new Set();
 
                             while (selectedProducts.size < numProducts) {
-                                const product = allowedProducts[Math.floor(Math.random() * allowedProducts.length)];
+                                const product = allowedProducts[Math.floor(this.random() * allowedProducts.length)];
                                 if (!selectedProducts.has(product.id)) {
                                     selectedProducts.add(product.id);
-                                    const quantity = 50 + Math.floor(Math.random() * 150);
+                                    const quantity = 50 + Math.floor(this.random() * 150);
                                     const wholesalePrice = product.basePrice * 0.7;
                                     firm.purchaseInventory(product.id, quantity, wholesalePrice, product.name);
                                 }
@@ -402,14 +402,14 @@ export class SimulationEngine {
 
                 case 'BANK':
                     const bankTypes = ['COMMERCIAL', 'INVESTMENT'];
-                    const bankType = bankTypes[Math.floor(Math.random() * bankTypes.length)];
+                    const bankType = bankTypes[Math.floor(this.random() * bankTypes.length)];
                     firm = new Bank({ city: city }, country, bankType, firmId);
                     break;
             }
 
             if (firm) {
                 // Assign firm to specified corporation or random one
-                const corp = corporation || this.corporations[Math.floor(Math.random() * this.corporations.length)];
+                const corp = corporation || this.corporations[Math.floor(this.random() * this.corporations.length)];
                 firm.corporationId = corp.id;
                 corp.facilities.push(firm);
                 corp.employees += firm.totalEmployees;
@@ -436,7 +436,7 @@ export class SimulationEngine {
 
     weightedRandomChoice(items, weights) {
         const total = weights.reduce((sum, w) => sum + w, 0);
-        let random = Math.random() * total;
+        let random = this.random() * total;
         
         for (let i = 0; i < items.length; i++) {
             random -= weights[i];

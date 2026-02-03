@@ -19,7 +19,7 @@ class Application {
 
             // Initialize simulation engine
             this.simulation = new SimulationEngine();
-            this.simulation.initialize();
+            await this.simulation.initialize();
 
             // Initialize UI components
             this.dashboard = new Dashboard(this.simulation);
