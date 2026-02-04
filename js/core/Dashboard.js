@@ -844,11 +844,11 @@ export class Dashboard {
         }
 
         document.getElementById('firm-sales-tbody').innerHTML = firmSales.map(t => {
-            const timestamp = new Date(t.timestamp).toLocaleTimeString();
+            const timeDisplay = t.gameTime || new Date(t.timestamp).toLocaleTimeString();
             const total = t.totalCost || t.totalRevenue || 0;
             return `
                 <tr class="transaction-row">
-                    <td class="tx-time">${timestamp}</td>
+                    <td class="tx-time">${timeDisplay}</td>
                     <td class="tx-buyer">
                         <div class="tx-party">
                             <span class="tx-party-name">${this.truncate(t.buyer?.name || t.buyer?.type || 'Unknown', 20)}</span>

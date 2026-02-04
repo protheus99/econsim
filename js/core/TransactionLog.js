@@ -2,6 +2,7 @@
 export class TransactionLog {
     constructor(maxEntries = 1000) {
         this.maxEntries = maxEntries;
+        this.clock = null; // Reference to game clock for timestamps
 
         // All transactions
         this.transactions = [];
@@ -42,6 +43,19 @@ export class TransactionLog {
         };
     }
 
+    // Set reference to game clock for timestamps
+    setClock(clock) {
+        this.clock = clock;
+    }
+
+    // Get formatted game time string
+    getGameTimeString() {
+        if (this.clock) {
+            return this.clock.getFormatted();
+        }
+        return new Date().toISOString();
+    }
+
     // Helper to get firm display name
     getFirmDisplayName(firm) {
         if (!firm) return 'Unknown';
@@ -60,6 +74,7 @@ export class TransactionLog {
             type: 'B2B',
             tier: tier, // 'RAW_TO_SEMI' or 'SEMI_TO_MANUFACTURED'
             timestamp: Date.now(),
+            gameTime: this.getGameTimeString(),
             seller: {
                 id: seller.id,
                 name: this.getFirmDisplayName(seller),
@@ -92,6 +107,7 @@ export class TransactionLog {
             id: this.generateId('RET'),
             type: 'RETAIL_PURCHASE',
             timestamp: Date.now(),
+            gameTime: this.getGameTimeString(),
             seller: {
                 id: manufacturer.id,
                 name: this.getFirmDisplayName(manufacturer),
@@ -123,6 +139,7 @@ export class TransactionLog {
             id: this.generateId('CON'),
             type: 'CONSUMER_SALE',
             timestamp: Date.now(),
+            gameTime: this.getGameTimeString(),
             seller: {
                 id: retailer.id,
                 name: this.getFirmDisplayName(retailer),
@@ -164,6 +181,7 @@ export class TransactionLog {
             globalMarketOrderId: globalMarketOrderId, // Store the GlobalMarket order ID for matching
             type: 'GLOBAL_MARKET',
             timestamp: Date.now(),
+            gameTime: this.getGameTimeString(),
             seller: {
                 type: 'GLOBAL_MARKET',
                 name: 'Global Market',
@@ -219,6 +237,7 @@ export class TransactionLog {
             id: this.generateId('GMS'),
             type: 'GLOBAL_MARKET_SALE',
             timestamp: Date.now(),
+            gameTime: this.getGameTimeString(),
             seller: {
                 id: seller.id,
                 name: this.getFirmDisplayName(seller),

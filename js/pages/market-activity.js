@@ -449,7 +449,7 @@ function renderTransactions() {
 
         return `
             <tr class="${t.type === 'GLOBAL_MARKET' ? 'global-market-row' : ''}">
-                <td>${new Date(t.timestamp).toLocaleTimeString()}</td>
+                <td>${t.gameTime || new Date(t.timestamp).toLocaleTimeString()}</td>
                 <td><span class="type-badge ${t.type?.toLowerCase()}">${t.type}</span></td>
                 <td>
                     ${sellerFirm ? `<a href="#" class="firm-link" data-firm-id="${sellerId}">${sellerDisplay}</a>` : sellerDisplay}

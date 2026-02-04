@@ -41,6 +41,7 @@ export class SimulationEngine {
 
         // Transaction Log for detailed activity tracking
         this.transactionLog = new TransactionLog(1000);
+        this.transactionLog.setClock(this.clock); // Use game time for timestamps
 
         // Product Cost Calculator for balancing
         this.costCalculator = null;
