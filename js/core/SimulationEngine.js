@@ -531,6 +531,9 @@ export class SimulationEngine {
     }
 
     setupIntervals() {
+        // Use config timeScale for tick rate (default 1000ms = 1 real second per game hour)
+        const tickRate = this.config.simulation?.timeScale?.realSecond ?? 1000;
+
         this.hourlyInterval = setInterval(() => {
             if (!this.clock.isPaused) {
                 for (let i = 0; i < this.speed; i++) {
@@ -539,7 +542,7 @@ export class SimulationEngine {
                 }
             }
             this.emit('update');
-        }, 1000);
+        }, tickRate);
     }
 
     updateHourly() {

@@ -92,7 +92,7 @@ function renderSummary() {
     const firms = Array.from(simulation.firms.values());
     const gm = simulation.globalMarket;
 
-    let totalRevenue = 0, totalProfit = 0, totalEmployees = 0;
+    let totalRevenue = 0, totalProfit = 0, totalEmployees = 0, totalMonthlySalary = 0;
     let miningCount = 0, farmCount = 0, mfgCount = 0, retailCount = 0, loggingCount = 0;
     let totalOrdersWon = 0;
 
@@ -100,6 +100,7 @@ function renderSummary() {
         totalRevenue += f.revenue || 0;
         totalProfit += getFirmProfit(f);
         totalEmployees += f.totalEmployees || 0;
+        totalMonthlySalary += getFirmMonthlySalary(f);
 
         switch (f.type) {
             case 'MINING': miningCount++; break;
@@ -132,8 +133,8 @@ function renderSummary() {
                 <span class="stat-value">${formatNumber(totalEmployees)}</span>
             </div>
             <div class="stat-item">
-                <span class="stat-label">Orders Won</span>
-                <span class="stat-value">${totalOrdersWon}</span>
+                <span class="stat-label">Monthly Payroll</span>
+                <span class="stat-value">${formatCurrency(totalMonthlySalary)}</span>
             </div>
         </div>
         <div class="firm-type-breakdown">
@@ -169,6 +170,14 @@ function getFirmProfit(firm) {
         return firm.getCurrentProfit();
     }
     return firm.profit || 0;
+}
+
+// Get monthly salary for a firm
+function getFirmMonthlySalary(firm) {
+    if (typeof firm.calculateLaborCosts === 'function') {
+        return firm.calculateLaborCosts();
+    }
+    return firm.totalLaborCost || 0;
 }
 
 function renderFirms() {
@@ -243,6 +252,10 @@ function renderFirms() {
                     <div class="stat-item">
                         <span class="stat-label">Employees</span>
                         <span class="stat-value">${formatNumber(firm.totalEmployees || 0)}</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Monthly Salary</span>
+                        <span class="stat-value">${formatCurrency(getFirmMonthlySalary(firm))}</span>
                     </div>
                 </div>
                 ${ordersCount > 0 ? `
@@ -538,6 +551,8 @@ function renderProductsInfo(firm) {
 
 function renderLaborStats(firm) {
     const container = document.getElementById('firm-labor-stats');
+    const monthlySalary = getFirmMonthlySalary(firm);
+
     container.innerHTML = `
         <div class="labor-stats-grid">
             <div class="labor-stat">
@@ -545,8 +560,12 @@ function renderLaborStats(firm) {
                 <span class="value">${firm.totalEmployees || 0}</span>
             </div>
             <div class="labor-stat">
-                <span class="label">Salary Level</span>
-                <span class="value">${((firm.salaryLevel || 0) * 100).toFixed(0)}%</span>
+                <span class="label">Monthly Salary</span>
+                <span class="value">${formatCurrency(monthlySalary)}</span>
+            </div>
+            <div class="labor-stat">
+                <span class="label">Avg per Employee</span>
+                <span class="value">${formatCurrency(firm.totalEmployees > 0 ? monthlySalary / firm.totalEmployees : 0)}</span>
             </div>
         </div>
     `;

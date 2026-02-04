@@ -81,13 +81,14 @@ function renderSummary() {
     if (!container) return;
 
     let totalRevenue = 0, totalProfit = 0, totalEmployees = 0, totalFacilities = 0;
-    let totalOrdersWon = 0, totalOrderValue = 0;
+    let totalOrdersWon = 0, totalOrderValue = 0, totalMonthlySalary = 0;
 
     simulation.corporations.forEach(c => {
         totalRevenue += c.revenue || 0;
         totalProfit += c.profit || 0;
         totalEmployees += c.employees || 0;
         totalFacilities += c.facilities?.length || 0;
+        totalMonthlySalary += getCorpMonthlySalary(c);
 
         // Count orders won by this corp's firms
         const corpOrders = getCorpOrders(c);
@@ -110,6 +111,10 @@ function renderSummary() {
                 <span class="stat-value">${formatNumber(totalEmployees)}</span>
             </div>
             <div class="stat-item">
+                <span class="stat-label">Monthly Payroll</span>
+                <span class="stat-value">${formatCurrency(totalMonthlySalary)}</span>
+            </div>
+            <div class="stat-item">
                 <span class="stat-label">Total Facilities</span>
                 <span class="stat-value">${totalFacilities}</span>
             </div>
@@ -117,12 +122,20 @@ function renderSummary() {
                 <span class="stat-label">Orders Won</span>
                 <span class="stat-value">${totalOrdersWon}</span>
             </div>
-            <div class="stat-item">
-                <span class="stat-label">Order Value</span>
-                <span class="stat-value">${formatCurrency(totalOrderValue)}</span>
-            </div>
         </div>
     `;
+}
+
+// Calculate total monthly salary for a corporation
+function getCorpMonthlySalary(corp) {
+    if (!corp.facilities || corp.facilities.length === 0) return 0;
+
+    return corp.facilities.reduce((total, firm) => {
+        if (typeof firm.calculateLaborCosts === 'function') {
+            return total + firm.calculateLaborCosts();
+        }
+        return total + (firm.totalLaborCost || 0);
+    }, 0);
 }
 
 function getCorpOrders(corp) {
@@ -179,6 +192,7 @@ function renderCorporations() {
 
     container.innerHTML = corps.map(corp => {
         const corpOrders = getCorpOrders(corp);
+        const monthlySalary = getCorpMonthlySalary(corp);
         return `
         <div class="corp-card" data-corp-id="${corp.id}">
             <div class="corp-card-header">
@@ -200,8 +214,8 @@ function renderCorporations() {
                     <span class="stat-value ${(corp.profit || 0) < 0 ? 'negative' : ''}">${formatCurrency(corp.profit || 0)}</span>
                 </div>
                 <div class="stat-item">
-                    <span class="stat-label">Facilities</span>
-                    <span class="stat-value">${corp.facilities?.length || 0}</span>
+                    <span class="stat-label">Monthly Payroll</span>
+                    <span class="stat-value">${formatCurrency(monthlySalary)}</span>
                 </div>
             </div>
             ${corpOrders.length > 0 ? `
@@ -267,10 +281,13 @@ function showCorpDetail(corpId) {
     `;
 
     // Performance stats
+    const corpMonthlySalary = getCorpMonthlySalary(corp);
     document.getElementById('corp-performance-stats').innerHTML = `
         <div class="stats-grid">
             <div class="stat-item"><span class="stat-label">Employees</span><span class="stat-value">${formatNumber(corp.employees || 0)}</span></div>
             <div class="stat-item"><span class="stat-label">Facilities</span><span class="stat-value">${corp.facilities?.length || 0}</span></div>
+            <div class="stat-item"><span class="stat-label">Monthly Payroll</span><span class="stat-value">${formatCurrency(corpMonthlySalary)}</span></div>
+            <div class="stat-item"><span class="stat-label">Avg Salary/Employee</span><span class="stat-value">${formatCurrency(corp.employees > 0 ? corpMonthlySalary / corp.employees : 0)}</span></div>
         </div>
     `;
 
