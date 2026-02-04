@@ -63,22 +63,32 @@ export class Firm {
         // To be overridden by subclasses
         return 0;
     }
-    
+
+    // Pay half of monthly wages (called on 1st and 15th of month)
     payWages() {
-        const totalWages = this.calculateLaborCosts();
-        this.cash -= totalWages;
-        this.expenses += totalWages;
-        this.monthlyExpenses += totalWages;
-        this.totalLaborCost = totalWages;
-        return totalWages;
+        const monthlyWages = this.calculateLaborCosts();
+        const halfWages = monthlyWages / 2;
+        this.cash -= halfWages;
+        this.expenses += halfWages;
+        this.monthlyExpenses += halfWages;
+        this.totalLaborCost = monthlyWages; // Track full monthly amount
+        return halfWages;
     }
-    
+
+    // Pay operating expenses (called at end of month)
     payOperatingExpenses() {
         const total = this.operationalExpenses + this.equipmentCosts + this.maintenanceCosts;
         this.cash -= total;
         this.expenses += total;
         this.monthlyExpenses += total;
         return total;
+    }
+
+    // Pay all end-of-month expenses (operating + loans)
+    payEndOfMonthExpenses() {
+        const operatingCosts = this.payOperatingExpenses();
+        const loanPayments = this.processLoanPayments();
+        return operatingCosts + loanPayments;
     }
     
     investInMarketing(amount) {
@@ -135,19 +145,13 @@ export class Firm {
     }
     
     updateMonthly() {
-        // Pay wages
-        this.payWages();
-        
-        // Pay operating expenses
-        this.payOperatingExpenses();
-        
-        // Process loan payments
-        this.processLoanPayments();
-        
+        // Note: Wages are paid on 1st and 15th via payWages()
+        // Note: Operating expenses and loans are paid on last day via payEndOfMonthExpenses()
+
         // Calculate profit
         this.monthlyProfit = this.monthlyRevenue - this.monthlyExpenses;
         this.profit += this.monthlyProfit;
-        
+
         // Reset monthly counters
         this.monthlyRevenue = 0;
         this.monthlyExpenses = 0;

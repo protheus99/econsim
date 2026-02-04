@@ -1268,7 +1268,42 @@ export class SimulationEngine {
 
     updateDaily() {
         this.monthlyTick++;
+
+        // Day 1 (tick 1): Pay first half of wages
+        if (this.monthlyTick === 1) {
+            this.firms.forEach(firm => {
+                try {
+                    firm.payWages();
+                } catch (error) {
+                    console.error(`Error paying wages for firm ${firm.id}:`, error);
+                }
+            });
+            console.log(`💰 Day 1: Paid first payroll to all firms`);
+        }
+
+        // Day 15 (tick 15): Pay second half of wages
+        if (this.monthlyTick === 15) {
+            this.firms.forEach(firm => {
+                try {
+                    firm.payWages();
+                } catch (error) {
+                    console.error(`Error paying wages for firm ${firm.id}:`, error);
+                }
+            });
+            console.log(`💰 Day 15: Paid second payroll to all firms`);
+        }
+
+        // Day 30 (tick 30): Pay end-of-month expenses
         if (this.monthlyTick >= 30) {
+            this.firms.forEach(firm => {
+                try {
+                    firm.payEndOfMonthExpenses();
+                } catch (error) {
+                    console.error(`Error paying end-of-month expenses for firm ${firm.id}:`, error);
+                }
+            });
+            console.log(`📋 Day 30: Paid operating expenses and loans for all firms`);
+
             this.monthlyTick = 0;
             this.updateMonthly();
         }
