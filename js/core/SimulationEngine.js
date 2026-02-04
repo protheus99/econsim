@@ -861,12 +861,12 @@ export class SimulationEngine {
 
                 // Calculate bid price based on production cost + profit margin
                 const baseCost = order.basePrice;
-                // Random profit margin 5-25%
-                const profitMargin = 1.05 + Math.random() * 0.20;
+                // Random profit margin 5-25% (using seeded RNG for determinism)
+                const profitMargin = 1.05 + this.random() * 0.20;
                 const bidPrice = baseCost * profitMargin;
 
                 // Calculate delivery fee based on quantity
-                const deliveryFee = order.quantity * 0.3 * (1 + Math.random());
+                const deliveryFee = order.quantity * 0.3 * (1 + this.random());
 
                 // Place the bid
                 this.globalMarket.placeBid(firm, order.id, bidPrice, deliveryFee);
@@ -1328,7 +1328,8 @@ export class SimulationEngine {
         // Finalize transaction log for this day
         this.transactionLog.finalizeDay(this.clock.getGameTime());
 
-        if (Math.random() < 0.05) {
+        // 5% chance of random event (using seeded RNG for determinism)
+        if (this.random() < 0.05) {
             this.generateRandomEvent();
         }
     }
@@ -1421,7 +1422,7 @@ export class SimulationEngine {
             { type: 'info', title: 'New Technology', message: 'Manufacturing efficiency improvements announced' }
         ];
 
-        const event = events[Math.floor(Math.random() * events.length)];
+        const event = events[Math.floor(this.random() * events.length)];
         this.addEvent(event.type, event.title, event.message);
     }
 
