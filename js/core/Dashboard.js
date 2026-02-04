@@ -888,7 +888,7 @@ export class Dashboard {
         }
 
         document.getElementById('firm-purchases-tbody').innerHTML = firmPurchases.map(t => {
-            const timestamp = new Date(t.timestamp).toLocaleTimeString();
+            const timeDisplay = t.gameTime || new Date(t.timestamp).toLocaleTimeString();
             const total = t.totalCost || 0;
             const isGlobalMarket = t.type === 'GLOBAL_MARKET';
             const sourceClass = isGlobalMarket ? 'source-global' : 'source-local';
@@ -896,7 +896,7 @@ export class Dashboard {
 
             return `
                 <tr class="transaction-row">
-                    <td class="tx-time">${timestamp}</td>
+                    <td class="tx-time">${timeDisplay}</td>
                     <td class="tx-seller">
                         <div class="tx-party">
                             <span class="tx-party-name">${this.truncate(t.seller?.name || 'Unknown', 20)}</span>
@@ -2853,7 +2853,7 @@ export class Dashboard {
         tbody.innerHTML = transactions.map(t => {
             const typeClass = this.getTransactionTypeClass(t.type);
             const typeBadge = this.getTransactionTypeBadge(t.type);
-            const timestamp = new Date(t.timestamp).toLocaleTimeString();
+            const timeDisplay = t.gameTime || new Date(t.timestamp).toLocaleTimeString();
             const totalValue = t.totalCost || t.totalRevenue || 0;
             const unitPrice = t.unitPrice || 0;
             const status = t.status || 'COMPLETED';
@@ -2861,7 +2861,7 @@ export class Dashboard {
 
             return `
                 <tr class="transaction-row">
-                    <td class="tx-time">${timestamp}</td>
+                    <td class="tx-time">${timeDisplay}</td>
                     <td><span class="tx-type-badge ${typeClass}">${typeBadge}</span></td>
                     <td class="tx-seller" title="${t.seller?.name || 'Unknown'}">
                         <div class="tx-party">
