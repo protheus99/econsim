@@ -53,6 +53,12 @@ export class Firm {
         return `${abbr} ${this.type}`;
     }
 
+    // Get current running profit (updates in real-time during month)
+    getCurrentProfit() {
+        const runningMonthlyProfit = this.monthlyRevenue - this.monthlyExpenses;
+        return this.profit + runningMonthlyProfit;
+    }
+
     calculateLaborCosts() {
         // To be overridden by subclasses
         return 0;

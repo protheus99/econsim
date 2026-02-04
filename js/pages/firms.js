@@ -98,7 +98,7 @@ function renderSummary() {
 
     firms.forEach(f => {
         totalRevenue += f.revenue || 0;
-        totalProfit += f.profit || 0;
+        totalProfit += getFirmProfit(f);
         totalEmployees += f.totalEmployees || 0;
 
         switch (f.type) {
@@ -163,6 +163,14 @@ function getFirmOrdersCount(firmId) {
     return pending + completed;
 }
 
+// Get real-time profit (uses getCurrentProfit if available)
+function getFirmProfit(firm) {
+    if (typeof firm.getCurrentProfit === 'function') {
+        return firm.getCurrentProfit();
+    }
+    return firm.profit || 0;
+}
+
 function renderFirms() {
     const container = document.getElementById('all-firms-grid');
     if (!container) return;
@@ -193,7 +201,7 @@ function renderFirms() {
     firms.sort((a, b) => {
         let aVal, bVal;
         switch (field) {
-            case 'profit': aVal = a.profit || 0; bVal = b.profit || 0; break;
+            case 'profit': aVal = getFirmProfit(a); bVal = getFirmProfit(b); break;
             case 'revenue': aVal = a.revenue || 0; bVal = b.revenue || 0; break;
             case 'employees': aVal = a.totalEmployees || 0; bVal = b.totalEmployees || 0; break;
             case 'orders': aVal = getFirmOrdersCount(a.id); bVal = getFirmOrdersCount(b.id); break;
@@ -230,7 +238,7 @@ function renderFirms() {
                     </div>
                     <div class="stat-item">
                         <span class="stat-label">Profit</span>
-                        <span class="stat-value">${formatCurrency(firm.profit || 0)}</span>
+                        <span class="stat-value">${formatCurrency(getFirmProfit(firm))}</span>
                     </div>
                     <div class="stat-item">
                         <span class="stat-label">Employees</span>
@@ -350,7 +358,7 @@ function showFirmDetail(firmId) {
                 <div class="financial-detail-label">Revenue</div>
             </div>
             <div class="financial-detail-item">
-                <div class="financial-detail-value">${formatCurrency(firm.profit || 0)}</div>
+                <div class="financial-detail-value">${formatCurrency(getFirmProfit(firm))}</div>
                 <div class="financial-detail-label">Profit</div>
             </div>
         </div>

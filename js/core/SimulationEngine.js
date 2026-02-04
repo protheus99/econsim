@@ -1304,16 +1304,20 @@ export class SimulationEngine {
         // Update all firms and aggregate to corporations
         this.firms.forEach(firm => {
             try {
+                // Capture monthly values BEFORE updateMonthly resets them
+                const firmMonthlyRevenue = firm.monthlyRevenue || 0;
+                const firmMonthlyExpenses = firm.monthlyExpenses || 0;
+
                 firm.updateMonthly();
 
-                // Update corporation stats
+                // Update corporation stats using captured values
                 const corp = this.corporations.find(c => c.id === (firm.corporationId || 1));
                 if (corp) {
                     corp.employees += firm.totalEmployees;
-                    corp.revenue += firm.monthlyRevenue;
+                    corp.revenue += firmMonthlyRevenue;
                     corp.profit += firm.monthlyProfit;
                     corp.cash += firm.cash || 0;
-                    corp.expenses += firm.monthlyExpenses || 0;
+                    corp.expenses += firmMonthlyExpenses;
                 }
             } catch (error) {
                 console.error(`Error updating firm ${firm.id}:`, error);
