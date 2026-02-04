@@ -2,6 +2,7 @@
 export class GlobalMarket {
     constructor(productRegistry, config = {}) {
         this.productRegistry = productRegistry;
+        this.firms = null; // Reference to simulation firms Map for inventory updates
 
         // Configuration with defaults
         this.config = {
@@ -66,6 +67,11 @@ export class GlobalMarket {
                 lastUpdated: Date.now()
             });
         });
+    }
+
+    // Set reference to firms Map for inventory updates during delivery
+    setFirms(firms) {
+        this.firms = firms;
     }
 
     // Initialize with 3500+ orders for all non-retail products
@@ -472,10 +478,34 @@ export class GlobalMarket {
             }
         }
 
-        // Pay the winning bidder
-        if (order.winningBid) {
-            // Find the firm that won the bid
-            // Payment is handled through the transaction system
+        // Process winning bid - deduct inventory and pay seller
+        if (order.winningBid && this.firms) {
+            const seller = this.firms.get(order.winningBid.firmId);
+
+            if (seller) {
+                // Deduct inventory from seller based on firm type
+                let inventorySource = null;
+                if (seller.type === 'MANUFACTURING') {
+                    inventorySource = seller.finishedGoodsInventory;
+                } else if (seller.type === 'MINING' || seller.type === 'LOGGING' || seller.type === 'FARM') {
+                    inventorySource = seller.inventory;
+                }
+
+                if (inventorySource && inventorySource.quantity >= order.quantity) {
+                    inventorySource.quantity -= order.quantity;
+                } else if (inventorySource) {
+                    // Deduct what's available (partial fulfillment)
+                    console.warn(`⚠️ Firm ${seller.id} has insufficient inventory for order ${order.id}. Available: ${inventorySource.quantity}, Required: ${order.quantity}`);
+                    inventorySource.quantity = Math.max(0, inventorySource.quantity - order.quantity);
+                }
+
+                // Pay the seller
+                const payment = order.winningBid.totalBidValue;
+                seller.cash += payment;
+                seller.revenue += payment;
+                seller.monthlyRevenue += payment;
+            }
+
             this.totalRevenue += order.winningBid.totalBidValue;
             this.totalVolume += order.quantity;
         }

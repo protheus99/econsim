@@ -203,6 +203,9 @@ export class SimulationEngine {
         // Generate firms (mining, logging, farms, manufacturing, retail, banks)
         this.generateFirms();
 
+        // Give GlobalMarket reference to firms for inventory updates during delivery
+        this.globalMarket.setFirms(this.firms);
+
         // Initialize statistics before first render
         this.updateStatistics();
 
