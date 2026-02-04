@@ -21,6 +21,7 @@ export class SimulationEngine {
         this.cityManager = null;
         this.firms = new Map();
         this.corporations = [];
+        this.corporationsById = new Map(); // O(1) lookup by corporation ID
         this.events = [];
         this.marketHistory = [];
         this.hourlyTransactions = { count: 0, value: 0 }; // Track B2B + retail transactions
@@ -195,8 +196,9 @@ export class SimulationEngine {
         this.cityManager = new CityManager(this.countries, this.config);
         this.cities = this.cityManager.generateInitialCities(); // Uses config.cities.initial
 
-        // Generate corporations
+        // Generate corporations and build lookup Map
         this.corporations = this.generateCorporations();
+        this.corporations.forEach(corp => this.corporationsById.set(corp.id, corp));
 
         // Generate firms (mining, logging, farms, manufacturing, retail, banks)
         this.generateFirms();
@@ -885,7 +887,7 @@ export class SimulationEngine {
         });
 
         this.firms.forEach(firm => {
-            const corp = this.corporations.find(c => c.id === firm.corporationId);
+            const corp = this.corporationsById.get(firm.corporationId);
             if (corp) {
                 corp.employees += firm.totalEmployees || 0;
                 corp.revenue += firm.revenue || 0;
@@ -1363,8 +1365,8 @@ export class SimulationEngine {
 
                 firm.updateMonthly();
 
-                // Update corporation stats using captured values
-                const corp = this.corporations.find(c => c.id === (firm.corporationId || 1));
+                // Update corporation stats using captured values (O(1) lookup)
+                const corp = this.corporationsById.get(firm.corporationId) || this.corporationsById.get(1);
                 if (corp) {
                     corp.employees += firm.totalEmployees;
                     corp.revenue += firmMonthlyRevenue;
