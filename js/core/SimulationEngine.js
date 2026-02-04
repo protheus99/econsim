@@ -492,6 +492,7 @@ export class SimulationEngine {
                 // Assign firm to specified corporation or random one
                 const corp = corporation || this.corporations[Math.floor(this.random() * this.corporations.length)];
                 firm.corporationId = corp.id;
+                firm.corporationAbbreviation = corp.abbreviation;
                 corp.facilities.push(firm);
                 corp.employees += firm.totalEmployees;
 

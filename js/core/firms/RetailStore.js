@@ -542,6 +542,7 @@ export class RetailStore extends Firm {
 
     // Override: Get display name for this retail store
     getDisplayName() {
+        const abbr = this.corporationAbbreviation || '???';
         const storeTypeNames = {
             'SUPERMARKET': 'Supermarket',
             'DEPARTMENT': 'Department Store',
@@ -552,6 +553,6 @@ export class RetailStore extends Firm {
             'AUTO': 'Auto Dealership'
         };
         const typeName = storeTypeNames[this.storeType] || this.storeType;
-        return `${typeName} #${this.getShortId()}`;
+        return `${abbr} ${typeName}`;
     }
 }

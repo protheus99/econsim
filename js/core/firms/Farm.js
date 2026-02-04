@@ -402,10 +402,11 @@ export class Farm extends Firm {
 
     // Override: Get display name for this farm
     getDisplayName() {
+        const abbr = this.corporationAbbreviation || '???';
         if (this.farmType === 'CROP') {
-            return `${this.cropType} Farm #${this.getShortId()}`;
+            return `${abbr} ${this.cropType} Farm`;
         } else {
-            return `${this.livestockType} Ranch #${this.getShortId()}`;
+            return `${abbr} ${this.livestockType} Ranch`;
         }
     }
 }

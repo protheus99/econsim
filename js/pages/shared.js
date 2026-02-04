@@ -215,7 +215,7 @@ export function getFirmTypeName(firm) {
     }
 }
 
-// Get full firm display name with ID suffix
+// Get full firm display name with corporation abbreviation prefix
 // Uses firm's getDisplayName() method if available, otherwise constructs one
 export function getFirmDisplayName(firm) {
     if (!firm) return 'Unknown';
@@ -225,10 +225,10 @@ export function getFirmDisplayName(firm) {
         return firm.getDisplayName();
     }
 
-    // Fallback: construct display name
+    // Fallback: construct display name with corp abbreviation
+    const abbr = firm.corporationAbbreviation || '???';
     const typeName = getFirmTypeName(firm);
-    const shortId = (firm.id || '').toString().slice(-6);
-    return `${typeName} #${shortId}`;
+    return `${abbr} ${typeName}`;
 }
 
 // Get firm display name with corporation name prefix

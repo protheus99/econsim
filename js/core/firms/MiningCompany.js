@@ -267,6 +267,7 @@ export class MiningCompany extends Firm {
 
     // Override: Get display name for this mining company
     getDisplayName() {
-        return `${this.resourceType} Mine #${this.getShortId()}`;
+        const abbr = this.corporationAbbreviation || '???';
+        return `${abbr} ${this.resourceType} Mine`;
     }
 }

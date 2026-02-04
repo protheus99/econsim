@@ -49,13 +49,8 @@ export class Firm {
     // Get a human-readable display name for this firm
     // Override in subclasses for type-specific names
     getDisplayName() {
-        const shortId = this.id.slice(-6);
-        return `${this.type} #${shortId}`;
-    }
-
-    // Get short ID suffix for display
-    getShortId() {
-        return this.id.slice(-6);
+        const abbr = this.corporationAbbreviation || '???';
+        return `${abbr} ${this.type}`;
     }
 
     calculateLaborCosts() {

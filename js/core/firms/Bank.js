@@ -412,12 +412,13 @@ export class Bank extends Firm {
 
     // Override: Get display name for this bank
     getDisplayName() {
+        const abbr = this.corporationAbbreviation || '???';
         const bankTypeNames = {
             'COMMERCIAL': 'Commercial Bank',
             'INVESTMENT': 'Investment Bank',
             'CENTRAL': 'Central Bank'
         };
         const typeName = bankTypeNames[this.bankType] || this.bankType;
-        return `${typeName} #${this.getShortId()}`;
+        return `${abbr} ${typeName}`;
     }
 }

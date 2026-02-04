@@ -230,6 +230,7 @@ export class LoggingCompany extends Firm {
 
     // Override: Get display name for this logging company
     getDisplayName() {
-        return `${this.timberType} Logging #${this.getShortId()}`;
+        const abbr = this.corporationAbbreviation || '???';
+        return `${abbr} ${this.timberType} Logging`;
     }
 }

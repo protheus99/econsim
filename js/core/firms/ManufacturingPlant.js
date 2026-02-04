@@ -342,7 +342,8 @@ export class ManufacturingPlant extends Firm {
 
     // Override: Get display name for this manufacturing plant
     getDisplayName() {
+        const abbr = this.corporationAbbreviation || '???';
         const productName = this.product?.name || 'Manufacturing';
-        return `${productName} Plant #${this.getShortId()}`;
+        return `${abbr} ${productName} Plant`;
     }
 }
