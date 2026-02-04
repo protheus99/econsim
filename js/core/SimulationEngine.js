@@ -221,15 +221,19 @@ export class SimulationEngine {
     }
 
     initializeCountries() {
-        FICTIONAL_COUNTRIES.forEach(config => {
-            const country = new Country(config);
+        // Use config count, default to all available countries
+        const countryCount = this.config.countries?.count ?? FICTIONAL_COUNTRIES.length;
+        const countriesToLoad = FICTIONAL_COUNTRIES.slice(0, countryCount);
+
+        countriesToLoad.forEach(countryConfig => {
+            const country = new Country(countryConfig);
             this.countries.set(country.id, country);
         });
 
         // Establish some trade agreements
         this.establishTradeAgreements();
 
-        console.log(`✅ Initialized ${this.countries.size} countries`);
+        console.log(`✅ Initialized ${this.countries.size} countries (config: ${countryCount})`);
     }
 
     establishTradeAgreements() {
@@ -314,28 +318,38 @@ export class SimulationEngine {
     }
 
     generateFirms() {
-        // Generate a diverse mix of firms across all cities
-        const firmsPerCity = 8; // Average firms per city
-        const totalFirmsTarget = this.cities.length * firmsPerCity;
+        // Get firm generation config
+        const firmsPerCityConfig = this.config.firms?.perCity ?? { min: 5, max: 10 };
+        const distributionConfig = this.config.firms?.distribution ?? {
+            MINING: 0.15, LOGGING: 0.10, FARM: 0.20, MANUFACTURING: 0.25, RETAIL: 0.20, BANK: 0.10
+        };
 
-        // Distribution targets by type
+        // Calculate average firms per city for distribution targets
+        const avgFirmsPerCity = (firmsPerCityConfig.min + firmsPerCityConfig.max) / 2;
+        const totalFirmsTarget = this.cities.length * avgFirmsPerCity;
+
+        // Distribution targets by type (using config)
         const firmTypeTargets = {
-            'MINING': Math.floor(totalFirmsTarget * 0.15),
-            'LOGGING': Math.floor(totalFirmsTarget * 0.10),
-            'FARM': Math.floor(totalFirmsTarget * 0.20),
-            'MANUFACTURING_SEMI': Math.floor(totalFirmsTarget * 0.15),
-            'MANUFACTURING': Math.floor(totalFirmsTarget * 0.15),
-            'RETAIL': Math.floor(totalFirmsTarget * 0.15),
-            'BANK': Math.floor(totalFirmsTarget * 0.10)
+            'MINING': Math.floor(totalFirmsTarget * (distributionConfig.MINING ?? 0.15)),
+            'LOGGING': Math.floor(totalFirmsTarget * (distributionConfig.LOGGING ?? 0.10)),
+            'FARM': Math.floor(totalFirmsTarget * (distributionConfig.FARM ?? 0.20)),
+            'MANUFACTURING_SEMI': Math.floor(totalFirmsTarget * ((distributionConfig.MANUFACTURING ?? 0.25) / 2)),
+            'MANUFACTURING': Math.floor(totalFirmsTarget * ((distributionConfig.MANUFACTURING ?? 0.25) / 2)),
+            'RETAIL': Math.floor(totalFirmsTarget * (distributionConfig.RETAIL ?? 0.20)),
+            'BANK': Math.floor(totalFirmsTarget * (distributionConfig.BANK ?? 0.10))
         };
 
         let totalCreated = 0;
         let corpIndex = 0;
 
-        // Create firms for each city
+        // Create firms for each city using config min/max
+        const minFirms = firmsPerCityConfig.min;
+        const maxFirms = firmsPerCityConfig.max;
+        const firmRange = maxFirms - minFirms + 1;
+
         for (const city of this.cities) {
             const country = city.country;
-            const firmsForThisCity = 5 + Math.floor(this.random() * 6); // 5-10 firms per city
+            const firmsForThisCity = minFirms + Math.floor(this.random() * firmRange);
 
             for (let i = 0; i < firmsForThisCity; i++) {
                 // Cycle through corporations
