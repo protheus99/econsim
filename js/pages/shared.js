@@ -56,6 +56,11 @@ export function formatCurrency(num) {
     return '$' + formatNumber(num);
 }
 
+export function formatCurrencyFull(num) {
+    if (num == null || isNaN(num)) return '$0.00';
+    return '$' + Number(num).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 export function formatPercent(num) {
     if (num == null || isNaN(num)) return '0%';
     return (num * 100).toFixed(1) + '%';
