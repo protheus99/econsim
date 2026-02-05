@@ -72,7 +72,7 @@ export class SimulationEngine {
                 tariffs: { raw: 0.05, semiRaw: 0.10, manufactured: 0.15 }
             },
             cities: {
-                initial: 8,
+                initial: 25,
                 minPopulation: 250000,
                 maxPopulation: 5000000,
                 salaryLevel: { min: 0.1, max: 1.0, default: 0.5 },
@@ -80,7 +80,7 @@ export class SimulationEngine {
                 infrastructure: { airportThreshold: 500000, seaportRequiresCoastal: true, railwayThreshold: 250000 }
             },
             firms: {
-                perCity: { min: 5, max: 10 },
+                perCity: { min: 20, max: 35 },
                 distribution: { MINING: 0.15, LOGGING: 0.10, FARM: 0.20, MANUFACTURING: 0.25, RETAIL: 0.20, BANK: 0.10 }
             },
             products: {
@@ -290,6 +290,16 @@ export class SimulationEngine {
         ];
         const characters = ['CONSERVATIVE', 'MODERATE', 'AGGRESSIVE', 'VERY_AGGRESSIVE'];
 
+        // Derive corporation count from expected total firms and firmsPerCorp config
+        const firmsPerCity = this.config.firms?.perCity ?? { min: 5, max: 10 };
+        const avgFirmsPerCity = (firmsPerCity.min + firmsPerCity.max) / 2;
+        const totalCities = this.config.cities?.initial ?? 8;
+        const expectedTotalFirms = totalCities * avgFirmsPerCity;
+        const firmsPerCorp = this.config.corporations?.firmsPerCorp ?? 4;
+        const corpCount = Math.min(Math.max(Math.round(expectedTotalFirms / firmsPerCorp), 2), names.length);
+
+        console.log(`📊 Corporations: ${corpCount} (from ~${expectedTotalFirms} expected firms, ${firmsPerCorp} firms/corp)`);
+
         // Generate 3-letter abbreviation from name
         const generateAbbreviation = (name) => {
             const words = name.replace(/[^a-zA-Z\s]/g, '').split(/\s+/).filter(w => w.length > 0);
@@ -305,12 +315,22 @@ export class SimulationEngine {
             }
         };
 
-        return names.map((name, i) => ({
+        // Shuffle names using seeded RNG to get variety across different configs
+        const shuffled = [...names];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+            const j = Math.floor(this.random() * (i + 1));
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+
+        const selectedNames = shuffled.slice(0, corpCount);
+        const colorStep = 360 / corpCount;
+
+        return selectedNames.map((name, i) => ({
             id: i + 1,
             name: name,
             abbreviation: generateAbbreviation(name),
             character: characters[Math.floor(this.random() * characters.length)],
-            cash: 0, // Will be aggregated from firms
+            cash: 0,
             revenue: 0,
             expenses: 0,
             profit: 0,
@@ -319,7 +339,7 @@ export class SimulationEngine {
             monthlyProfit: 0,
             employees: 0,
             facilities: [],
-            color: `hsl(${(i * 7.2) % 360}, 70%, 60%)` // Better color distribution for 50 corps
+            color: `hsl(${(i * colorStep) % 360}, 70%, 60%)`
         }));
     }
 

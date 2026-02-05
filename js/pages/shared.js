@@ -61,6 +61,11 @@ export function formatCurrencyFull(num) {
     return '$' + Number(num).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+export function moneyClass(num) {
+    if (num == null || isNaN(num) || num === 0) return '';
+    return num < 0 ? 'negative' : '';
+}
+
 export function formatPercent(num) {
     if (num == null || isNaN(num)) return '0%';
     return (num * 100).toFixed(1) + '%';

@@ -25,13 +25,14 @@ A comprehensive web-based economic simulation featuring autonomous cities, corpo
 
 This simulation creates a dynamic economic world with:
 
-- **25 fictional countries** across 5 continents with trade agreements
+- **25 fictional countries** across 5 continents with trade agreements and tariffs
 - **8 cities** with populations ranging from 250K to 5M
-- **40 corporations** with different AI-driven strategies
-- **6 firm types** operating across supply chains
+- **Config-driven corporations** with 3-letter abbreviations and AI-driven strategies (Conservative, Moderate, Aggressive, Very Aggressive)
+- **10-20 firms per city** operating across 6 firm types
 - **3-tier supply chain** (RAW → SEMI_RAW → MANUFACTURED)
-- **Global market** for materials not available from local producers
-- **Real-time market activity** with B2B and retail transactions
+- **Global market** for materials not available from local producers (with seller inventory deduction)
+- **Real-time market activity** with B2B, retail, and consumer transactions displayed in game time
+- **Seeded RNG** for deterministic, reproducible simulations
 
 **Time Scale:** 1 real second = 1 game hour (configurable speed: 0.5x to 8x)
 
@@ -41,10 +42,12 @@ This simulation creates a dynamic economic world with:
 - Real-time economic simulation with hourly, daily, monthly, and yearly cycles
 - Three-tier supply chain: RAW → SEMI_RAW → MANUFACTURED → Retail
 - Dynamic market pricing based on supply and demand
-- Global market fallback for unavailable materials
+- Global market fallback for unavailable materials (deducts seller inventory and pays seller)
 - Automatic inventory management with reorder thresholds
 - Corporation AI with personality types (Conservative, Moderate, Aggressive, Very Aggressive)
 - Random economic events affecting market conditions
+- Seeded random number generation for deterministic simulation runs
+- Config-driven corporation count derived from total expected firms
 
 ### City System
 - Dynamic population growth (0.1% - 0.3% monthly)
@@ -55,15 +58,26 @@ This simulation creates a dynamic economic world with:
 - Cost of living variations by country development level
 
 ### Corporation System
-- 40 unique corporations across 8 industry sectors
-- Automatic facility management and employee tracking
-- Revenue and profit aggregation from owned firms
+- Config-driven corporation count (derived from `corporations.firmsPerCorp` and total firm count)
+- 3-letter abbreviations auto-generated from corporation names (e.g., TechCorp Global → TCG)
+- Firm display names use corporation abbreviation (e.g., "TCG Manufacturing")
+- O(1) corporation lookups via Map-based indexing
+- Revenue, profit, and cash aggregation from owned firms
+- Monthly payroll tracking across all facilities
 - Different strategic behaviors based on personality type
+
+### Financial System
+- Real-time profit tracking (not just month-end)
+- Bi-monthly payroll: wages paid on 1st and 15th of each month
+- End-of-month expenses: operating costs and loan payments on last day
+- Full-precision currency display with comma formatting (e.g., $7,650,504.50)
+- Color-coded financials: green for positive, red for negative values
 
 ### Market System
 - B2B transactions between firms in supply chain
 - Retail sales to city populations
 - Global market for materials without local producers
+- Transaction log with game time timestamps
 - Transaction history and market activity charts
 - Product pricing with wholesale and retail markups
 
@@ -107,7 +121,16 @@ Navigate to: `http://localhost:8000`
 
 ```
 economic-simulation/
-├── index.html                      # Main HTML file with UI structure
+├── index.html                      # Main dashboard
+├── global-economy.html             # Global economy overview
+├── world-map.html                  # Interactive world map
+├── cities.html                     # City details and demographics
+├── corporations.html               # Corporation management
+├── firms.html                      # Firm details and financials
+├── market-activity.html            # Transaction log and market data
+├── products.html                   # Product catalog
+├── transportation.html             # Transportation network
+├── feed.html                       # Event feed
 ├── README.md                       # This documentation file
 ├── css/
 │   └── styles.css                  # All styling and layout
@@ -117,12 +140,13 @@ economic-simulation/
 │   │   ├── SimulationEngine.js     # Main simulation coordinator
 │   │   ├── GameClock.js            # Time management (hours, days, months, years)
 │   │   ├── GlobalMarket.js         # Global market for external purchases
+│   │   ├── TransactionLog.js       # Transaction recording with game time
 │   │   ├── City.js                 # City economic model and demographics
 │   │   ├── CityManager.js          # Multi-city management and statistics
 │   │   ├── Country.js              # Country definitions and trade agreements
 │   │   ├── Product.js              # Product registry and definitions
 │   │   ├── TransportationNetwork.js# Transportation cost calculations
-│   │   ├── Dashboard.js            # UI state management
+│   │   ├── Dashboard.js            # Dashboard UI state management
 │   │   └── firms/
 │   │       ├── Firm.js             # Base firm class
 │   │       ├── MiningCompany.js    # Raw material extraction
@@ -131,6 +155,17 @@ economic-simulation/
 │   │       ├── ManufacturingPlant.js # Product manufacturing
 │   │       ├── RetailStore.js      # Consumer sales
 │   │       └── Bank.js             # Financial services
+│   ├── pages/
+│   │   ├── shared.js               # Shared utilities (formatCurrency, formatNumber, etc.)
+│   │   ├── global-economy.js       # Global economy page logic
+│   │   ├── world-map.js            # World map page logic
+│   │   ├── cities.js               # Cities page logic
+│   │   ├── corporations.js         # Corporations page logic
+│   │   ├── firms.js                # Firms page logic
+│   │   ├── market-activity.js      # Market activity page logic
+│   │   ├── products.js             # Products page logic
+│   │   ├── transportation.js       # Transportation page logic
+│   │   └── feed.js                 # Event feed page logic
 │   ├── ui/
 │   │   ├── Dashboard.js            # UI updates and user interactions
 │   │   └── MapRenderer.js          # Interactive world map
@@ -154,14 +189,14 @@ The central coordinator that manages all simulation systems:
 - Execute three-tier supply chain transactions (B2B)
 - Check inventory levels and trigger auto-purchasing
 - Process global market orders and deliveries
-- Update corporation statistics from firm data
+- Update corporation statistics from firm data (O(1) lookups)
 - Track market history and generate events
 - Emit update events for UI synchronization
 ```
 
 **Update Cycle:**
 - **Hourly:** Firm production, supply chain transactions, inventory checks, global market processing
-- **Daily:** Random economic events (5% chance), supply chain statistics logging
+- **Daily:** Payroll on 1st and 15th, end-of-month expenses on last day, random economic events (5% chance)
 - **Monthly:** City population growth, firm financial settlements, reports
 - **Yearly:** Salary level adjustments, cost of living increases
 
@@ -176,6 +211,16 @@ Manages simulation time with configurable speed:
 | 2x    | 1 second  | 2 hours |
 | 4x    | 1 second  | 4 hours |
 | 8x    | 1 second  | 8 hours |
+
+### TransactionLog
+
+Records all economic transactions with game time timestamps:
+- B2B transactions (primary → semi-raw, semi-raw → manufactured)
+- Retail purchases (manufacturers → retail stores)
+- Consumer sales (retail → consumers)
+- Global market orders and deliveries
+- Global market sales (excess inventory disposal)
+- Hourly and daily statistics aggregation
 
 ### CityManager
 
@@ -268,6 +313,22 @@ Total = Σ (Class Count × Class Disposable Income)
 - **Parameters:** 10% reserve requirement, 5% base interest rate, 3% margin
 - **Labor:** Loan Officers, Tellers, Analysts, Advisors, Risk Managers
 
+### Firm Naming Convention
+
+Firms are named using their parent corporation's 3-letter abbreviation:
+```
+[Corp Abbreviation] [Firm Type]
+Example: TCG Manufacturing, MRG Retail, IGC Mining
+```
+
+### Payroll Schedule
+
+| Day | Payment |
+|-----|---------|
+| 1st of month | Half of monthly wages |
+| 15th of month | Half of monthly wages |
+| Last day of month | Operating expenses + loan payments |
+
 ## Supply Chain
 
 ### Three-Tier Supply Chain
@@ -327,6 +388,8 @@ The Global Market provides an external source for materials when local producers
 3. **Global Market Fallback:** If local purchase fails, order from global market
 4. **Delivery Delay:** Global market orders take 24 hours (configurable) to deliver
 5. **Price Markup:** Global market prices are higher than local prices (default: 1.5x)
+6. **Seller Inventory:** When orders are fulfilled, seller inventory is deducted and seller is paid
+7. **Enabled Check:** Global market respects the `enabled` config flag and skips processing when disabled
 
 ### Configuration
 
@@ -449,7 +512,7 @@ The UI provides a calculator to compare shipping options:
 
 Edit `data/config.json` to customize simulation parameters:
 
-### Complete Configuration Reference
+### Key Configuration Sections
 
 ```json
 {
@@ -458,11 +521,7 @@ Edit `data/config.json` to customize simulation parameters:
     "name": "Enhanced Economic Simulation System",
     "startYear": 2025,
     "timeScale": {
-      "realSecond": 1000,
-      "gameHour": 1,
-      "gameDay": 24,
-      "gameMonth": 720,
-      "gameYear": 8640
+      "realSecond": 1000
     }
   },
   "globalMarket": {
@@ -479,85 +538,76 @@ Edit `data/config.json` to customize simulation parameters:
     "reorderQuantityWeeks": 2,
     "maxStockWeeks": 8
   },
+  "countries": {
+    "count": 25,
+    "continents": ["NORTHERN", "SOUTHERN", "EASTERN", "WESTERN", "CENTRAL"],
+    "economicLevels": ["DEVELOPED", "EMERGING", "DEVELOPING"],
+    "tariffs": { "raw": 0.05, "semiRaw": 0.10, "manufactured": 0.15 }
+  },
   "cities": {
     "initial": 8,
     "minPopulation": 250000,
     "maxPopulation": 5000000
   },
+  "corporations": {
+    "firmsPerCorp": 15
+  },
   "firms": {
     "types": ["MINING", "LOGGING", "FARM", "MANUFACTURING", "RETAIL", "BANK"],
-    "perCity": { "min": 2, "max": 4 },
+    "perCity": { "min": 10, "max": 20 },
     "distribution": {
       "MINING": 0.15,
       "LOGGING": 0.10,
       "FARM": 0.20,
-      "MANUFACTURING_SEMI": 0.15,
-      "MANUFACTURING": 0.15,
-      "RETAIL": 0.15,
+      "MANUFACTURING": 0.25,
+      "RETAIL": 0.20,
       "BANK": 0.10
     }
   },
-  "transportation": { ... },
-  "labor": { "wagesByFirm": { ... }, "benefitsMultiplier": 1.30 },
+  "transportation": { "..." },
+  "labor": { "wagesByFirm": { "..." }, "benefitsMultiplier": 1.30 },
   "banking": { "reserveRequirement": 0.10, "baseInterestRate": 0.05 }
 }
 ```
 
+### Corporation Count Derivation
+
+The number of corporations is automatically calculated:
+```
+expectedTotalFirms = cities.initial × avg(firms.perCity.min, firms.perCity.max)
+corpCount = round(expectedTotalFirms / corporations.firmsPerCorp)
+```
+
+With default config: 8 cities × 15 avg firms = 120 firms / 15 per corp = **8 corporations**, each with ~15 firms.
+
 ## User Interface
 
-### Main Dashboard Sections
+### Pages
 
-1. **Header Controls**
-   - Game date/time display
-   - Play/Pause buttons
-   - Speed controls (0.5x to 8x)
-   - Real time elapsed counter
+| Page | Description |
+|------|-------------|
+| **Dashboard** (`index.html`) | Main overview with global stats, top corporations, market activity chart, event feed |
+| **Global Economy** (`global-economy.html`) | Aggregate economic indicators across all cities |
+| **World Map** (`world-map.html`) | Interactive map with city markers and infrastructure indicators |
+| **Cities** (`cities.html`) | City details, demographics, infrastructure, local firms |
+| **Corporations** (`corporations.html`) | Corporation list with abbreviations, financials, monthly payroll, facilities |
+| **Firms** (`firms.html`) | Firm details with full-precision financials, color-coded profit/loss, production, labor, bids |
+| **Market Activity** (`market-activity.html`) | Transaction log with game time, filterable by type |
+| **Products** (`products.html`) | Product catalog with pricing and supply chain tiers |
+| **Transportation** (`transportation.html`) | Route calculator with cost/time comparisons |
+| **Event Feed** (`feed.html`) | Live economic events and monthly reports |
 
-2. **Global Economy Card**
-   - Total population
-   - Total GDP (purchasing power)
-   - City count
-   - Employment statistics
-   - Average salary level
-
-3. **Top Corporations Card**
-   - Revenue and profit rankings
-   - Employee counts
-   - Click to view corporation details
-
-4. **Market Activity Card**
-   - Transaction volume chart (24-hour history)
-   - Hourly transaction count
-   - Average transaction value
-
-5. **World Map**
-   - Interactive city markers
-   - Infrastructure indicators (green = standard, blue = coastal/seaport)
-   - Click cities to select for route calculation
-
-6. **Cities List**
-   - Population and demographics
-   - Infrastructure status
-   - Click for detailed city view
-
-7. **Active Products**
-   - Product categories and prices
-   - Supply and demand indicators
-
-8. **Transportation Calculator**
-   - Route planning between cities
-   - Cost and time comparisons
-
-9. **Event Feed**
-   - Live updates on economic events
-   - Monthly reports
-   - Market notifications
+### Shared Header Controls
+- Game date/time display
+- Play/Pause buttons
+- Speed controls (0.5x to 8x)
+- Navigation across all pages
 
 ### Detail Views
 
-- **Corporation Detail:** Financial overview, performance metrics, facilities list, geographic presence
+- **Corporation Detail:** Financial overview, monthly payroll, performance metrics, facilities list, geographic presence
 - **City Detail:** Demographics, infrastructure, economy stats, firms operating in city
-- **Firm Detail:** Production stats, labor structure, operating costs, inventory levels
+- **Firm Detail:** Cash/revenue/profit (full precision, color-coded), production stats, labor structure with monthly salary, inventory levels, bids and orders, recent sales and purchases with game time
 
 ## Debug Tools
 
@@ -609,8 +659,9 @@ window.getSimulation()               // Returns simulation engine instance
 
 1. Create new class in `js/core/firms/` extending `Firm`
 2. Implement required methods: `produceHourly()`, `calculateLaborCosts()`, `updateMonthly()`
-3. Add to `generateRandomFirm()` in `SimulationEngine.js`
-4. Update firm type distribution in `config.json`
+3. Implement `getDisplayName()` using `this.corporationAbbreviation`
+4. Add to `generateRandomFirm()` in `SimulationEngine.js`
+5. Update firm type distribution in `config.json`
 
 ### Adding a New Product
 
@@ -631,6 +682,7 @@ window.getSimulation()               // Returns simulation engine instance
 - Class-based architecture for entities
 - Event-driven updates via CustomEvents
 - Configuration-driven parameters where possible
+- Seeded RNG (`this.random()`) for all randomness — never use `Math.random()` directly
 
 ## Roadmap
 
@@ -653,18 +705,28 @@ window.getSimulation()               // Returns simulation engine instance
 
 - [x] Three-tier supply chain (RAW → SEMI_RAW → MANUFACTURED)
 - [x] Global market system for external purchases
+- [x] Global market respects enabled/disabled config flag
+- [x] Global market orders deduct seller inventory and pay seller
 - [x] Automatic inventory management
 - [x] Configurable price multiplier for global market
 - [x] Hourly inventory checks with auto-reordering
-
-### Known Limitations
-
-- Firms array is sliced to 20 items in state for performance
-- No persistent storage (refreshing resets simulation)
-- Fixed number of initial corporations (40)
+- [x] Config-driven corporation count (derived from firm count and firmsPerCorp)
+- [x] 3-letter corporation abbreviations
+- [x] Firm display names using corporation abbreviation
+- [x] Real-time profit tracking (getCurrentProfit)
+- [x] Bi-monthly payroll (1st and 15th) with end-of-month expenses
+- [x] Monthly salary display for firms and corporations
+- [x] Full-precision currency formatting with comma separators
+- [x] Color-coded financials (green positive, red negative)
+- [x] Game time timestamps on all transactions
+- [x] Config-driven tick rate (timeScale.realSecond)
+- [x] Config-driven country count and firms per city
+- [x] Seeded RNG throughout simulation for determinism
+- [x] O(1) corporation lookups via Map-based indexing
+- [x] Multi-page UI (dashboard, global economy, world map, cities, corporations, firms, market activity, products, transportation, feed)
 
 ---
 
 **Version:** 1.0.2
-**Last Updated:** 2025-01-25
+**Last Updated:** 2026-02-04
 **Status:** Production Ready

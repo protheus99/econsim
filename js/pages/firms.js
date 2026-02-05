@@ -1,5 +1,5 @@
 // js/pages/firms.js
-import { getSimulation, onUpdate, setupClock, setupControls, formatNumber, formatCurrency, formatCurrencyFull, getFirmDisplayName } from './shared.js';
+import { getSimulation, onUpdate, setupClock, setupControls, formatNumber, formatCurrency, formatCurrencyFull, moneyClass, getFirmDisplayName } from './shared.js';
 
 let simulation;
 let currentSort = 'profit-desc';
@@ -122,11 +122,11 @@ function renderSummary() {
         <div class="stats-grid">
             <div class="stat-item">
                 <span class="stat-label">Total Revenue</span>
-                <span class="stat-value">${formatCurrencyFull(totalRevenue)}</span>
+                <span class="stat-value ${moneyClass(totalRevenue)}">${formatCurrencyFull(totalRevenue)}</span>
             </div>
             <div class="stat-item">
                 <span class="stat-label">Total Profit</span>
-                <span class="stat-value">${formatCurrencyFull(totalProfit)}</span>
+                <span class="stat-value ${moneyClass(totalProfit)}">${formatCurrencyFull(totalProfit)}</span>
             </div>
             <div class="stat-item">
                 <span class="stat-label">Total Employees</span>
@@ -243,11 +243,11 @@ function renderFirms() {
                 <div class="firm-card-stats">
                     <div class="stat-item">
                         <span class="stat-label">Revenue</span>
-                        <span class="stat-value">${formatCurrencyFull(firm.revenue || 0)}</span>
+                        <span class="stat-value ${moneyClass(firm.revenue || 0)}">${formatCurrencyFull(firm.revenue || 0)}</span>
                     </div>
                     <div class="stat-item">
                         <span class="stat-label">Profit</span>
-                        <span class="stat-value">${formatCurrencyFull(getFirmProfit(firm))}</span>
+                        <span class="stat-value ${moneyClass(getFirmProfit(firm))}">${formatCurrencyFull(getFirmProfit(firm))}</span>
                     </div>
                     <div class="stat-item">
                         <span class="stat-label">Employees</span>
@@ -363,15 +363,15 @@ function showFirmDetail(firmId) {
     document.getElementById('firm-financial-stats').innerHTML = `
         <div class="financial-detail-grid">
             <div class="financial-detail-item">
-                <div class="financial-detail-value">${formatCurrencyFull(firm.cash || 0)}</div>
+                <div class="financial-detail-value ${moneyClass(firm.cash || 0)}">${formatCurrencyFull(firm.cash || 0)}</div>
                 <div class="financial-detail-label">Cash</div>
             </div>
             <div class="financial-detail-item">
-                <div class="financial-detail-value">${formatCurrencyFull(firm.revenue || 0)}</div>
+                <div class="financial-detail-value ${moneyClass(firm.revenue || 0)}">${formatCurrencyFull(firm.revenue || 0)}</div>
                 <div class="financial-detail-label">Revenue</div>
             </div>
             <div class="financial-detail-item">
-                <div class="financial-detail-value">${formatCurrencyFull(getFirmProfit(firm))}</div>
+                <div class="financial-detail-value ${moneyClass(getFirmProfit(firm))}">${formatCurrencyFull(getFirmProfit(firm))}</div>
                 <div class="financial-detail-label">Profit</div>
             </div>
         </div>
@@ -619,7 +619,7 @@ function renderBidsAndOrders(firm) {
                 <span class="bids-stat-label">Active Bids</span>
             </div>
             <div class="bids-summary-stat">
-                <span class="bids-stat-value">${formatCurrencyFull(totalRevenue)}</span>
+                <span class="bids-stat-value ${moneyClass(totalRevenue)}">${formatCurrencyFull(totalRevenue)}</span>
                 <span class="bids-stat-label">Revenue</span>
             </div>
         </div>
@@ -691,7 +691,7 @@ function renderSales(firm) {
                 <td>${productName}</td>
                 <td>${t.quantity || '-'}</td>
                 <td>${formatCurrency(t.unitPrice || 0)}</td>
-                <td>${formatCurrencyFull(t.totalRevenue || t.totalCost || 0)}</td>
+                <td class="${moneyClass(t.totalRevenue || t.totalCost || 0)}">${formatCurrencyFull(t.totalRevenue || t.totalCost || 0)}</td>
             </tr>
         `}).join('');
 }
@@ -729,7 +729,7 @@ function renderPurchases(firm) {
                 <td>${productName}</td>
                 <td>${t.quantity || '-'}</td>
                 <td>${formatCurrency(t.unitPrice || 0)}</td>
-                <td>${formatCurrency(t.totalCost || 0)}</td>
+                <td class="${moneyClass(t.totalCost || 0)}">${formatCurrency(t.totalCost || 0)}</td>
             </tr>
         `}).join('');
 }

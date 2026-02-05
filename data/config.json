@@ -94,6 +94,9 @@
       "railwayThreshold": 250000
     }
   },
+  "corporations": {
+    "firmsPerCorp": 15
+  },
   "firms": {
     "types": ["MINING", "LOGGING", "FARM", "MANUFACTURING", "RETAIL", "BANK"],
     "distribution": {
@@ -105,8 +108,8 @@
       "BANK": 0.10
     },
     "perCity": {
-      "min": 2,
-      "max": 4
+      "min": 10,
+      "max": 20
     }
   },
   "products": {
