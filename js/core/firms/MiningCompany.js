@@ -52,7 +52,7 @@ export class MiningCompany extends Firm {
         this.inventory = {
             quantity: 0,
             quality: this.reserveQuality,
-            storageCapacity: 10000
+            storageCapacity: 100000
         };
         
         // Market

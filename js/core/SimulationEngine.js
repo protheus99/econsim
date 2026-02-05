@@ -775,70 +775,70 @@ export class SimulationEngine {
     }
 
     checkExcessInventory() {
-        // Check mining, logging, and manufacturing firms for excess inventory
-        // Sell to global market if inventory > 7 days worth AND no recent B2B orders
-        const EXCESS_THRESHOLD_HOURS = 24 * 7; // 7 days worth of production
-        const NO_DEMAND_HOURS = 24; // Consider no demand if no sales in 24 hours
+        // Sell excess inventory to global market at a discount.
+        // Two triggers:
+        //   1. URGENT: inventory >= 90% of storage capacity → sell down to 70% (ignores demand)
+        //   2. NORMAL: inventory > 50% of capacity AND no B2B sale in 48 hours → sell down to 50%
+        const URGENT_THRESHOLD = 0.90;
+        const URGENT_TARGET = 0.70;
+        const NORMAL_THRESHOLD = 0.50;
+        const NORMAL_TARGET = 0.50;
+        const NO_DEMAND_HOURS = 48;
 
         this.firms.forEach(firm => {
-            // Reset pending demand flag at start of check
-            const hoursSinceLastSale = this.clock.totalHours - (firm.lastB2BSaleHour || 0);
-            if (hoursSinceLastSale > NO_DEMAND_HOURS) {
-                firm.hasPendingDemand = false;
-            }
-
-            // Skip if firm has pending demand (recent orders from other firms)
-            if (firm.hasPendingDemand) return;
-
             let inventory = null;
-            let productionRate = 0;
             let productName = null;
 
             if (firm.type === 'MINING') {
                 inventory = firm.inventory;
-                productionRate = firm.actualExtractionRate || firm.baseExtractionRate || 25;
                 productName = firm.resourceType;
             } else if (firm.type === 'LOGGING') {
                 inventory = firm.inventory;
-                productionRate = firm.actualHarvestRate || firm.baseHarvestRate || 25;
                 productName = firm.timberType;
+            } else if (firm.type === 'FARM') {
+                inventory = firm.inventory;
+                productName = firm.cropType || firm.livestockType;
             } else if (firm.type === 'MANUFACTURING') {
                 inventory = firm.finishedGoodsInventory;
-                productionRate = firm.productionLine?.outputPerHour || 10;
                 productName = firm.product?.name || firm.productType;
             } else {
-                return; // Skip other firm types
+                return;
             }
 
             if (!inventory || !productName) return;
 
-            // Calculate 7 days worth of production
-            const sevenDaysWorth = productionRate * EXCESS_THRESHOLD_HOURS;
+            const capacity = inventory.storageCapacity || 10000;
+            const fillRatio = inventory.quantity / capacity;
 
-            // Check if inventory exceeds 7 days worth
-            if (inventory.quantity > sevenDaysWorth) {
-                // Calculate excess to sell (keep 7 days worth)
-                const excessQuantity = Math.floor(inventory.quantity - sevenDaysWorth);
+            let sellQuantity = 0;
 
-                // Minimum order size check
-                if (excessQuantity >= this.globalMarket.config.minimumOrderSize) {
-                    // Sell excess to global market
-                    const result = this.globalMarket.sellToGlobalMarket(firm, productName, excessQuantity);
+            if (fillRatio >= URGENT_THRESHOLD) {
+                // Urgent: at or near max capacity — sell regardless of demand
+                sellQuantity = Math.floor(inventory.quantity - capacity * URGENT_TARGET);
+            } else if (fillRatio > NORMAL_THRESHOLD) {
+                // Normal: above half capacity — only sell if no local demand recently
+                const hoursSinceLastSale = this.clock.totalHours - (firm.lastB2BSaleHour || 0);
+                if (hoursSinceLastSale <= NO_DEMAND_HOURS) return;
+                sellQuantity = Math.floor(inventory.quantity - capacity * NORMAL_TARGET);
+            } else {
+                return;
+            }
 
-                    if (result.success) {
-                        // Log the sale to transaction log
-                        this.transactionLog.logGlobalMarketSale(
-                            firm,
-                            productName,
-                            excessQuantity,
-                            result.sale.unitPrice,
-                            result.sale.totalRevenue
-                        );
+            if (sellQuantity < (this.globalMarket.config.minimumOrderSize || 10)) return;
 
-                        this.stats.globalMarketSales = (this.stats.globalMarketSales || 0) + 1;
-                        this.stats.globalMarketSalesRevenue = (this.stats.globalMarketSalesRevenue || 0) + result.sale.totalRevenue;
-                    }
-                }
+            const result = this.globalMarket.sellToGlobalMarket(firm, productName, sellQuantity);
+
+            if (result.success) {
+                this.transactionLog.logGlobalMarketSale(
+                    firm,
+                    productName,
+                    sellQuantity,
+                    result.sale.unitPrice,
+                    result.sale.totalRevenue
+                );
+
+                this.stats.globalMarketSales = (this.stats.globalMarketSales || 0) + 1;
+                this.stats.globalMarketSalesRevenue = (this.stats.globalMarketSalesRevenue || 0) + result.sale.totalRevenue;
             }
         });
     }
