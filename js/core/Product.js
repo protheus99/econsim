@@ -90,20 +90,20 @@ export class ProductRegistry {
     registerRawMaterials() {
         const rawMaterials = [
             // Mining - Metals (B2B: bulk tons/oz, no retail)
-            { id: 1, name: 'Iron Ore', category: 'METALS', icon: '⛏️', basePrice: 50, weight: 2.0, unit: 'ton', necessityIndex: 0.3, minB2BQuantity: 100, minRetailQuantity: 0 },
-            { id: 2, name: 'Copper Ore', category: 'METALS', icon: '🪨', basePrice: 80, weight: 1.8, unit: 'ton', necessityIndex: 0.3, minB2BQuantity: 50, minRetailQuantity: 0 },
-            { id: 3, name: 'Aluminum Ore', category: 'METALS', icon: '⚙️', basePrice: 70, weight: 1.5, unit: 'ton', necessityIndex: 0.3, minB2BQuantity: 50, minRetailQuantity: 0 },
-            { id: 4, name: 'Gold Ore', category: 'METALS', icon: '🥇', basePrice: 500, weight: 3.0, unit: 'oz', necessityIndex: 0.1, minB2BQuantity: 100, minRetailQuantity: 0 },
-            { id: 5, name: 'Silver Ore', category: 'METALS', icon: '🥈', basePrice: 300, weight: 2.5, unit: 'oz', necessityIndex: 0.1, minB2BQuantity: 100, minRetailQuantity: 0 },
+            { id: 1, name: 'Iron Ore', category: 'METALS', icon: '⛏️', basePrice: 50, weight: 2.0, unit: 'ton', necessityIndex: 0.3, minB2BQuantity: 500, minRetailQuantity: 0 },
+            { id: 2, name: 'Copper Ore', category: 'METALS', icon: '🪨', basePrice: 80, weight: 1.8, unit: 'ton', necessityIndex: 0.3, minB2BQuantity: 500, minRetailQuantity: 0 },
+            { id: 3, name: 'Aluminum Ore', category: 'METALS', icon: '⚙️', basePrice: 70, weight: 1.5, unit: 'ton', necessityIndex: 0.3, minB2BQuantity: 500, minRetailQuantity: 0 },
+            { id: 4, name: 'Gold Ore', category: 'METALS', icon: '🥇', basePrice: 500, weight: 3.0, unit: 'oz', necessityIndex: 0.1, minB2BQuantity: 250, minRetailQuantity: 0 },
+            { id: 5, name: 'Silver Ore', category: 'METALS', icon: '🥈', basePrice: 300, weight: 2.5, unit: 'oz', necessityIndex: 0.1, minB2BQuantity: 300, minRetailQuantity: 0 },
 
             // Mining - Minerals (B2B: bulk tons, no retail)
-            { id: 6, name: 'Coal', category: 'MINERALS', icon: '⚫', basePrice: 40, weight: 1.8, unit: 'ton', necessityIndex: 0.4, minB2BQuantity: 200, minRetailQuantity: 0 },
-            { id: 7, name: 'Limestone', category: 'MINERALS', icon: '🪨', basePrice: 20, weight: 2.0, unit: 'ton', necessityIndex: 0.3, minB2BQuantity: 100, minRetailQuantity: 0 },
-            { id: 8, name: 'Salt', category: 'MINERALS', icon: '🧂', basePrice: 15, weight: 1.0, unit: 'ton', necessityIndex: 0.5, minB2BQuantity: 50, minRetailQuantity: 0 },
+            { id: 6, name: 'Coal', category: 'MINERALS', icon: '⚫', basePrice: 40, weight: 1.8, unit: 'ton', necessityIndex: 0.4, minB2BQuantity: 1000, minRetailQuantity: 0 },
+            { id: 7, name: 'Limestone', category: 'MINERALS', icon: '🪨', basePrice: 20, weight: 2.0, unit: 'ton', necessityIndex: 0.3, minB2BQuantity: 500, minRetailQuantity: 0 },
+            { id: 8, name: 'Salt', category: 'MINERALS', icon: '🧂', basePrice: 15, weight: 1.0, unit: 'ton', necessityIndex: 0.5, minB2BQuantity: 100, minRetailQuantity: 0 },
 
             // Energy (B2B: bulk barrels/mcf, no retail)
-            { id: 9, name: 'Crude Oil', category: 'ENERGY', icon: '🛢️', basePrice: 100, weight: 0.9, unit: 'barrel', necessityIndex: 0.7, minB2BQuantity: 500, minRetailQuantity: 0 },
-            { id: 10, name: 'Natural Gas', category: 'ENERGY', icon: '💨', basePrice: 60, weight: 0.1, unit: 'mcf', necessityIndex: 0.6, minB2BQuantity: 1000, minRetailQuantity: 0 },
+            { id: 9, name: 'Crude Oil', category: 'ENERGY', icon: '🛢️', basePrice: 100, weight: 0.9, unit: 'barrel', necessityIndex: 0.7, minB2BQuantity: 1000, minRetailQuantity: 0 },
+            { id: 10, name: 'Natural Gas', category: 'ENERGY', icon: '💨', basePrice: 60, weight: 0.1, unit: 'mcf', necessityIndex: 0.6, minB2BQuantity: 2500, minRetailQuantity: 0 },
 
             // Logging (B2B: bulk cords, no retail)
             { id: 11, name: 'Softwood Logs', category: 'TIMBER', icon: '🪵', basePrice: 35, weight: 1.5, unit: 'cord', necessityIndex: 0.4, minB2BQuantity: 50, minRetailQuantity: 0 },
