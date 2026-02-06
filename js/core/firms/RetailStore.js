@@ -313,6 +313,10 @@ export class RetailStore extends Firm {
         const hourlyFootTraffic = this.dailyFootTraffic / 24 * demandModifier;
         const hourlyCustomers = Math.floor(hourlyFootTraffic * this.conversionRate);
 
+        // Get retail config (set by SimulationEngine, or use defaults)
+        const maxQty = this.retailConfig?.maxRetailQuantity ?? 3;
+        const purchaseChance = this.retailConfig?.purchaseChance ?? 0.3;
+
         let totalRevenue = 0;
         let totalCOGS = 0; // Cost of Goods Sold
         const transactions = [];
@@ -326,8 +330,8 @@ export class RetailStore extends Firm {
 
             // Customer browses available products
             this.productInventory.forEach((inventory, productId) => {
-                if (inventory.quantity > 0 && Math.random() < 0.3) { // 30% chance to buy each product
-                    const quantityPurchased = Math.floor(1 + Math.random() * 5); // Buy 1-5 units
+                if (inventory.quantity > 0 && Math.random() < purchaseChance) {
+                    const quantityPurchased = Math.floor(1 + Math.random() * maxQty); // Buy 1 to maxQty units
                     const actualQuantity = Math.min(quantityPurchased, inventory.quantity);
 
                     if (actualQuantity > 0) {

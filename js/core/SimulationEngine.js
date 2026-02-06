@@ -497,6 +497,7 @@ export class SimulationEngine {
                     const storeTypes = ['SUPERMARKET', 'DEPARTMENT', 'ELECTRONICS', 'FURNITURE', 'FASHION', 'HARDWARE', 'AUTO'];
                     const storeType = storeTypes[Math.floor(this.random() * storeTypes.length)];
                     firm = new RetailStore({ city: city }, country, storeType, firmId);
+                    firm.retailConfig = this.config.retail || { maxRetailQuantity: 3, purchaseChance: 0.3 };
 
                     // Initialize with products matching the store's allowed categories
                     if (firm) {

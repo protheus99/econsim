@@ -112,6 +112,10 @@
       "max": 20
     }
   },
+  "retail": {
+    "maxRetailQuantity": 3,
+    "purchaseChance": 0.3
+  },
   "products": {
     "tiers": ["RAW", "SEMI_RAW", "MANUFACTURED"],
     "categories": {
