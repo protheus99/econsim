@@ -27,7 +27,7 @@ export class ManufacturingPlant extends Firm {
         this.finishedGoodsInventory = {
             quantity: 0,
             quality: 50,
-            storageCapacity: 1000
+            storageCapacity: 10000
         };
         
         // Labor structure
