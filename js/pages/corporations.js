@@ -80,12 +80,15 @@ function renderSummary() {
     const container = document.getElementById('corps-summary-stats');
     if (!container) return;
 
-    let totalRevenue = 0, totalProfit = 0, totalEmployees = 0, totalFacilities = 0;
+    let totalRevenue = 0, totalMonthlyRevenue = 0, totalProfit = 0, totalMonthlyProfit = 0;
+    let totalEmployees = 0, totalFacilities = 0;
     let totalOrdersWon = 0, totalOrderValue = 0, totalMonthlySalary = 0;
 
     simulation.corporations.forEach(c => {
         totalRevenue += c.revenue || 0;
+        totalMonthlyRevenue += c.monthlyRevenue || 0;
         totalProfit += c.profit || 0;
+        totalMonthlyProfit += c.monthlyProfit || 0;
         totalEmployees += c.employees || 0;
         totalFacilities += c.facilities?.length || 0;
         totalMonthlySalary += getCorpMonthlySalary(c);
@@ -99,12 +102,20 @@ function renderSummary() {
     container.innerHTML = `
         <div class="stats-grid">
             <div class="stat-item">
+                <span class="stat-label">Monthly Revenue</span>
+                <span class="stat-value">${formatCurrency(totalMonthlyRevenue)}</span>
+            </div>
+            <div class="stat-item">
                 <span class="stat-label">Total Revenue</span>
                 <span class="stat-value">${formatCurrency(totalRevenue)}</span>
             </div>
             <div class="stat-item">
+                <span class="stat-label">Monthly Profit</span>
+                <span class="stat-value ${totalMonthlyProfit < 0 ? 'negative' : ''}">${formatCurrency(totalMonthlyProfit)}</span>
+            </div>
+            <div class="stat-item">
                 <span class="stat-label">Total Profit</span>
-                <span class="stat-value">${formatCurrency(totalProfit)}</span>
+                <span class="stat-value ${totalProfit < 0 ? 'negative' : ''}">${formatCurrency(totalProfit)}</span>
             </div>
             <div class="stat-item">
                 <span class="stat-label">Total Employees</span>
@@ -193,6 +204,7 @@ function renderCorporations() {
     container.innerHTML = corps.map(corp => {
         const corpOrders = getCorpOrders(corp);
         const monthlySalary = getCorpMonthlySalary(corp);
+        const monthlyProfit = corp.monthlyProfit || 0;
         return `
         <div class="corp-card" data-corp-id="${corp.id}">
             <div class="corp-card-header">
@@ -206,16 +218,16 @@ function renderCorporations() {
                     <span class="stat-value">${formatCurrency(corp.cash || 0)}</span>
                 </div>
                 <div class="stat-item">
-                    <span class="stat-label">Revenue</span>
+                    <span class="stat-label">Monthly Revenue</span>
+                    <span class="stat-value">${formatCurrency(corp.monthlyRevenue || 0)}</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Total Revenue</span>
                     <span class="stat-value">${formatCurrency(corp.revenue || 0)}</span>
                 </div>
                 <div class="stat-item">
-                    <span class="stat-label">Profit</span>
-                    <span class="stat-value ${(corp.profit || 0) < 0 ? 'negative' : ''}">${formatCurrency(corp.profit || 0)}</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-label">Monthly Payroll</span>
-                    <span class="stat-value">${formatCurrency(monthlySalary)}</span>
+                    <span class="stat-label">Monthly Profit</span>
+                    <span class="stat-value ${monthlyProfit < 0 ? 'negative' : ''}">${formatCurrency(monthlyProfit)}</span>
                 </div>
             </div>
             ${corpOrders.length > 0 ? `
@@ -271,12 +283,15 @@ function showCorpDetail(corpId) {
     document.getElementById('corp-character-badge').className = `corp-character-badge ${corp.character?.toLowerCase()}`;
 
     // Financial stats
+    const monthlyProfit = corp.monthlyProfit || 0;
     document.getElementById('corp-financial-stats').innerHTML = `
         <div class="stats-grid">
             <div class="stat-item"><span class="stat-label">Cash</span><span class="stat-value">${formatCurrency(corp.cash || 0)}</span></div>
-            <div class="stat-item"><span class="stat-label">Revenue</span><span class="stat-value">${formatCurrency(corp.revenue || 0)}</span></div>
-            <div class="stat-item"><span class="stat-label">Expenses</span><span class="stat-value">${formatCurrency(corp.expenses || 0)}</span></div>
-            <div class="stat-item"><span class="stat-label">Profit</span><span class="stat-value ${(corp.profit || 0) < 0 ? 'negative' : ''}">${formatCurrency(corp.profit || 0)}</span></div>
+            <div class="stat-item"><span class="stat-label">Monthly Revenue</span><span class="stat-value">${formatCurrency(corp.monthlyRevenue || 0)}</span></div>
+            <div class="stat-item"><span class="stat-label">Total Revenue</span><span class="stat-value">${formatCurrency(corp.revenue || 0)}</span></div>
+            <div class="stat-item"><span class="stat-label">Monthly Expenses</span><span class="stat-value">${formatCurrency(corp.monthlyExpenses || 0)}</span></div>
+            <div class="stat-item"><span class="stat-label">Monthly Profit</span><span class="stat-value ${monthlyProfit < 0 ? 'negative' : ''}">${formatCurrency(monthlyProfit)}</span></div>
+            <div class="stat-item"><span class="stat-label">Total Profit</span><span class="stat-value ${(corp.profit || 0) < 0 ? 'negative' : ''}">${formatCurrency(corp.profit || 0)}</span></div>
         </div>
     `;
 

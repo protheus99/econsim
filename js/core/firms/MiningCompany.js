@@ -2,19 +2,21 @@
 import { Firm } from './Firm.js';
 
 export class MiningCompany extends Firm {
-    constructor(location, country, resourceType, customId = null) {
+    constructor(location, country, resourceType, customId = null, productRegistry = null) {
         super('MINING', location, country, customId);
-        
+
         this.resourceType = resourceType; // 'Iron Ore', 'Coal', 'Gold Ore', etc.
+        this.productRegistry = productRegistry;
+        this.product = productRegistry?.getProductByName(resourceType) || null;
         this.mineType = this.determineMineType(resourceType);
-        
+
         // Reserve information
         this.reserveQuality = 50 + Math.random() * 50; // 50-100 quality
         this.totalReserves = this.calculateInitialReserves();
         this.remainingReserves = this.totalReserves;
         this.depletionRate = 0; // Percentage depleted
-        
-        // Production capacity
+
+        // Production capacity - use product's baseProductionRate if available
         this.baseExtractionRate = this.calculateBaseExtractionRate(); // units per hour
         this.actualExtractionRate = this.baseExtractionRate;
         this.currentProduction = 0;
@@ -83,12 +85,17 @@ export class MiningCompany extends Firm {
     }
     
     calculateBaseExtractionRate() {
-        // Base extraction in tons per hour
+        // Use product's baseProductionRate if available from registry
+        if (this.product && this.product.baseProductionRate) {
+            return this.product.baseProductionRate;
+        }
+
+        // Fallback to hardcoded rates based on mine type
         const rates = {
             'OPEN_PIT': 50, // Higher rate for surface mining
             'UNDERGROUND': 25 // Lower rate for underground
         };
-        
+
         return rates[this.mineType];
     }
     

@@ -63,12 +63,14 @@ export class ManufacturingPlant extends Firm {
     
     setupProductionLine() {
         // Get production requirements from product
-        const baseOutput = 10; // Base units per hour
+        // Use product's baseProductionRate from registry, fallback to 10 if not set
+        const baseOutput = this.product.baseProductionRate || 10;
         const complexity = this.product.technologyRequired;
-        
+
         return {
             inputs: this.product.inputs,
-            outputPerHour: baseOutput / Math.sqrt(complexity),
+            baseProductionRate: baseOutput, // Store the base rate for reference
+            outputPerHour: baseOutput / Math.sqrt(complexity), // Adjusted by complexity
             productionTime: this.product.productionTime || 1,
             requiredTech: this.product.technologyRequired
         };

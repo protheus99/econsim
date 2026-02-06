@@ -532,19 +532,19 @@ export class SimulationEngine {
                     const miningResources = country.resources.filter(r => validMiningResources.includes(r));
                     if (miningResources.length > 0) {
                         const resource = miningResources[Math.floor(this.random() * miningResources.length)];
-                        firm = new MiningCompany({ city: city }, country, resource, firmId);
+                        firm = new MiningCompany({ city: city }, country, resource, firmId, this.productRegistry);
                     }
                     break;
 
                 case 'LOGGING':
                     const timberTypes = ['Softwood Logs', 'Hardwood Logs', 'Bamboo'];
                     const timberType = timberTypes[Math.floor(this.random() * timberTypes.length)];
-                    firm = new LoggingCompany({ city: city }, country, timberType, firmId);
+                    firm = new LoggingCompany({ city: city }, country, timberType, firmId, this.productRegistry);
                     break;
 
                 case 'FARM':
                     const farmType = this.random() < 0.6 ? 'CROP' : 'LIVESTOCK';
-                    firm = new Farm({ city: city }, country, farmType, firmId);
+                    firm = new Farm({ city: city }, country, farmType, firmId, this.productRegistry);
                     break;
 
                 case 'MANUFACTURING_SEMI':
@@ -1007,9 +1007,12 @@ export class SimulationEngine {
         this.corporations.forEach(corp => {
             corp.employees = 0;
             corp.revenue = 0;
+            corp.monthlyRevenue = 0;
             corp.profit = 0;
+            corp.monthlyProfit = 0;
             corp.cash = 0;
             corp.expenses = 0;
+            corp.monthlyExpenses = 0;
         });
 
         this.firms.forEach(firm => {
@@ -1017,9 +1020,12 @@ export class SimulationEngine {
             if (corp) {
                 corp.employees += firm.totalEmployees || 0;
                 corp.revenue += firm.revenue || 0;
+                corp.monthlyRevenue += firm.monthlyRevenue || 0;
                 corp.profit += firm.profit || 0;
+                corp.monthlyProfit += (firm.monthlyRevenue || 0) - (firm.monthlyExpenses || 0);
                 corp.cash += firm.cash || 0;
                 corp.expenses += firm.expenses || 0;
+                corp.monthlyExpenses += firm.monthlyExpenses || 0;
             }
         });
     }

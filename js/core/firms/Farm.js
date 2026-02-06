@@ -2,24 +2,25 @@
 import { Firm } from './Firm.js';
 
 export class Farm extends Firm {
-    constructor(location, country, farmType, customId = null) {
+    constructor(location, country, farmType, customId = null, productRegistry = null) {
         super('FARM', location, country, customId);
-        
+
         this.farmType = farmType; // 'CROP' or 'LIVESTOCK'
+        this.productRegistry = productRegistry;
         this.landSize = 100 + Math.random() * 400; // Hectares
         this.soilQuality = 50 + Math.random() * 50; // For crops
         this.climate = location.climate || 'TEMPERATE';
-        
+
         // Crops or livestock
         this.products = []; // What this farm produces
         this.currentCycle = 0; // Growing/raising cycle
-        
+
         if (farmType === 'CROP') {
             this.initializeCropFarm();
         } else {
             this.initializeLivestockFarm();
         }
-        
+
         this.totalEmployees = this.calculateTotalEmployees();
         this.initialize();
     }
@@ -27,10 +28,14 @@ export class Farm extends Firm {
     initializeCropFarm() {
         // Crop selection based on climate and soil
         this.cropType = this.selectCrop();
+        this.product = this.productRegistry?.getProductByName(this.cropType) || null;
         this.growingSeasonLength = this.getGrowingSeasonLength(this.cropType);
         this.currentGrowthStage = 0; // 0-100%
         this.yieldPerHectare = this.calculateYieldPerHectare();
-        
+
+        // Base production rate from product registry or fallback
+        this.baseProductionRate = this.product?.baseProductionRate || 100;
+
         // Labor structure for crop farm
         this.laborStructure = {
             farmers: { count: 20, wage: 3500 },
@@ -40,7 +45,7 @@ export class Farm extends Firm {
             harvesters: { count: 10, wage: 3200 },
             supportStaff: { count: 5, wage: 3000 }
         };
-        
+
         // Operating costs for crop farm
         this.seedCosts = 10000;
         this.fertilizerCosts = 15000;
@@ -48,7 +53,7 @@ export class Farm extends Firm {
         this.irrigationCosts = 12000;
         this.equipmentCosts = 25000;
         this.operationalExpenses = 20000;
-        
+
         // Inventory
         this.inventory = {
             quantity: 0,
@@ -63,12 +68,16 @@ export class Farm extends Firm {
     initializeLivestockFarm() {
         // Livestock selection
         this.livestockType = this.selectLivestock();
+        this.product = this.productRegistry?.getProductByName(this.livestockType) || null;
         this.herdSize = Math.floor(this.landSize * 2); // 2 animals per hectare
         this.breedingCycle = this.getBreedingCycle(this.livestockType);
         this.currentMaturity = 0; // 0-100%
 
         // Determine what product this farm outputs for supply chain
         this.outputProduct = this.getOutputProduct(this.livestockType);
+
+        // Base production rate from product registry or fallback
+        this.baseProductionRate = this.product?.baseProductionRate || 10;
 
         // Labor structure for livestock farm
         this.laborStructure = {
@@ -220,22 +229,23 @@ export class Farm extends Firm {
 
         // Harvest when fully grown
         if (this.currentGrowthStage >= 100) {
-            const totalYield = this.landSize * this.yieldPerHectare;
+            // Use product's baseProductionRate * growing hours for total yield
             const technologyBonus = this.technologyLevel * 0.05;
-            const actualYield = totalYield * (1 + technologyBonus);
+            const efficiencyFactor = this.efficiency || 1.0;
+            const totalYield = this.baseProductionRate * seasonHours * (1 + technologyBonus) * efficiencyFactor;
 
             // Track production rate (average over growing season)
-            this.actualProductionRate = actualYield / seasonHours;
+            this.actualProductionRate = totalYield / seasonHours;
 
             // Add harvest to existing inventory
-            const newQuantity = this.inventory.quantity + actualYield;
+            const newQuantity = this.inventory.quantity + totalYield;
             this.inventory.quantity = Math.min(newQuantity, this.inventory.storageCapacity);
             this.currentGrowthStage = 0; // Reset for next season
 
             return {
                 produced: true,
                 resource: this.cropType,
-                quantity: actualYield,
+                quantity: totalYield,
                 quality: this.inventory.quality,
                 inventoryLevel: this.inventory.quantity,
                 harvest: true
@@ -258,11 +268,11 @@ export class Farm extends Firm {
 
         this.currentMaturity += maturityPerHour;
 
-        // Continuous production: add livestock units to inventory hourly
-        // This represents animals ready for market
-        const baseProductionRate = this.herdSize * 0.001; // 0.1% of herd per hour available
+        // Continuous production: use product's baseProductionRate from registry
+        // Modified by technology level and efficiency
         const technologyBonus = this.technologyLevel * 0.05;
-        const hourlyOutput = baseProductionRate * (1 + technologyBonus);
+        const efficiencyFactor = this.efficiency || 1.0;
+        const hourlyOutput = this.baseProductionRate * (1 + technologyBonus) * efficiencyFactor;
 
         // Track actual production rate
         this.actualProductionRate = hourlyOutput;

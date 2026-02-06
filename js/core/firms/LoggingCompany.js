@@ -2,25 +2,27 @@
 import { Firm } from './Firm.js';
 
 export class LoggingCompany extends Firm {
-    constructor(location, country, timberType, customId = null) {
+    constructor(location, country, timberType, customId = null, productRegistry = null) {
         super('LOGGING', location, country, customId);
-        
+
         this.timberType = timberType; // 'Softwood Logs', 'Hardwood Logs', 'Bamboo'
+        this.productRegistry = productRegistry;
+        this.product = productRegistry?.getProductByName(timberType) || null;
         this.forestType = this.determineForestType(timberType);
-        
+
         // Forest information
         this.forestSize = 500 + Math.random() * 1500; // Hectares
         this.forestDensity = 60 + Math.random() * 40; // Trees per hectare
         this.averageTreeAge = 20 + Math.random() * 30; // Years
         this.forestHealth = 80 + Math.random() * 20; // 0-100
-        
+
         // Sustainability
         this.sustainableYieldRate = 0.03; // 3% of forest per year
         this.reforestationRate = 0.035; // 3.5% replanted per year
         this.certifiedSustainable = false;
-        
-        // Production capacity
-        this.baseHarvestRate = 25; // Cubic meters per hour
+
+        // Production capacity - use product's baseProductionRate if available
+        this.baseHarvestRate = this.product?.baseProductionRate || 25; // Cubic meters per hour
         this.actualHarvestRate = this.baseHarvestRate;
         this.currentProduction = 0;
         
