@@ -308,14 +308,44 @@ export class RetailStore extends Firm {
         return this.sellHourly(currentHour);
     }
 
-    sellHourly(hourOfDay, productDemand) {
-        const demandModifier = this.getHourlyDemandModifier(hourOfDay);
-        const hourlyFootTraffic = this.dailyFootTraffic / 24 * demandModifier;
-        const hourlyCustomers = Math.floor(hourlyFootTraffic * this.conversionRate);
-
+    sellHourly(hourOfDay, cityEconomics = null) {
         // Get retail config (set by SimulationEngine, or use defaults)
         const maxQty = this.retailConfig?.maxRetailQuantity ?? 3;
         const purchaseChance = this.retailConfig?.purchaseChance ?? 0.3;
+
+        // Base hourly demand modifier (time of day pattern)
+        const hourlyModifier = this.getHourlyDemandModifier(hourOfDay);
+
+        // City economic factors (use city reference or passed data)
+        const city = cityEconomics || this.city;
+        const salaryLevel = city?.salaryLevel ?? 0.5;
+        const consumerConfidence = city?.consumerConfidence ?? 0.7;
+        const purchasingPowerPerCapita = city?.marketSize?.perCapita ?? 10000;
+
+        // Normalize purchasing power (baseline $15,000 per capita = 1.0)
+        const purchasingPowerFactor = Math.min(2.0, Math.max(0.3, purchasingPowerPerCapita / 15000));
+
+        // Salary level affects willingness to spend (0.1-1.0 → 0.5-1.5 multiplier)
+        const salaryFactor = 0.5 + salaryLevel;
+
+        // Random daily fluctuation (±20%) - seeded by day if available
+        const dayOfMonth = city?.dayOfMonth ?? Math.floor(Date.now() / 86400000) % 30;
+        const dailyVariance = 0.8 + (((dayOfMonth * 7) % 13) / 13) * 0.4;
+
+        // Random hourly fluctuation (±15%)
+        const hourlyVariance = 0.85 + Math.random() * 0.3;
+
+        // Combined foot traffic calculation
+        const baseFootTraffic = this.dailyFootTraffic / 24;
+        const adjustedFootTraffic = baseFootTraffic
+            * hourlyModifier
+            * purchasingPowerFactor
+            * salaryFactor
+            * consumerConfidence
+            * dailyVariance
+            * hourlyVariance;
+
+        const hourlyCustomers = Math.floor(adjustedFootTraffic * this.conversionRate);
 
         let totalRevenue = 0;
         let totalCOGS = 0; // Cost of Goods Sold

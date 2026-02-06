@@ -355,13 +355,17 @@ export class SimulationEngine {
         const totalFirmsTarget = this.cities.length * avgFirmsPerCity;
 
         // Distribution targets by type (using config)
+        // Support both combined MANUFACTURING (split 50/50) or separate MANUFACTURING_SEMI/MANUFACTURING
+        const mfgSemiPct = distributionConfig.MANUFACTURING_SEMI ?? (distributionConfig.MANUFACTURING ?? 0.25) / 2;
+        const mfgFinalPct = distributionConfig.MANUFACTURING ?? (distributionConfig.MANUFACTURING_SEMI ? 0.15 : 0.25 / 2);
+
         const firmTypeTargets = {
-            'MINING': Math.floor(totalFirmsTarget * (distributionConfig.MINING ?? 0.15)),
-            'LOGGING': Math.floor(totalFirmsTarget * (distributionConfig.LOGGING ?? 0.10)),
-            'FARM': Math.floor(totalFirmsTarget * (distributionConfig.FARM ?? 0.20)),
-            'MANUFACTURING_SEMI': Math.floor(totalFirmsTarget * ((distributionConfig.MANUFACTURING ?? 0.25) / 2)),
-            'MANUFACTURING': Math.floor(totalFirmsTarget * ((distributionConfig.MANUFACTURING ?? 0.25) / 2)),
-            'RETAIL': Math.floor(totalFirmsTarget * (distributionConfig.RETAIL ?? 0.20)),
+            'MINING': Math.floor(totalFirmsTarget * (distributionConfig.MINING ?? 0.12)),
+            'LOGGING': Math.floor(totalFirmsTarget * (distributionConfig.LOGGING ?? 0.08)),
+            'FARM': Math.floor(totalFirmsTarget * (distributionConfig.FARM ?? 0.15)),
+            'MANUFACTURING_SEMI': Math.floor(totalFirmsTarget * mfgSemiPct),
+            'MANUFACTURING': Math.floor(totalFirmsTarget * (distributionConfig.MANUFACTURING_SEMI ? (distributionConfig.MANUFACTURING ?? 0.15) : mfgFinalPct)),
+            'RETAIL': Math.floor(totalFirmsTarget * (distributionConfig.RETAIL ?? 0.25)),
             'BANK': Math.floor(totalFirmsTarget * (distributionConfig.BANK ?? 0.10))
         };
 
@@ -393,6 +397,9 @@ export class SimulationEngine {
 
         console.log(`✅ Generated ${this.firms.size} firms across ${this.cities.length} cities`);
 
+        // Ensure product coverage - create firms for any products without producers
+        this.ensureProductCoverage();
+
         // Log distribution
         const typeCount = {};
         this.firms.forEach(firm => {
@@ -409,6 +416,100 @@ export class SimulationEngine {
         });
         const totalFacilities = this.corporations.reduce((sum, c) => sum + (c.facilities?.length || 0), 0);
         console.log(`📊 Total facilities across all corporations: ${totalFacilities}`);
+    }
+
+    ensureProductCoverage() {
+        // Get all products that need producers
+        const semiRawProducts = this.productRegistry.getProductsByTier('SEMI_RAW');
+        const manufacturedProducts = this.productRegistry.getProductsByTier('MANUFACTURED');
+
+        // Find which products are already being produced
+        const producedProducts = new Set();
+        this.firms.forEach(firm => {
+            if (firm.type === 'MANUFACTURING' && firm.product) {
+                producedProducts.add(firm.product.id);
+            }
+        });
+
+        // Create firms for missing SEMI_RAW products
+        const missingSemiRaw = semiRawProducts.filter(p => !producedProducts.has(p.id));
+        // Create firms for missing MANUFACTURED products
+        const missingManufactured = manufacturedProducts.filter(p => !producedProducts.has(p.id));
+
+        if (missingSemiRaw.length > 0 || missingManufactured.length > 0) {
+            console.log(`⚠️ Missing product coverage: ${missingSemiRaw.length} SEMI_RAW, ${missingManufactured.length} MANUFACTURED`);
+
+            const citiesArray = Array.from(this.cities);
+            let cityIndex = 0;
+
+            // Create SEMI_RAW manufacturers for missing products
+            missingSemiRaw.forEach(product => {
+                const city = citiesArray[cityIndex % citiesArray.length];
+                cityIndex++;
+                const corp = this.corporations[Math.floor(this.random() * this.corporations.length)];
+                const firmId = `FIRM_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+                const firm = new ManufacturingPlant({ city: city }, city.country, product.id, this.productRegistry, firmId);
+                firm.isSemiRawProducer = true;
+                firm.corporationId = corp.id;
+                firm.corporationAbbreviation = corp.abbreviation;
+                firm.retailConfig = this.config.retail || { maxRetailQuantity: 3, purchaseChance: 0.3 };
+
+                // Initialize inventory
+                const weeklyHours = 24 * 7 * (this.config.inventory?.initialStockWeeks ?? 1);
+                if (firm.product?.inputs) {
+                    firm.product.inputs.forEach(input => {
+                        const inventory = firm.rawMaterialInventory.get(input.material);
+                        if (inventory) {
+                            const hourlyUsage = input.quantity * (firm.productionLine?.outputPerHour || 10);
+                            inventory.quantity = hourlyUsage * weeklyHours;
+                            inventory.minRequired = hourlyUsage * 24 * 7 * (this.config.inventory?.reorderThresholdWeeks ?? 4);
+                            inventory.capacity = Math.max(inventory.capacity, inventory.quantity * 2);
+                        }
+                    });
+                }
+
+                this.firms.set(firm.id, firm);
+                corp.facilities.push(firm);
+                console.log(`  + Created SEMI_RAW producer for: ${product.name}`);
+            });
+
+            // Create MANUFACTURED manufacturers for missing products
+            missingManufactured.forEach(product => {
+                const city = citiesArray[cityIndex % citiesArray.length];
+                cityIndex++;
+                const corp = this.corporations[Math.floor(this.random() * this.corporations.length)];
+                const firmId = `FIRM_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+                const firm = new ManufacturingPlant({ city: city }, city.country, product.id, this.productRegistry, firmId);
+                firm.isSemiRawProducer = false;
+                firm.corporationId = corp.id;
+                firm.corporationAbbreviation = corp.abbreviation;
+                firm.retailConfig = this.config.retail || { maxRetailQuantity: 3, purchaseChance: 0.3 };
+
+                // Initialize inventory
+                const weeklyHours = 24 * 7 * (this.config.inventory?.initialStockWeeks ?? 1);
+                if (firm.product?.inputs) {
+                    firm.product.inputs.forEach(input => {
+                        const inventory = firm.rawMaterialInventory.get(input.material);
+                        if (inventory) {
+                            const hourlyUsage = input.quantity * (firm.productionLine?.outputPerHour || 10);
+                            inventory.quantity = hourlyUsage * weeklyHours;
+                            inventory.minRequired = hourlyUsage * 24 * 7 * (this.config.inventory?.reorderThresholdWeeks ?? 4);
+                            inventory.capacity = Math.max(inventory.capacity, inventory.quantity * 2);
+                        }
+                    });
+                }
+
+                this.firms.set(firm.id, firm);
+                corp.facilities.push(firm);
+                console.log(`  + Created MANUFACTURED producer for: ${product.name}`);
+            });
+
+            console.log(`✅ Product coverage complete. Added ${missingSemiRaw.length + missingManufactured.length} firms.`);
+        } else {
+            console.log('✅ All products have at least one producer');
+        }
     }
 
     generateRandomFirm(city, country, corporation = null) {
@@ -930,8 +1031,16 @@ export class SimulationEngine {
         this.firms.forEach(firm => {
             try {
                 if (firm.type === 'RETAIL') {
+                    // Build city economics data for retail sales calculation
+                    const cityEconomics = firm.city ? {
+                        salaryLevel: firm.city.salaryLevel,
+                        consumerConfidence: firm.city.consumerConfidence,
+                        marketSize: firm.city.marketSize,
+                        dayOfMonth: this.clock.day
+                    } : null;
+
                     // Process retail sales and log consumer transactions
-                    const salesResult = firm.sellHourly(currentHour);
+                    const salesResult = firm.sellHourly(currentHour, cityEconomics);
                     if (salesResult && salesResult.productSales && salesResult.productSales.length > 0) {
                         this.logRetailConsumerSales(firm, salesResult);
                     }

@@ -98,18 +98,19 @@
     "firmsPerCorp": 15
   },
   "firms": {
-    "types": ["MINING", "LOGGING", "FARM", "MANUFACTURING", "RETAIL", "BANK"],
+    "types": ["MINING", "LOGGING", "FARM", "MANUFACTURING_SEMI", "MANUFACTURING", "RETAIL", "BANK"],
     "distribution": {
-      "MINING": 0.15,
-      "LOGGING": 0.10,
-      "FARM": 0.20,
-      "MANUFACTURING": 0.25,
-      "RETAIL": 0.20,
+      "MINING": 0.12,
+      "LOGGING": 0.08,
+      "FARM": 0.15,
+      "MANUFACTURING_SEMI": 0.15,
+      "MANUFACTURING": 0.15,
+      "RETAIL": 0.25,
       "BANK": 0.10
     },
     "perCity": {
-      "min": 10,
-      "max": 20
+      "min": 25,
+      "max": 40
     }
   },
   "retail": {
