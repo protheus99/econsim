@@ -1362,16 +1362,18 @@ export class SimulationEngine {
         // Check if retailer can afford
         if (retailer.cash < totalCost) return;
 
-        // Execute transaction
+        // Add to retailer inventory (purchaseInventory handles cash deduction and expenses)
+        // Check return value - if purchase fails, don't credit manufacturer
+        const purchaseSuccess = retailer.purchaseInventory(productId, tradeQuantity, wholesalePrice, productName);
+        if (!purchaseSuccess) {
+            return; // Retailer couldn't complete purchase (max inventory, etc.)
+        }
+
+        // Execute manufacturer side of transaction
         manufacturer.finishedGoodsInventory.quantity -= tradeQuantity;
         manufacturer.cash += totalCost;
         manufacturer.revenue += totalCost;
         manufacturer.monthlyRevenue += totalCost;
-
-        retailer.cash -= totalCost;
-
-        // Add to retailer inventory with proper product name
-        retailer.purchaseInventory(productId, tradeQuantity, wholesalePrice, productName);
 
         // Track last B2B sale for excess inventory check
         manufacturer.lastB2BSaleHour = this.clock.totalHours;
