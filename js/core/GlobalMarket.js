@@ -557,6 +557,7 @@ export class GlobalMarket {
         inventorySource.quantity -= quantity;
         seller.cash += totalRevenue;
         seller.revenue += totalRevenue;
+        seller.monthlyRevenue += totalRevenue;
 
         this.stats.totalSoldToMarket = (this.stats.totalSoldToMarket || 0) + quantity;
         this.stats.totalSalesRevenue = (this.stats.totalSalesRevenue || 0) + totalRevenue;
