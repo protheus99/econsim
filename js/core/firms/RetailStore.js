@@ -165,7 +165,7 @@ export class RetailStore extends Firm {
                 // VEHICLES, FUELS categories
                 { id: 203, name: 'Cars', price: 25000, qty: 10, category: 'VEHICLES' },
                 { id: 204, name: 'Motorcycles', price: 8000, qty: 20, category: 'VEHICLES' },
-                { id: 104, name: 'Gasoline', price: 4, qty: 5000, category: 'FUELS' }
+                { id: 104, name: 'Gasoline', price: 4, qty: 1000, category: 'FUELS' }
             ]
         };
 

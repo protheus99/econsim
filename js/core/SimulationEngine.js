@@ -721,9 +721,6 @@ export class SimulationEngine {
             }
         }
 
-        // Check inventory levels and auto-purchase from global market
-        this.checkInventoryLevels();
-
         // Check for excess inventory and sell to global market
         this.checkExcessInventory();
 
@@ -760,15 +757,28 @@ export class SimulationEngine {
 
             // Calculate thresholds based on production rate
             const hourlyUsage = input.quantity * (firm.productionLine?.outputPerHour || 10);
-            const reorderThreshold = hourlyUsage * 24 * 7 * this.config.inventory.reorderThresholdWeeks;
-            const criticalThreshold = hourlyUsage * 24; // 1 day worth - need urgent restock
+            const dailyUsage = hourlyUsage * 24;
+            const weeklyUsage = dailyUsage * 7;
 
-            // If below threshold, try to purchase
+            // Reorder when below threshold (default 2 weeks worth)
+            const reorderThreshold = weeklyUsage * this.config.inventory.reorderThresholdWeeks;
+            // Critical threshold - need urgent restock (1 day worth)
+            const criticalThreshold = dailyUsage;
+            // Max stock level (default 12 weeks worth)
+            const maxStock = weeklyUsage * this.config.inventory.maxStockWeeks;
+
+            // If below threshold, place a bulk order to fill up to max capacity
             if (inventory.quantity < reorderThreshold) {
-                // Calculate how much to order (2 weeks worth by default) - must be integer > 0
-                const orderQuantity = Math.floor(hourlyUsage * 24 * 7 * this.config.inventory.reorderQuantityWeeks);
+                // Calculate bulk order: fill up to max stock level (prefer large orders)
+                const targetStock = maxStock;
+                const orderQuantity = Math.floor(Math.max(targetStock - inventory.quantity, weeklyUsage * 2));
 
                 if (orderQuantity <= 0) return;
+
+                // Check if firm can afford the order
+                const product = this.productRegistry.getProductByName(input.material);
+                const estimatedCost = orderQuantity * (product?.basePrice || 100) * 1.5;
+                if (firm.cash < estimatedCost * 0.5) return; // Need at least 50% of estimated cost
 
                 // First try to buy from local producers via supply chain
                 const purchased = this.tryLocalPurchase(firm, input.material, orderQuantity);
@@ -777,7 +787,7 @@ export class SimulationEngine {
                 if (!purchased && this.globalMarket && this.globalMarket.canPlaceOrder()) {
                     // If critically low (less than 1 day), use direct purchase for immediate delivery
                     if (inventory.quantity < criticalThreshold) {
-                        const urgentQuantity = Math.floor(hourlyUsage * 24 * 3); // 3 days worth for urgent
+                        const urgentQuantity = Math.floor(dailyUsage * 7); // 1 week worth for urgent
                         const result = this.globalMarket.directPurchase(firm, input.material, urgentQuantity);
                         if (result.success) {
                             this.stats.globalMarketSpend = (this.stats.globalMarketSpend || 0) + result.totalCost;
@@ -795,8 +805,8 @@ export class SimulationEngine {
                             );
                         }
                     } else {
-                        // Normal reorder - place order through bidding system
-                        const result = this.globalMarket.placeOrder(firm, input.material, orderQuantity, 'normal');
+                        // Normal bulk reorder - place large order through bidding system
+                        const result = this.globalMarket.placeOrder(firm, input.material, orderQuantity, 'bulk');
                         if (result.success) {
                             this.stats.globalMarketSpend = (this.stats.globalMarketSpend || 0) + result.order.totalCost;
 
@@ -823,42 +833,63 @@ export class SimulationEngine {
         if (!retailer.productInventory || retailer.productInventory.size === 0) return;
         if (!this.globalMarket || !this.globalMarket.canPlaceOrder()) return;
 
+        // Collect all products needing restock for bulk ordering
+        const ordersNeeded = [];
+
         // Check each product in inventory
         retailer.productInventory.forEach((inventory, productId) => {
-            const reorderThreshold = 20; // Reorder when below 20 units
-            const reorderQuantity = 100; // Order 100 units at a time
+            // Calculate thresholds based on capacity
+            const capacity = inventory.capacity || 500;
+            const reorderThreshold = capacity * 0.25; // Reorder when below 25% capacity
+            const targetStock = capacity * 0.9; // Fill up to 90% capacity
 
             if (inventory.quantity < reorderThreshold) {
                 // Get product info for ordering
                 const product = this.productRegistry?.getProduct(productId);
                 const productName = inventory.productName || product?.name || productId;
 
-                // Check if retailer can afford the order
-                const unitPrice = this.globalMarket.getMarketPrice(productName);
-                const totalCost = reorderQuantity * unitPrice;
+                // Calculate bulk order quantity (prefer large orders)
+                const orderQuantity = Math.floor(Math.max(targetStock - inventory.quantity, 200));
 
-                if (retailer.cash >= totalCost) {
-                    const result = this.globalMarket.placeOrder(retailer, productName, reorderQuantity, 'normal');
-                    if (result.success) {
-                        this.stats.globalMarketSpend += result.order.totalCost;
-
-                        // Calculate delivery hours from config or use default
-                        const deliveryHours = this.config.globalMarket?.deliveryDelayHours || 24;
-
-                        this.transactionLog.logGlobalMarketOrder(
-                            retailer,
-                            productName,
-                            reorderQuantity,
-                            result.order.unitPrice || unitPrice,
-                            result.order.totalCost || totalCost,
-                            'PENDING',
-                            deliveryHours,
-                            result.order.id
-                        );
-                    }
-                }
+                ordersNeeded.push({
+                    productId,
+                    productName,
+                    quantity: orderQuantity,
+                    currentStock: inventory.quantity,
+                    priority: inventory.quantity / reorderThreshold // Lower = more urgent
+                });
             }
         });
+
+        // Sort by priority (most urgent first) and process bulk orders
+        ordersNeeded.sort((a, b) => a.priority - b.priority);
+
+        for (const order of ordersNeeded) {
+            const unitPrice = this.globalMarket.getMarketPrice(order.productName);
+            const totalCost = order.quantity * unitPrice;
+
+            // Check if retailer can afford the bulk order
+            if (retailer.cash >= totalCost) {
+                const result = this.globalMarket.placeOrder(retailer, order.productName, order.quantity, 'bulk');
+                if (result.success) {
+                    this.stats.globalMarketSpend += result.order.totalCost;
+
+                    // Calculate delivery hours from config or use default
+                    const deliveryHours = this.config.globalMarket?.deliveryDelayHours || 24;
+
+                    this.transactionLog.logGlobalMarketOrder(
+                        retailer,
+                        order.productName,
+                        order.quantity,
+                        result.order.unitPrice || unitPrice,
+                        result.order.totalCost || totalCost,
+                        'PENDING',
+                        deliveryHours,
+                        result.order.id
+                    );
+                }
+            }
+        }
     }
 
     tryLocalPurchase(buyer, materialName, quantity) {
@@ -1452,6 +1483,9 @@ export class SimulationEngine {
 
     updateDaily() {
         this.monthlyTick++;
+
+        // Daily inventory restocking - check all firms and place bulk orders
+        this.checkInventoryLevels();
 
         // Day 1 (tick 1): Pay first half of wages
         if (this.monthlyTick === 1) {

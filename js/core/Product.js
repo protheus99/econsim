@@ -309,7 +309,7 @@ export class ProductRegistry {
             {
                 id: 203, name: 'Cars', category: 'VEHICLES', icon: '🚗',
                 basePrice: 25000, weight: 1200, unit: 'unit', necessityIndex: 0.6,
-                minB2BQuantity: 5, minRetailQuantity: 1, baseProductionRate: 2,
+                minB2BQuantity: 50, minRetailQuantity: 1, baseProductionRate: 2,
                 inputs: [
                     { material: 'Steel', quantity: 70 },
                     { material: 'Aluminum Sheets', quantity: 35 },
