@@ -311,7 +311,7 @@ export class RetailStore extends Firm {
     sellHourly(hourOfDay, cityEconomics = null) {
         // Get retail config (set by SimulationEngine, or use defaults)
         const maxQty = this.retailConfig?.maxRetailQuantity ?? 3;
-        const purchaseChance = this.retailConfig?.purchaseChance ?? 0.3;
+        const basePurchaseChance = this.retailConfig?.purchaseChance ?? 0.3;
 
         // Base hourly demand modifier (time of day pattern)
         const hourlyModifier = this.getHourlyDemandModifier(hourOfDay);
@@ -352,24 +352,61 @@ export class RetailStore extends Firm {
         const transactions = [];
         const productSales = []; // Track individual product sales for logging
 
+        // Build sorted product list by necessityIndex (essentials first)
+        const sortedProducts = [];
+        this.productInventory.forEach((inventory, productId) => {
+            if (inventory.quantity > 0) {
+                // Look up necessityIndex from product registry
+                const product = this.productRegistry?.getProduct(productId);
+                const necessityIndex = product?.necessityIndex ?? 0.5;
+                sortedProducts.push({
+                    productId,
+                    inventory,
+                    necessityIndex,
+                    product
+                });
+            }
+        });
+        // Sort by necessityIndex descending (essentials first: bread before laptops)
+        sortedProducts.sort((a, b) => b.necessityIndex - a.necessityIndex);
+
         // Each customer buys products
         for (let i = 0; i < hourlyCustomers; i++) {
             let transactionValue = 0;
             let transactionCost = 0;
             const itemsBought = [];
+            let budgetRemaining = this.calculateCustomerBudget(salaryLevel, consumerConfidence);
 
-            // Customer browses available products
-            this.productInventory.forEach((inventory, productId) => {
-                if (inventory.quantity > 0 && Math.random() < purchaseChance) {
-                    const quantityPurchased = Math.floor(1 + Math.random() * maxQty); // Buy 1 to maxQty units
+            // Customer browses products in priority order (necessities first)
+            for (const { productId, inventory, necessityIndex, product } of sortedProducts) {
+                if (inventory.quantity <= 0) continue;
+
+                // Calculate purchase probability based on necessityIndex
+                // Necessities (0.8-1.0): high base chance, less affected by economy
+                // Luxuries (0.0-0.3): lower base chance, heavily affected by economy
+                const necessityBonus = necessityIndex * 0.4; // Up to +40% for essentials
+                const economicImpact = this.calculateEconomicImpact(necessityIndex, consumerConfidence, salaryLevel);
+                const adjustedPurchaseChance = Math.min(0.9, (basePurchaseChance + necessityBonus) * economicImpact);
+
+                if (Math.random() < adjustedPurchaseChance) {
+                    // Quantity based on necessity - buy more essentials
+                    const baseQty = necessityIndex > 0.7 ? 2 : 1;
+                    const quantityPurchased = Math.floor(baseQty + Math.random() * maxQty);
                     const actualQuantity = Math.min(quantityPurchased, inventory.quantity);
 
                     if (actualQuantity > 0) {
                         const saleValue = actualQuantity * inventory.retailPrice;
+
+                        // Budget check - necessities get priority, luxuries require budget
+                        if (necessityIndex < 0.5 && saleValue > budgetRemaining) {
+                            continue; // Skip luxury if over budget
+                        }
+
                         const cost = actualQuantity * inventory.wholesalePrice;
 
                         transactionValue += saleValue;
                         transactionCost += cost;
+                        budgetRemaining -= saleValue;
 
                         inventory.quantity -= actualQuantity;
                         this.currentInventoryValue -= cost;
@@ -383,11 +420,12 @@ export class RetailStore extends Firm {
                             productName: inventory.productName || productId,
                             quantity: actualQuantity,
                             unitPrice: inventory.retailPrice,
-                            total: saleValue
+                            total: saleValue,
+                            necessityIndex: necessityIndex
                         });
                     }
                 }
-            });
+            }
 
             if (transactionValue > 0) {
                 totalRevenue += transactionValue;
@@ -444,6 +482,51 @@ export class RetailStore extends Firm {
         };
     }
     
+    /**
+     * Calculate customer's shopping budget based on economic conditions
+     * Higher salary and confidence = larger budget for discretionary spending
+     */
+    calculateCustomerBudget(salaryLevel, consumerConfidence) {
+        // Base budget scales with salary level ($50-$500 per shopping trip)
+        const baseBudget = 50 + (salaryLevel * 450);
+
+        // Consumer confidence affects willingness to spend
+        // Low confidence (0.3) = spend only 50% of budget
+        // High confidence (1.0) = spend up to 150% of budget
+        const confidenceMultiplier = 0.5 + (consumerConfidence * 1.0);
+
+        // Add some randomness (±30%)
+        const randomFactor = 0.7 + (Math.random() * 0.6);
+
+        return baseBudget * confidenceMultiplier * randomFactor;
+    }
+
+    /**
+     * Calculate how economic conditions affect purchase probability
+     * Necessities are less affected by economic downturns
+     * Luxuries are heavily impacted by consumer confidence
+     */
+    calculateEconomicImpact(necessityIndex, consumerConfidence, salaryLevel) {
+        // Necessities (high index): stable demand regardless of economy
+        // Luxuries (low index): demand drops significantly in bad economy
+
+        // Economic stress factor (0 = great economy, 1 = recession)
+        const economicStress = 1 - ((consumerConfidence + salaryLevel) / 2);
+
+        // Elasticity: how much demand changes with economic conditions
+        // High necessity (0.9) → elasticity 0.1 (10% impact)
+        // Low necessity (0.1) → elasticity 0.9 (90% impact)
+        const elasticity = 1 - necessityIndex;
+
+        // Impact ranges from 0.3 (severe recession on luxury) to 1.2 (boom on any product)
+        // In good times: boost all sales slightly
+        // In bad times: necessities stable, luxuries drop
+        const impact = 1.0 - (economicStress * elasticity * 0.7);
+
+        // Clamp between 0.3 and 1.2
+        return Math.max(0.3, Math.min(1.2, impact));
+    }
+
     getHourlyDemandModifier(hour) {
         // Shopping patterns throughout the day
         const modifiers = {
@@ -452,7 +535,7 @@ export class RetailStore extends Firm {
             12: 1.5, 13: 1.4, 14: 1.2, 15: 1.1, 16: 1.0, 17: 1.3,
             18: 1.6, 19: 1.7, 20: 1.4, 21: 1.0, 22: 0.5, 23: 0.1
         };
-        
+
         return modifiers[hour] || 1.0;
     }
     

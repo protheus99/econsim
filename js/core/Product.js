@@ -230,7 +230,7 @@ export class ProductRegistry {
             // Textiles (B2B: bulk bolts, retail: fabric stores)
             {
                 id: 110, name: 'Cotton Fabric', category: 'TEXTILES', icon: '🧶',
-                basePrice: 45, weight: 0.4, unit: 'bolt', necessityIndex: 0.6,
+                basePrice: 20, weight: 0.4, unit: 'bolt', necessityIndex: 0.6,
                 minB2BQuantity: 50, minRetailQuantity: 1, baseProductionRate: 30,
                 inputs: [{ material: 'Cotton', quantity: 0.63 }],
                 technologyRequired: 2
@@ -308,7 +308,7 @@ export class ProductRegistry {
             // Vehicles (B2B: small lots for dealerships, retail: individual)
             {
                 id: 203, name: 'Cars', category: 'VEHICLES', icon: '🚗',
-                basePrice: 25000, weight: 1200, unit: 'unit', necessityIndex: 0.6,
+                basePrice: 25000, weight: 1200, unit: 'unit', necessityIndex: 0.1,
                 minB2BQuantity: 50, minRetailQuantity: 1, baseProductionRate: 2,
                 inputs: [
                     { material: 'Steel', quantity: 70 },
@@ -354,19 +354,19 @@ export class ProductRegistry {
             // Clothing (B2B: bulk for stores, retail: individual)
             {
                 id: 207, name: 'Shirts', category: 'CLOTHING', icon: '👕',
-                basePrice: 30, weight: 0.2, unit: 'unit', necessityIndex: 0.8,
+                basePrice: 10, weight: 0.2, unit: 'unit', necessityIndex: 0.8,
                 minB2BQuantity: 50, minRetailQuantity: 1, baseProductionRate: 40,
                 inputs: [
-                    { material: 'Cotton Fabric', quantity: 0.58 }
+                    { material: 'Cotton Fabric', quantity: 0.1 }
                 ],
                 technologyRequired: 2
             },
             {
                 id: 208, name: 'Jeans', category: 'CLOTHING', icon: '👖',
-                basePrice: 50, weight: 0.5, unit: 'pair', necessityIndex: 0.75,
+                basePrice: 25, weight: 0.5, unit: 'pair', necessityIndex: 0.75,
                 minB2BQuantity: 50, minRetailQuantity: 1, baseProductionRate: 30,
                 inputs: [
-                    { material: 'Cotton Fabric', quantity: 0.97 }
+                    { material: 'Cotton Fabric', quantity: 0.15 }
                 ],
                 technologyRequired: 2
             },

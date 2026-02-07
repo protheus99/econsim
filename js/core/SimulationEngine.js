@@ -599,6 +599,7 @@ export class SimulationEngine {
                     const storeType = storeTypes[Math.floor(this.random() * storeTypes.length)];
                     firm = new RetailStore({ city: city }, country, storeType, firmId);
                     firm.retailConfig = this.config.retail || { maxRetailQuantity: 3, purchaseChance: 0.3 };
+                    firm.productRegistry = this.productRegistry; // For necessityIndex lookups
 
                     // Initialize with products matching the store's allowed categories
                     if (firm) {

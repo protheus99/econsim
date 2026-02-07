@@ -4943,3 +4943,46 @@ body {
     background: rgba(255, 152, 0, 0.2);
     color: var(--accent-orange);
 }
+
+/* Necessity Index Labels */
+.inv-necessity,
+.product-necessity {
+    font-size: 0.8rem;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 500;
+}
+
+.necessity-essential {
+    background: rgba(76, 175, 80, 0.2);
+    color: #4caf50;
+}
+
+.necessity-high {
+    background: rgba(139, 195, 74, 0.2);
+    color: #8bc34a;
+}
+
+.necessity-medium {
+    background: rgba(255, 193, 7, 0.2);
+    color: #ffc107;
+}
+
+.necessity-low {
+    background: rgba(255, 152, 0, 0.2);
+    color: #ff9800;
+}
+
+.necessity-luxury {
+    background: rgba(156, 39, 176, 0.2);
+    color: #9c27b0;
+}
+
+.product-necessity {
+    margin-left: 10px;
+}
+
+.inventory-item .inv-necessity {
+    margin-left: auto;
+    flex-shrink: 0;
+}

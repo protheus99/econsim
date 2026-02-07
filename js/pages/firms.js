@@ -519,11 +519,14 @@ function renderProductsInfo(firm) {
         let html = '<div class="retail-inventory-grid">';
         firm.productInventory.forEach((inv, productId) => {
             const product = simulation.productRegistry?.getProduct(parseInt(productId));
+            const necessity = product?.necessityIndex ?? 0.5;
+            const necessityLabel = getNecessityLabel(necessity);
             html += `
                 <div class="inventory-item">
                     <span class="inv-name">${product?.name || inv.productName || productId}</span>
                     <span class="inv-qty">${inv.quantity} units</span>
                     <span class="inv-price">${formatCurrency(inv.retailPrice)}</span>
+                    <span class="inv-necessity ${necessityLabel.class}">${necessityLabel.text}</span>
                 </div>
             `;
         });
@@ -536,11 +539,15 @@ function renderProductsInfo(firm) {
             firm.rawMaterialInventory.forEach((inv, materialName) => {
                 const pct = inv.capacity > 0 ? ((inv.quantity / inv.capacity) * 100).toFixed(2) : 0;
                 const lowStock = inv.quantity < inv.minRequired;
+                const inputProduct = simulation.productRegistry?.getProductByName(materialName);
+                const inputNecessity = inputProduct?.necessityIndex ?? 0.5;
+                const inputNecessityLabel = getNecessityLabel(inputNecessity);
                 inputInventoryHtml += `
                     <div class="inventory-item ${lowStock ? 'low-stock' : ''}">
                         <span class="inv-name">${materialName}</span>
                         <span class="inv-qty">${inv.quantity?.toFixed(2) || 0} / ${inv.capacity?.toFixed(2) || 0}</span>
                         <span class="inv-pct">${pct}%</span>
+                        <span class="inv-necessity ${inputNecessityLabel.class}">${inputNecessityLabel.text}</span>
                     </div>
                 `;
             });
@@ -550,6 +557,8 @@ function renderProductsInfo(firm) {
         const finishedQty = firm.finishedGoodsInventory?.quantity?.toFixed(2) || 0;
         const finishedCap = firm.finishedGoodsInventory?.storageCapacity?.toFixed(2) || 0;
         const finishedPct = finishedCap > 0 ? ((firm.finishedGoodsInventory?.quantity / firm.finishedGoodsInventory?.storageCapacity) * 100).toFixed(2) : 0;
+        const productNecessity = firm.product?.necessityIndex ?? 0.5;
+        const productNecessityLabel = getNecessityLabel(productNecessity);
 
         container.innerHTML = `
             <div class="product-info">
@@ -557,6 +566,7 @@ function renderProductsInfo(firm) {
                 <div class="product-details">
                     <span>Base Price: ${formatCurrency(firm.product?.basePrice || 0)}</span>
                     <span>Production Rate: ${firm.productionLine?.outputPerHour?.toFixed(2) || 0}/hr</span>
+                    <span class="product-necessity">Necessity: <span class="${productNecessityLabel.class}">${productNecessityLabel.text}</span></span>
                 </div>
                 <div class="finished-inventory">
                     <div class="finished-inventory-header">Finished Goods</div>
@@ -570,13 +580,32 @@ function renderProductsInfo(firm) {
             </div>
         `;
     } else {
+        // Primary producers (MINING, LOGGING, FARM)
+        const resourceName = firm.resourceType || firm.timberType || firm.cropType || firm.livestockType || 'Unknown';
+        const product = simulation.productRegistry?.getProductByName(resourceName);
+        const necessity = product?.necessityIndex ?? 0.5;
+        const necessityLabel = getNecessityLabel(necessity);
+
         container.innerHTML = `
             <div class="product-info">
-                <span>Inventory: ${firm.inventory?.quantity?.toFixed(0) || 0} units</span>
-                <span>Quality: ${firm.inventory?.quality?.toFixed(0) || 0}%</span>
+                <div class="product-header">${resourceName}</div>
+                <div class="product-details">
+                    <span>Inventory: ${firm.inventory?.quantity?.toFixed(0) || 0} units</span>
+                    <span>Quality: ${firm.inventory?.quality?.toFixed(0) || 0}%</span>
+                    <span class="product-necessity">Necessity: <span class="${necessityLabel.class}">${necessityLabel.text}</span></span>
+                </div>
             </div>
         `;
     }
+}
+
+// Helper to convert necessityIndex to human-readable label
+function getNecessityLabel(necessityIndex) {
+    if (necessityIndex >= 0.85) return { text: 'Essential', class: 'necessity-essential' };
+    if (necessityIndex >= 0.7) return { text: 'High', class: 'necessity-high' };
+    if (necessityIndex >= 0.5) return { text: 'Medium', class: 'necessity-medium' };
+    if (necessityIndex >= 0.3) return { text: 'Low', class: 'necessity-low' };
+    return { text: 'Luxury', class: 'necessity-luxury' };
 }
 
 function renderLaborStats(firm) {
