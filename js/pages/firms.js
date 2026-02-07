@@ -556,7 +556,7 @@ function renderProductsInfo(firm) {
                 <div class="product-header">${firm.product?.name || 'Unknown Product'}</div>
                 <div class="product-details">
                     <span>Base Price: ${formatCurrency(firm.product?.basePrice || 0)}</span>
-                    <span>Production Rate: ${firm.productionLine?.outputPerHour?.toFixed(1) || 0}/hr</span>
+                    <span>Production Rate: ${firm.productionLine?.outputPerHour?.toFixed(2) || 0}/hr</span>
                 </div>
                 <div class="finished-inventory">
                     <div class="finished-inventory-header">Finished Goods</div>
@@ -744,18 +744,42 @@ function getProductName(productIdOrName) {
 
 function renderPurchases(firm) {
     const tbody = document.getElementById('firm-purchases-tbody');
-    const transactions = simulation.transactionLog?.transactions || [];
-    const purchases = transactions.filter(t => t.buyer?.id === firm.id).slice(-20).reverse();
+    const transactionLog = simulation.transactionLog;
 
-    document.getElementById('firm-purchases-count').textContent = `${purchases.length} Purchases`;
+    // Get all purchase transactions for this firm
+    // Check both main transactions array and globalMarketOrders for completeness
+    const allTransactions = transactionLog?.transactions || [];
+    const globalOrders = transactionLog?.globalMarketOrders || [];
 
-    tbody.innerHTML = purchases.length === 0 ? '<tr><td colspan="6" class="no-data">No purchases</td></tr>' :
-        purchases.map(t => {
+    // Filter by buyer ID - convert to string for safe comparison
+    const firmIdStr = String(firm.id);
+    const purchases = allTransactions
+        .filter(t => String(t.buyer?.id) === firmIdStr)
+        .slice(-20)
+        .reverse();
+
+    // Also check for any global market orders not in main list
+    const gmPurchases = globalOrders
+        .filter(o => String(o.buyer?.id) === firmIdStr && !purchases.some(p => p.id === o.id))
+        .slice(-10);
+
+    const allPurchases = [...purchases, ...gmPurchases]
+        .sort((a, b) => b.timestamp - a.timestamp)
+        .slice(0, 20);
+
+    document.getElementById('firm-purchases-count').textContent = `${allPurchases.length} Purchases`;
+
+    tbody.innerHTML = allPurchases.length === 0 ? '<tr><td colspan="6" class="no-data">No purchases</td></tr>' :
+        allPurchases.map(t => {
             const productName = getProductName(t.productName || t.product || t.material);
+            const sellerName = t.seller?.name || (t.type === 'GLOBAL_MARKET' ? 'Global Market' : 'Unknown');
+            const statusBadge = t.status && t.status !== 'COMPLETED' && t.status !== 'DELIVERED'
+                ? `<span class="status-badge status-${t.status.toLowerCase().replace(/_/g, '-')}">${t.status.replace(/_/g, ' ')}</span>`
+                : '';
             return `
             <tr>
                 <td>${new Date(t.timestamp).toLocaleTimeString()}</td>
-                <td>${t.seller?.name || 'Global Market'}</td>
+                <td>${sellerName} ${statusBadge}</td>
                 <td>${productName}</td>
                 <td>${t.quantity || '-'}</td>
                 <td>${formatCurrency(t.unitPrice || 0)}</td>
