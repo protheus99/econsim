@@ -14,11 +14,26 @@ export class CityManager {
 
     generateInitialCities(count = null) {
         // Use config value if count not specified
-        const cityCount = count ?? this.config.cities?.initial ?? 8;
+        const configCityCount = count ?? this.config.cities?.initial ?? 8;
+        const minCitiesPerCountry = this.config.cities?.minPerCountry ?? 3;
         const countriesArray = Array.from(this.countries.values());
 
-        for (let i = 0; i < cityCount; i++) {
-            // Distribute cities among countries
+        // Ensure minimum cities per country
+        const minTotalCities = countriesArray.length * minCitiesPerCountry;
+        const cityCount = Math.max(configCityCount, minTotalCities);
+
+        // First pass: Give each country the minimum number of cities
+        for (const country of countriesArray) {
+            for (let i = 0; i < minCitiesPerCountry; i++) {
+                const city = this.generateCityForCountry(country);
+                this.cities.set(city.id, city);
+                country.addCity(city);
+            }
+        }
+
+        // Second pass: Distribute remaining cities round-robin
+        const remainingCities = cityCount - minTotalCities;
+        for (let i = 0; i < remainingCities; i++) {
             const country = countriesArray[i % countriesArray.length];
             const city = this.generateCityForCountry(country);
             this.cities.set(city.id, city);
@@ -27,6 +42,8 @@ export class CityManager {
 
         // Designate some coastal cities
         this.designateCoastalCities();
+
+        console.log(`✅ Generated ${this.cities.size} cities across ${countriesArray.length} countries (min ${minCitiesPerCountry} per country)`);
 
         return Array.from(this.cities.values());
     }

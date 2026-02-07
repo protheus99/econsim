@@ -294,11 +294,12 @@ export class ProductRegistry {
             },
             {
                 id: 202, name: 'Laptops', category: 'ELECTRONICS', icon: '💻',
-                basePrice: 1200, weight: 1.5, unit: 'unit', necessityIndex: 0.65,
-                minB2BQuantity: 10, minRetailQuantity: 1, baseProductionRate: 10,
+                basePrice: 1200, weight: 1.5, unit: 'unit', necessityIndex: 0.15,
+                minB2BQuantity: 200, minRetailQuantity: 1, baseProductionRate: 1,
                 inputs: [
                     { material: 'Aluminum Sheets', quantity: 3.5 },
                     { material: 'Copper Wire', quantity: 2.0 },
+					{ material: 'Gold Ore', quantity: 0.06 },
                     { material: 'Steel', quantity: 0.6 }
                 ],
                 technologyRequired: 8

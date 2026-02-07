@@ -20,13 +20,13 @@
     "maxOrdersPerHour": 5
   },
   "inventory": {
-    "initialStockWeeks": 1,
-    "reorderThresholdWeeks": 4,
-    "reorderQuantityWeeks": 2,
-    "maxStockWeeks": 8
+    "initialStockWeeks": 4,
+    "reorderThresholdWeeks": 2,
+    "reorderQuantityWeeks": 4,
+    "maxStockWeeks": 12
   },
   "countries": {
-    "count": 25,
+    "count": 5,
     "continents": ["NORTHERN", "SOUTHERN", "EASTERN", "WESTERN", "CENTRAL"],
     "economicLevels": ["DEVELOPED", "EMERGING", "DEVELOPING"],
     "tradeAgreements": {
@@ -40,7 +40,8 @@
     }
   },
   "cities": {
-    "initial": 8,
+    "initial": 10,
+    "minPerCountry": 3,
     "minPopulation": 250000,
     "maxPopulation": 5000000,
     "populationGrowthRate": {

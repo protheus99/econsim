@@ -761,6 +761,7 @@ export class SimulationEngine {
             // Calculate thresholds based on production rate
             const hourlyUsage = input.quantity * (firm.productionLine?.outputPerHour || 10);
             const reorderThreshold = hourlyUsage * 24 * 7 * this.config.inventory.reorderThresholdWeeks;
+            const criticalThreshold = hourlyUsage * 24; // 1 day worth - need urgent restock
 
             // If below threshold, try to purchase
             if (inventory.quantity < reorderThreshold) {
@@ -772,24 +773,46 @@ export class SimulationEngine {
                 // First try to buy from local producers via supply chain
                 const purchased = this.tryLocalPurchase(firm, input.material, orderQuantity);
 
-                // If local purchase didn't fulfill the need, use global market
+                // If local purchase didn't fulfill the need
                 if (!purchased && this.globalMarket && this.globalMarket.canPlaceOrder()) {
-                    const result = this.globalMarket.placeOrder(firm, input.material, orderQuantity, 'normal');
-                    if (result.success) {
-                        this.stats.globalMarketSpend += result.order.totalCost;
+                    // If critically low (less than 1 day), use direct purchase for immediate delivery
+                    if (inventory.quantity < criticalThreshold) {
+                        const urgentQuantity = Math.floor(hourlyUsage * 24 * 3); // 3 days worth for urgent
+                        const result = this.globalMarket.directPurchase(firm, input.material, urgentQuantity);
+                        if (result.success) {
+                            this.stats.globalMarketSpend = (this.stats.globalMarketSpend || 0) + result.totalCost;
 
-                        // Log global market order with the GlobalMarket order ID for syncing
-                        const deliveryHours = this.config.globalMarket?.deliveryDelayHours || 24;
-                        this.transactionLog.logGlobalMarketOrder(
-                            firm,
-                            input.material,
-                            orderQuantity,
-                            result.order.unitPrice,
-                            result.order.totalCost,
-                            'PENDING',
-                            deliveryHours,
-                            result.order.id  // Pass GlobalMarket order ID
-                        );
+                            // Log direct purchase
+                            this.transactionLog.logGlobalMarketOrder(
+                                firm,
+                                input.material,
+                                urgentQuantity,
+                                result.unitPrice,
+                                result.totalCost,
+                                'DELIVERED',
+                                0,
+                                `DIRECT_${Date.now()}`
+                            );
+                        }
+                    } else {
+                        // Normal reorder - place order through bidding system
+                        const result = this.globalMarket.placeOrder(firm, input.material, orderQuantity, 'normal');
+                        if (result.success) {
+                            this.stats.globalMarketSpend = (this.stats.globalMarketSpend || 0) + result.order.totalCost;
+
+                            // Log global market order with the GlobalMarket order ID for syncing
+                            const deliveryHours = this.config.globalMarket?.deliveryDelayHours || 24;
+                            this.transactionLog.logGlobalMarketOrder(
+                                firm,
+                                input.material,
+                                orderQuantity,
+                                result.order.unitPrice,
+                                result.order.totalCost,
+                                'PENDING',
+                                deliveryHours,
+                                result.order.id
+                            );
+                        }
                     }
                 }
             }

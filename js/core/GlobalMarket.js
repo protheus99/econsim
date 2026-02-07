@@ -590,6 +590,81 @@ export class GlobalMarket {
         };
     }
 
+    /**
+     * Direct purchase from global market - bypasses bidding system
+     * Used when local supply is unavailable and materials are urgently needed
+     * Pays a premium (2x price multiplier) for immediate delivery
+     */
+    directPurchase(buyer, productIdOrName, quantity) {
+        if (!this.config.enabled) {
+            return { success: false, reason: 'GLOBAL_MARKET_DISABLED' };
+        }
+
+        quantity = Math.floor(quantity);
+        if (quantity < 1) {
+            return { success: false, reason: 'INVALID_QUANTITY' };
+        }
+
+        // Get product info
+        const product = this.productRegistry.getProductByName(productIdOrName) ||
+                        this.productRegistry.getProduct(productIdOrName);
+
+        if (!product) {
+            return { success: false, reason: 'PRODUCT_NOT_FOUND' };
+        }
+
+        // Direct purchase costs 2x the normal market price (premium for immediate delivery)
+        const basePrice = product.basePrice || 100;
+        const directPurchaseMultiplier = this.config.priceMultiplier * 1.5; // 50% premium over regular global market
+        const unitPrice = basePrice * directPurchaseMultiplier;
+        const totalCost = quantity * unitPrice;
+
+        // Check if buyer can afford
+        if (buyer.cash < totalCost) {
+            return {
+                success: false,
+                reason: 'INSUFFICIENT_FUNDS',
+                required: totalCost,
+                available: buyer.cash
+            };
+        }
+
+        // Deduct payment
+        buyer.cash -= totalCost;
+        buyer.expenses += totalCost;
+        buyer.monthlyExpenses = (buyer.monthlyExpenses || 0) + totalCost;
+
+        // Deliver immediately to buyer's inventory
+        if (buyer.type === 'MANUFACTURING') {
+            if (buyer.rawMaterialInventory && buyer.rawMaterialInventory.has(productIdOrName)) {
+                const inventory = buyer.rawMaterialInventory.get(productIdOrName);
+                inventory.quantity += quantity;
+            } else if (buyer.rawMaterialInventory) {
+                // Create inventory slot if it doesn't exist
+                buyer.rawMaterialInventory.set(productIdOrName, {
+                    quantity: quantity,
+                    capacity: quantity * 10,
+                    minRequired: quantity
+                });
+            }
+        } else if (buyer.inventory) {
+            buyer.inventory.quantity += quantity;
+        }
+
+        // Track statistics
+        this.stats.directPurchases = (this.stats.directPurchases || 0) + 1;
+        this.stats.directPurchaseVolume = (this.stats.directPurchaseVolume || 0) + quantity;
+        this.stats.directPurchaseSpend = (this.stats.directPurchaseSpend || 0) + totalCost;
+
+        return {
+            success: true,
+            quantity: quantity,
+            unitPrice: unitPrice,
+            totalCost: totalCost,
+            productName: product.name
+        };
+    }
+
     updateMarketPrices() {
         this.marketPrices.forEach((data, productId) => {
             const fluctuation = (Math.random() - 0.5) * 0.02;

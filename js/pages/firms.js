@@ -530,13 +530,43 @@ function renderProductsInfo(firm) {
         html += '</div>';
         container.innerHTML = html;
     } else if (firm.type === 'MANUFACTURING') {
+        let inputInventoryHtml = '';
+        if (firm.rawMaterialInventory && firm.rawMaterialInventory.size > 0) {
+            inputInventoryHtml = '<div class="input-inventory"><div class="input-inventory-header">Input Materials</div>';
+            firm.rawMaterialInventory.forEach((inv, materialName) => {
+                const pct = inv.capacity > 0 ? ((inv.quantity / inv.capacity) * 100).toFixed(0) : 0;
+                const lowStock = inv.quantity < inv.minRequired;
+                inputInventoryHtml += `
+                    <div class="inventory-item ${lowStock ? 'low-stock' : ''}">
+                        <span class="inv-name">${materialName}</span>
+                        <span class="inv-qty">${inv.quantity?.toFixed(0) || 0} / ${inv.capacity?.toFixed(0) || 0}</span>
+                        <span class="inv-pct">${pct}%</span>
+                    </div>
+                `;
+            });
+            inputInventoryHtml += '</div>';
+        }
+
+        const finishedQty = firm.finishedGoodsInventory?.quantity?.toFixed(0) || 0;
+        const finishedCap = firm.finishedGoodsInventory?.storageCapacity?.toFixed(0) || 0;
+        const finishedPct = finishedCap > 0 ? ((firm.finishedGoodsInventory?.quantity / firm.finishedGoodsInventory?.storageCapacity) * 100).toFixed(0) : 0;
+
         container.innerHTML = `
             <div class="product-info">
                 <div class="product-header">${firm.product?.name || 'Unknown Product'}</div>
                 <div class="product-details">
                     <span>Base Price: ${formatCurrency(firm.product?.basePrice || 0)}</span>
-                    <span>Finished Stock: ${firm.finishedGoodsInventory?.quantity?.toFixed(0) || 0}</span>
+                    <span>Production Rate: ${firm.productionLine?.outputPerHour?.toFixed(1) || 0}/hr</span>
                 </div>
+                <div class="finished-inventory">
+                    <div class="finished-inventory-header">Finished Goods</div>
+                    <div class="inventory-item">
+                        <span class="inv-name">${firm.product?.name || 'Product'}</span>
+                        <span class="inv-qty">${finishedQty} / ${finishedCap}</span>
+                        <span class="inv-pct">${finishedPct}%</span>
+                    </div>
+                </div>
+                ${inputInventoryHtml}
             </div>
         `;
     } else {
