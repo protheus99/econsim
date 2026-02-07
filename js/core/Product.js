@@ -299,7 +299,7 @@ export class ProductRegistry {
                 inputs: [
                     { material: 'Aluminum Sheets', quantity: 3.5 },
                     { material: 'Copper Wire', quantity: 2.0 },
-					{ material: 'Gold Ore', quantity: 0.01 },
+					{ material: 'Gold Ore', quantity: 1 },
                     { material: 'Steel', quantity: 0.6 }
                 ],
                 technologyRequired: 8
