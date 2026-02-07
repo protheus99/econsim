@@ -502,7 +502,7 @@ function renderSpecificDetails(firm) {
                     <div class="detail-item"><span class="label">Product:</span><span class="value">${firm.product?.name || 'Unknown'}</span></div>
                     <div class="detail-item"><span class="label">Tier:</span><span class="value">${firm.product?.tier || 'Unknown'}</span></div>
                     <div class="detail-item"><span class="label">Defect Rate:</span><span class="value">${(firm.defectRate * 100)?.toFixed(1)}%</span></div>
-                    <div class="detail-item"><span class="label">Capacity:</span><span class="value">${firm.productionCapacity || 0}/hr</span></div>
+                    <div class="detail-item"><span class="label">Capacity:</span><span class="value">${firm.productionCapacity?.toFixed(2) || 0}/hr</span></div>
                 </div>
             `;
             break;
@@ -534,12 +534,12 @@ function renderProductsInfo(firm) {
         if (firm.rawMaterialInventory && firm.rawMaterialInventory.size > 0) {
             inputInventoryHtml = '<div class="input-inventory"><div class="input-inventory-header">Input Materials</div>';
             firm.rawMaterialInventory.forEach((inv, materialName) => {
-                const pct = inv.capacity > 0 ? ((inv.quantity / inv.capacity) * 100).toFixed(0) : 0;
+                const pct = inv.capacity > 0 ? ((inv.quantity / inv.capacity) * 100).toFixed(2) : 0;
                 const lowStock = inv.quantity < inv.minRequired;
                 inputInventoryHtml += `
                     <div class="inventory-item ${lowStock ? 'low-stock' : ''}">
                         <span class="inv-name">${materialName}</span>
-                        <span class="inv-qty">${inv.quantity?.toFixed(0) || 0} / ${inv.capacity?.toFixed(0) || 0}</span>
+                        <span class="inv-qty">${inv.quantity?.toFixed(2) || 0} / ${inv.capacity?.toFixed(2) || 0}</span>
                         <span class="inv-pct">${pct}%</span>
                     </div>
                 `;
@@ -547,9 +547,9 @@ function renderProductsInfo(firm) {
             inputInventoryHtml += '</div>';
         }
 
-        const finishedQty = firm.finishedGoodsInventory?.quantity?.toFixed(0) || 0;
-        const finishedCap = firm.finishedGoodsInventory?.storageCapacity?.toFixed(0) || 0;
-        const finishedPct = finishedCap > 0 ? ((firm.finishedGoodsInventory?.quantity / firm.finishedGoodsInventory?.storageCapacity) * 100).toFixed(0) : 0;
+        const finishedQty = firm.finishedGoodsInventory?.quantity?.toFixed(2) || 0;
+        const finishedCap = firm.finishedGoodsInventory?.storageCapacity?.toFixed(2) || 0;
+        const finishedPct = finishedCap > 0 ? ((firm.finishedGoodsInventory?.quantity / firm.finishedGoodsInventory?.storageCapacity) * 100).toFixed(2) : 0;
 
         container.innerHTML = `
             <div class="product-info">
