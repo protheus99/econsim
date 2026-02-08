@@ -27,8 +27,11 @@ export class Country {
         // Production capabilities
         this.productionCapabilities = new Set(config.specialization);
         this.resourceAvailability = new Map();
-        
+
         this.cities = [];
+
+        // Global market hub position (set by CityManager based on country index)
+        this.globalMarketHub = null;
         
         this.initializeTariffs();
         this.initializeResourceAvailability();
@@ -120,6 +123,21 @@ export class Country {
     addCity(city) {
         this.cities.push(city);
         this.population += city.population;
+    }
+
+    setGlobalMarketHub(countryIndex) {
+        // Position hub at center of country's 200x200 region on the map grid
+        const regionX = (countryIndex % 5) * 200;
+        const regionY = Math.floor(countryIndex / 5) * 200;
+
+        this.globalMarketHub = {
+            x: regionX + 100,  // Center of region
+            y: regionY + 100,
+            // Global hubs always have full infrastructure
+            hasAirport: true,
+            hasSeaport: true,
+            hasRailway: true
+        };
     }
     
     updateMonthly() {

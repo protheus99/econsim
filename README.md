@@ -25,8 +25,8 @@ A comprehensive web-based economic simulation featuring autonomous cities, corpo
 
 This simulation creates a dynamic economic world with:
 
-- **25 fictional countries** across 5 continents with trade agreements and tariffs
-- **8 cities** with populations ranging from 250K to 5M
+- **5 fictional countries** across 5 continents with trade agreements and tariffs
+- **10 cities** (minimum 3 per country) with populations ranging from 250K to 5M
 - **Config-driven corporations** with 3-letter abbreviations and AI-driven strategies (Conservative, Moderate, Aggressive, Very Aggressive)
 - **10-20 firms per city** operating across 6 firm types
 - **3-tier supply chain** (RAW → SEMI_RAW → MANUFACTURED)
@@ -386,10 +386,18 @@ The Global Market provides an external source for materials when local producers
 1. **Hourly Inventory Check:** Each manufacturer checks if inventory is below threshold
 2. **Local Purchase First:** System tries to buy from in-game producers
 3. **Global Market Fallback:** If local purchase fails, order from global market
-4. **Delivery Delay:** Global market orders take 24 hours (configurable) to deliver
-5. **Price Markup:** Global market prices are higher than local prices (default: 1.5x)
+4. **Distance-Based Transport:** Transport cost and time calculated from country's Global Market Hub to buyer's city
+5. **Price Markup:** Global market prices are higher than local prices (default: 1.5x) plus transport costs
 6. **Seller Inventory:** When orders are fulfilled, seller inventory is deducted and seller is paid
 7. **Enabled Check:** Global market respects the `enabled` config flag and skips processing when disabled
+
+### Global Market Hubs
+
+Each country has a Global Market Hub positioned at the center of its geographic region:
+- Hub coordinates: `x = (countryIndex % 5) * 200 + 100`, `y = floor(countryIndex / 5) * 200 + 100`
+- Hubs have full infrastructure (airport, seaport, railway)
+- Transport cost calculated from hub to buyer's city using optimal route
+- Transit time based on distance and transport mode
 
 ### Configuration
 
@@ -428,35 +436,76 @@ debug.globalMarket.disable()
 
 ### Automatic Inventory System
 
-Manufacturing firms automatically manage their inventory:
+Manufacturing and retail firms automatically manage their inventory with a two-tier check system:
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| Initial Stock | 1 week | Starting inventory for new firms |
-| Reorder Threshold | 4 weeks | Trigger reorder when inventory falls below this |
-| Reorder Quantity | 2 weeks | Amount to order when restocking |
-| Max Stock | 8 weeks | Maximum inventory capacity |
+| Initial Stock | 4 weeks | Starting inventory for new firms |
+| Reorder Threshold | 2 weeks | Trigger reorder when inventory falls below this |
+| Reorder Quantity | 4 weeks | Target amount to order when restocking |
+| Max Stock | 12 weeks | Maximum inventory capacity |
+| Critical Threshold | 1 day | Urgent restock trigger |
+| Urgent Order | 7 days | Amount for urgent orders |
+| Hourly Check Threshold | 15% | Trigger hourly critical check below this % |
 
 ### Configuration
 
 ```json
 "inventory": {
-    "initialStockWeeks": 1,
-    "reorderThresholdWeeks": 4,
-    "reorderQuantityWeeks": 2,
-    "maxStockWeeks": 8
+    "initialStockWeeks": 4,
+    "reorderThresholdWeeks": 2,
+    "reorderQuantityWeeks": 4,
+    "maxStockWeeks": 12,
+    "urgentOrderDays": 7,
+    "criticalThresholdDays": 1,
+    "hourlyCheckThresholdPct": 0.15
+}
+```
+
+### Retail Inventory Configuration
+
+Retail stores have capacity limits based on store type and product category:
+
+```json
+"retail": {
+    "inventory": {
+        "capacityByStoreType": {
+            "SUPERMARKET": { "default": 1000, "PACKAGED_FOOD": 2000, "DAIRY": 800 },
+            "ELECTRONICS": { "default": 200, "ELECTRONICS": 500 },
+            "FASHION": { "default": 600, "CLOTHING": 1000 }
+        },
+        "reorderThresholdPct": 0.25,
+        "targetStockPct": 0.85,
+        "urgentThresholdPct": 0.10
+    }
 }
 ```
 
 ### Inventory Check Process
 
-Every hour:
-1. Calculate hourly material usage based on production rate
-2. Calculate threshold: `hourlyUsage × 24 × 7 × reorderThresholdWeeks`
-3. If current inventory < threshold:
-   - Try to purchase from local producers
-   - If unavailable, order from global market
-4. Order quantity: `hourlyUsage × 24 × 7 × reorderQuantityWeeks`
+**Daily Check (Full Restock):**
+1. Calculate material usage based on production rate
+2. If inventory < reorder threshold:
+   - Calculate order: `min(maxStock, current + weeklyUsage × reorderQuantityWeeks)`
+   - Try local suppliers first (returns quantity fulfilled)
+   - Reduce remaining order by amount fulfilled locally
+   - Order remainder from global market
+
+**Hourly Check (Critical Items Only):**
+1. Check if any inventory < 15% of max stock
+2. If critically low:
+   - Calculate urgent order quantity
+   - Try local suppliers first
+   - Use global market direct purchase for immediate delivery
+
+### Local Supplier Priority
+
+The system prioritizes local economy by trying to purchase from nearby producers first:
+
+1. **Manufacturing inputs:** Buy from local primary producers (Mining, Logging, Farm) or semi-raw manufacturers
+2. **Retail products:** Buy from local manufacturers before using global market
+3. **Multiple suppliers:** Can buy from multiple local suppliers to fulfill large orders
+4. **Buffer preservation:** Local suppliers keep 20-30% buffer stock
 
 ### Viewing Inventory
 
@@ -499,6 +548,27 @@ debug.getInventoryReport()
 - **Airport:** Cities with population > 500,000
 - **Railway:** Cities with population > 250,000
 - **Seaport:** Coastal cities only
+
+### Transport Costs in Orders
+
+Transportation costs are automatically calculated for all inventory orders based on distance:
+
+**Local B2B Trades:**
+- Distance calculated between seller and buyer city coordinates
+- Optimal route selected using "balanced" priority (weighs cost, speed, reliability)
+- Transport cost added to product price
+- Transit time determines delivery delay (same-city = immediate)
+
+**Global Market Orders:**
+- Each country has a Global Market Hub at its geographic center
+- Distance calculated from hub to buyer's city
+- Internal orders use "balanced" priority
+- Direct/urgent purchases use "speed" priority for expedited delivery
+
+**Pending Deliveries:**
+- Cross-city trades create pending deliveries
+- Goods arrive after calculated transit time
+- Hourly processing completes deliveries when transit time elapses
 
 ### Transportation Calculator
 
@@ -667,8 +737,27 @@ window.getSimulation()               // Returns simulation engine instance
 
 1. Add product definition in `Product.js` registry
 2. Define inputs (for manufactured goods) or mark as raw material
-3. Update relevant firm types to produce/consume the product
-4. Products are automatically available in global market
+3. Set `necessityIndex` (0.0-1.0) to control demand elasticity
+4. Update relevant firm types to produce/consume the product
+5. Products are automatically available in global market
+
+### Product Necessity Index
+
+Products have a `necessityIndex` (0.0-1.0) that affects consumer behavior:
+
+| Range | Label | Example Products | Demand Elasticity |
+|-------|-------|------------------|-------------------|
+| 0.85+ | Essential | Bread, Milk, Rice | Very inelastic (stable demand) |
+| 0.70-0.84 | High | Gasoline, Clothing | Low elasticity |
+| 0.50-0.69 | Medium | Furniture, Appliances | Moderate elasticity |
+| 0.30-0.49 | Low | Electronics, Jewelry | High elasticity |
+| <0.30 | Luxury | Gold, Laptops | Very elastic (demand drops in recession) |
+
+**Effects on Consumer Behavior:**
+- **Purchase Priority:** Consumers buy necessities before luxuries
+- **Price Sensitivity:** Necessities purchased regardless of price; luxuries require budget
+- **Economic Impact:** In recessions, luxury sales drop 70% while necessities remain stable
+- **Quantity:** Consumers buy more units of essential products per transaction
 
 ### Adding a New Transportation Type
 
@@ -703,6 +792,11 @@ window.getSimulation()               // Returns simulation engine instance
 
 ### Recently Completed
 
+- [x] Distance-based transportation costs for all inventory orders
+- [x] Transit time delays for cross-city deliveries
+- [x] Global Market Hubs positioned at each country's center
+- [x] Pending delivery system for local B2B trades
+- [x] Transport priority modes (balanced for regular orders, speed for urgent)
 - [x] Three-tier supply chain (RAW → SEMI_RAW → MANUFACTURED)
 - [x] Global market system for external purchases
 - [x] Global market respects enabled/disabled config flag
@@ -724,9 +818,16 @@ window.getSimulation()               // Returns simulation engine instance
 - [x] Seeded RNG throughout simulation for determinism
 - [x] O(1) corporation lookups via Map-based indexing
 - [x] Multi-page UI (dashboard, global economy, world map, cities, corporations, firms, market activity, products, transportation, feed)
+- [x] Product necessity index affecting consumer demand elasticity
+- [x] Two-tier inventory checks (daily full + hourly critical)
+- [x] Local supplier priority before global market
+- [x] Config-based retail capacity by store type and product category
+- [x] Products page with producers and sellers sections
+- [x] Firm page displays product necessity levels
+- [x] tryLocalPurchase returns fulfilled quantity for partial orders
 
 ---
 
-**Version:** 1.0.2
-**Last Updated:** 2026-02-04
+**Version:** 1.0.3
+**Last Updated:** 2026-02-07
 **Status:** Production Ready

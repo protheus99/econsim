@@ -23,7 +23,10 @@
     "initialStockWeeks": 4,
     "reorderThresholdWeeks": 2,
     "reorderQuantityWeeks": 4,
-    "maxStockWeeks": 12
+    "maxStockWeeks": 12,
+    "urgentOrderDays": 7,
+    "criticalThresholdDays": 1,
+    "hourlyCheckThresholdPct": 0.15
   },
   "countries": {
     "count": 5,
@@ -116,7 +119,21 @@
   },
   "retail": {
     "maxRetailQuantity": 3,
-    "purchaseChance": 0.3
+    "purchaseChance": 0.3,
+    "inventory": {
+      "capacityByStoreType": {
+        "SUPERMARKET": { "default": 1000, "PACKAGED_FOOD": 2000, "DAIRY": 800, "MEAT": 600 },
+        "DEPARTMENT": { "default": 500, "CLOTHING": 800, "ELECTRONICS": 300 },
+        "ELECTRONICS": { "default": 200, "ELECTRONICS": 500 },
+        "FASHION": { "default": 600, "CLOTHING": 1000, "TEXTILES": 400 },
+        "HARDWARE": { "default": 800, "CONSTRUCTION": 1500, "LUMBER": 1000 },
+        "FURNITURE": { "default": 200, "FURNITURE": 400 },
+        "AUTO": { "default": 50, "VEHICLES": 30, "FUELS": 2000 }
+      },
+      "reorderThresholdPct": 0.25,
+      "targetStockPct": 0.85,
+      "urgentThresholdPct": 0.10
+    }
   },
   "products": {
     "tiers": ["RAW", "SEMI_RAW", "MANUFACTURED"],

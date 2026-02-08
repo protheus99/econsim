@@ -123,6 +123,58 @@ function renderProductGrid(containerId, products, badgeId) {
     });
 }
 
+function findSellersForProduct(product) {
+    const sellers = [];
+
+    simulation.firms.forEach(f => {
+        // Only RETAIL firms sell to consumers
+        if (f.type === 'RETAIL' && f.productInventory?.has(product.id)) {
+            sellers.push(f);
+        }
+    });
+
+    // Sort by stock quantity (highest first)
+    sellers.sort((a, b) => {
+        const stockA = a.productInventory?.get(product.id)?.quantity || 0;
+        const stockB = b.productInventory?.get(product.id)?.quantity || 0;
+        return stockB - stockA;
+    });
+
+    return sellers;
+}
+
+function findProducersForProduct(product) {
+    const producers = [];
+
+    simulation.firms.forEach(f => {
+        // MANUFACTURING firms - check if they produce this product
+        if (f.type === 'MANUFACTURING' && f.product?.id === product.id) {
+            producers.push(f);
+        }
+        // MINING firms - match by resourceType
+        else if (f.type === 'MINING' && product.tier === 'RAW') {
+            if (f.resourceType === product.name) {
+                producers.push(f);
+            }
+        }
+        // LOGGING firms - match by timberType
+        else if (f.type === 'LOGGING' && product.tier === 'RAW') {
+            if (f.timberType === product.name) {
+                producers.push(f);
+            }
+        }
+        // FARM firms - match by cropType or livestockType
+        else if (f.type === 'FARM' && product.tier === 'RAW') {
+            if (f.cropType === product.name || f.livestockType === product.name) {
+                producers.push(f);
+            }
+        }
+        // Note: RETAIL firms only sell to consumers, they don't produce products
+    });
+
+    return producers;
+}
+
 function showProductDetail(productId) {
     const product = simulation.productRegistry.getProduct(productId);
     if (!product) return;
@@ -173,26 +225,50 @@ function showProductDetail(productId) {
         inputsContainer.innerHTML = '<p class="empty-state">No inputs (raw material)</p>';
     }
 
-    // Find producers
-    const producers = [];
-    simulation.firms.forEach(f => {
-        if (f.type === 'MANUFACTURING' && f.product?.id === productId) {
-            producers.push(f);
-        }
-    });
+    // Find producers based on product tier and type
+    const producers = findProducersForProduct(product);
 
     document.getElementById('product-producers-count').textContent = producers.length + ' Producers';
     const producersList = document.getElementById('product-producers-list');
 
     if (producers.length > 0) {
-        producersList.innerHTML = producers.map(f => `
-            <div class="firm-item">
-                <span class="firm-name">${f.name || f.id}</span>
-                <span class="firm-location">${f.city?.name || 'Unknown'}</span>
-            </div>
-        `).join('');
+        producersList.innerHTML = producers.map(f => {
+            const firmName = f.getDisplayName ? f.getDisplayName() : (f.name || f.id);
+            return `
+                <a href="firms.html?id=${f.id}" class="firm-item firm-link">
+                    <span class="firm-name">${firmName}</span>
+                    <span class="firm-location">${f.city?.name || 'Unknown'}</span>
+                    <span class="firm-type">${f.type}</span>
+                </a>
+            `;
+        }).join('');
     } else {
         producersList.innerHTML = '<p class="empty-state">No producers found</p>';
+    }
+
+    // Find sellers (retail stores that stock this product)
+    const sellers = findSellersForProduct(product);
+
+    document.getElementById('product-sellers-count').textContent = sellers.length + ' Sellers';
+    const sellersList = document.getElementById('product-sellers-list');
+
+    if (sellers.length > 0) {
+        sellersList.innerHTML = sellers.map(f => {
+            const firmName = f.getDisplayName ? f.getDisplayName() : (f.name || f.id);
+            const inventory = f.productInventory?.get(product.id);
+            const stockQty = inventory?.quantity || 0;
+            const retailPrice = inventory?.retailPrice || product.basePrice;
+            return `
+                <a href="firms.html?id=${f.id}" class="firm-item firm-link">
+                    <span class="firm-name">${firmName}</span>
+                    <span class="firm-location">${f.city?.name || 'Unknown'}</span>
+                    <span class="firm-stock">${stockQty} in stock</span>
+                    <span class="firm-price">${formatCurrency(retailPrice)}</span>
+                </a>
+            `;
+        }).join('');
+    } else {
+        sellersList.innerHTML = '<p class="empty-state">No retail sellers found</p>';
     }
 
     // Cost breakdown

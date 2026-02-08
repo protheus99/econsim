@@ -39,6 +39,9 @@ export class SimulationEngine {
         // Global Market System
         this.globalMarket = null;
 
+        // Pending local deliveries (for transport time simulation)
+        this.pendingLocalDeliveries = [];
+
         // Transaction Log for detailed activity tracking
         this.transactionLog = new TransactionLog(1000);
         this.transactionLog.setClock(this.clock); // Use game time for timestamps
@@ -206,6 +209,9 @@ export class SimulationEngine {
 
         // Give GlobalMarket reference to firms for inventory updates during delivery
         this.globalMarket.setFirms(this.firms);
+
+        // Give GlobalMarket reference to transportation network for distance-based costs
+        this.globalMarket.setTransportation(this.cityManager.transportation, this.countries);
 
         // Initialize statistics before first render
         this.updateStatistics();
@@ -722,6 +728,12 @@ export class SimulationEngine {
             }
         }
 
+        // Process pending local deliveries
+        this.processLocalDeliveries();
+
+        // Hourly critical inventory check (for fast-moving goods)
+        this.checkCriticalInventoryLevels();
+
         // Check for excess inventory and sell to global market
         this.checkExcessInventory();
 
@@ -739,7 +751,7 @@ export class SimulationEngine {
     }
 
     checkInventoryLevels() {
-        // Check all manufacturing firms for low inventory
+        // Full inventory check - runs daily
         this.firms.forEach(firm => {
             if (firm.type === 'MANUFACTURING') {
                 this.checkManufacturingInventory(firm);
@@ -749,8 +761,140 @@ export class SimulationEngine {
         });
     }
 
+    /**
+     * Hourly check for critically low inventory levels
+     * Only triggers urgent restocking for items below the hourly threshold
+     */
+    checkCriticalInventoryLevels() {
+        const invConfig = this.config.inventory;
+        const hourlyThresholdPct = invConfig.hourlyCheckThresholdPct || 0.15;
+
+        this.firms.forEach(firm => {
+            if (firm.type === 'MANUFACTURING') {
+                this.checkCriticalManufacturingInventory(firm, hourlyThresholdPct);
+            } else if (firm.type === 'RETAIL') {
+                this.checkCriticalRetailInventory(firm, hourlyThresholdPct);
+            }
+        });
+    }
+
+    /**
+     * Hourly critical check for manufacturing input materials
+     */
+    checkCriticalManufacturingInventory(firm, thresholdPct) {
+        if (!firm.product || !firm.product.inputs) return;
+
+        const invConfig = this.config.inventory;
+        const urgentOrderDays = invConfig.urgentOrderDays || 7;
+
+        firm.product.inputs.forEach(input => {
+            const inventory = firm.rawMaterialInventory?.get(input.material);
+            if (!inventory) return;
+
+            // Calculate usage
+            const hourlyUsage = input.quantity * (firm.productionLine?.outputPerHour || 10);
+            const dailyUsage = hourlyUsage * 24;
+            const weeklyUsage = dailyUsage * 7;
+            const maxStock = weeklyUsage * invConfig.maxStockWeeks;
+
+            // Critical threshold: below X% of max stock
+            const criticalThreshold = maxStock * thresholdPct;
+
+            if (inventory.quantity < criticalThreshold) {
+                // Urgent restock needed
+                const urgentQuantity = Math.floor(dailyUsage * urgentOrderDays);
+                if (urgentQuantity <= 0) return;
+
+                // Check affordability
+                const product = this.productRegistry.getProductByName(input.material);
+                const estimatedCost = urgentQuantity * (product?.basePrice || 100) * 2;
+                if (firm.cash < estimatedCost * 0.3) return;
+
+                // Try local first
+                const localFulfilled = this.tryLocalPurchase(firm, input.material, urgentQuantity);
+                const remaining = urgentQuantity - localFulfilled;
+
+                // If still need more, use global market direct purchase
+                if (remaining > 0 && this.globalMarket) {
+                    const result = this.globalMarket.directPurchase(firm, input.material, remaining);
+                    if (result.success) {
+                        this.stats.globalMarketSpend = (this.stats.globalMarketSpend || 0) + result.totalCost;
+
+                        this.transactionLog.logGlobalMarketOrder(
+                            firm,
+                            input.material,
+                            remaining,
+                            result.unitPrice,
+                            result.totalCost,
+                            'DELIVERED',
+                            0,
+                            `URGENT_${Date.now()}`
+                        );
+                    }
+                }
+            }
+        });
+    }
+
+    /**
+     * Hourly critical check for retail inventory
+     */
+    checkCriticalRetailInventory(retailer, thresholdPct) {
+        if (!retailer.productInventory || retailer.productInventory.size === 0) return;
+
+        const retailConfig = this.config.retail?.inventory || {};
+        const storeType = retailer.storeType || 'DEPARTMENT';
+        const capacityByType = retailConfig.capacityByStoreType?.[storeType] || {};
+
+        retailer.productInventory.forEach((inventory, productId) => {
+            const product = this.productRegistry?.getProduct(productId);
+            const productName = inventory.productName || product?.name || productId;
+            const productCategory = product?.category || 'default';
+
+            // Get capacity
+            const capacity = capacityByType[productCategory] || capacityByType.default || inventory.capacity || 500;
+            const criticalThreshold = capacity * thresholdPct;
+
+            if (inventory.quantity < criticalThreshold) {
+                // Urgent restock
+                const urgentQuantity = Math.floor(capacity * 0.3); // Restock 30% of capacity
+                if (urgentQuantity <= 0) return;
+
+                // Check affordability
+                const unitPrice = product?.basePrice || 100;
+                const estimatedCost = urgentQuantity * unitPrice * 2;
+                if (retailer.cash < estimatedCost * 0.3) return;
+
+                // Try local first
+                const localFulfilled = this.tryLocalRetailPurchase(retailer, productId, productName, urgentQuantity);
+                const remaining = urgentQuantity - localFulfilled;
+
+                // If still need more, use global market
+                if (remaining > 0 && this.globalMarket) {
+                    const result = this.globalMarket.directPurchase(retailer, productName, remaining);
+                    if (result.success) {
+                        this.stats.globalMarketSpend = (this.stats.globalMarketSpend || 0) + result.totalCost;
+
+                        this.transactionLog.logGlobalMarketOrder(
+                            retailer,
+                            productName,
+                            remaining,
+                            result.unitPrice,
+                            result.totalCost,
+                            'DELIVERED',
+                            0,
+                            `URGENT_${Date.now()}`
+                        );
+                    }
+                }
+            }
+        });
+    }
+
     checkManufacturingInventory(firm) {
         if (!firm.product || !firm.product.inputs) return;
+
+        const invConfig = this.config.inventory;
 
         firm.product.inputs.forEach(input => {
             const inventory = firm.rawMaterialInventory?.get(input.material);
@@ -761,62 +905,70 @@ export class SimulationEngine {
             const dailyUsage = hourlyUsage * 24;
             const weeklyUsage = dailyUsage * 7;
 
-            // Reorder when below threshold (default 2 weeks worth)
-            const reorderThreshold = weeklyUsage * this.config.inventory.reorderThresholdWeeks;
-            // Critical threshold - need urgent restock (1 day worth)
-            const criticalThreshold = dailyUsage;
-            // Max stock level (default 12 weeks worth)
-            const maxStock = weeklyUsage * this.config.inventory.maxStockWeeks;
+            // Config-based thresholds
+            const reorderThreshold = weeklyUsage * invConfig.reorderThresholdWeeks;
+            const criticalThreshold = dailyUsage * (invConfig.criticalThresholdDays || 1);
+            const maxStock = weeklyUsage * invConfig.maxStockWeeks;
+            const reorderQuantityWeeks = invConfig.reorderQuantityWeeks || 4;
+            const urgentOrderDays = invConfig.urgentOrderDays || 7;
 
-            // If below threshold, place a bulk order to fill up to max capacity
+            // If below threshold, calculate order quantity
             if (inventory.quantity < reorderThreshold) {
-                // Calculate bulk order: fill up to max stock level (prefer large orders)
-                const targetStock = maxStock;
-                const orderQuantity = Math.floor(Math.max(targetStock - inventory.quantity, weeklyUsage * 2));
+                // Calculate order: cap at reorderQuantityWeeks or fill to max
+                const targetStock = Math.min(maxStock, inventory.quantity + weeklyUsage * reorderQuantityWeeks);
+                let remainingOrder = Math.floor(Math.max(targetStock - inventory.quantity, weeklyUsage * 2));
 
-                if (orderQuantity <= 0) return;
+                if (remainingOrder <= 0) return;
 
                 // Check if firm can afford the order
                 const product = this.productRegistry.getProductByName(input.material);
-                const estimatedCost = orderQuantity * (product?.basePrice || 100) * 1.5;
-                if (firm.cash < estimatedCost * 0.5) return; // Need at least 50% of estimated cost
+                const estimatedCost = remainingOrder * (product?.basePrice || 100) * 1.5;
+                if (firm.cash < estimatedCost * 0.5) return;
 
                 // First try to buy from local producers via supply chain
-                const purchased = this.tryLocalPurchase(firm, input.material, orderQuantity);
+                const localFulfilled = this.tryLocalPurchase(firm, input.material, remainingOrder);
+                remainingOrder -= localFulfilled;
 
-                // If local purchase didn't fulfill the need
-                if (!purchased && this.globalMarket && this.globalMarket.canPlaceOrder()) {
-                    // If critically low (less than 1 day), use direct purchase for immediate delivery
-                    if (inventory.quantity < criticalThreshold) {
-                        const urgentQuantity = Math.floor(dailyUsage * 7); // 1 week worth for urgent
-                        const result = this.globalMarket.directPurchase(firm, input.material, urgentQuantity);
-                        if (result.success) {
-                            this.stats.globalMarketSpend = (this.stats.globalMarketSpend || 0) + result.totalCost;
+                // If local purchase didn't fully fulfill the need, use global market
+                if (remainingOrder > 0 && this.globalMarket && this.globalMarket.canPlaceOrder()) {
+                    // Recalculate current inventory after local purchase
+                    const currentStock = inventory.quantity;
 
-                            // Log direct purchase
-                            this.transactionLog.logGlobalMarketOrder(
-                                firm,
-                                input.material,
-                                urgentQuantity,
-                                result.unitPrice,
-                                result.totalCost,
-                                'DELIVERED',
-                                0,
-                                `DIRECT_${Date.now()}`
-                            );
+                    // If critically low, use direct purchase for immediate delivery
+                    if (currentStock < criticalThreshold) {
+                        // Config-based urgent quantity
+                        const urgentQuantity = Math.floor(Math.min(dailyUsage * urgentOrderDays, remainingOrder));
+                        if (urgentQuantity > 0) {
+                            const result = this.globalMarket.directPurchase(firm, input.material, urgentQuantity);
+                            if (result.success) {
+                                this.stats.globalMarketSpend = (this.stats.globalMarketSpend || 0) + result.totalCost;
+                                remainingOrder -= urgentQuantity;
+
+                                this.transactionLog.logGlobalMarketOrder(
+                                    firm,
+                                    input.material,
+                                    urgentQuantity,
+                                    result.unitPrice,
+                                    result.totalCost,
+                                    'DELIVERED',
+                                    0,
+                                    `DIRECT_${Date.now()}`
+                                );
+                            }
                         }
-                    } else {
-                        // Normal bulk reorder - place large order through bidding system
-                        const result = this.globalMarket.placeOrder(firm, input.material, orderQuantity, 'bulk');
+                    }
+
+                    // Place remaining order through bidding system
+                    if (remainingOrder > 0) {
+                        const result = this.globalMarket.placeOrder(firm, input.material, remainingOrder, 'bulk');
                         if (result.success) {
                             this.stats.globalMarketSpend = (this.stats.globalMarketSpend || 0) + result.order.totalCost;
 
-                            // Log global market order with the GlobalMarket order ID for syncing
                             const deliveryHours = this.config.globalMarket?.deliveryDelayHours || 24;
                             this.transactionLog.logGlobalMarketOrder(
                                 firm,
                                 input.material,
-                                orderQuantity,
+                                remainingOrder,
                                 result.order.unitPrice,
                                 result.order.totalCost,
                                 'PENDING',
@@ -832,68 +984,121 @@ export class SimulationEngine {
 
     checkRetailInventory(retailer) {
         if (!retailer.productInventory || retailer.productInventory.size === 0) return;
-        if (!this.globalMarket || !this.globalMarket.canPlaceOrder()) return;
+
+        const retailConfig = this.config.retail?.inventory || {};
+        const storeType = retailer.storeType || 'DEPARTMENT';
+        const capacityByType = retailConfig.capacityByStoreType?.[storeType] || {};
 
         // Collect all products needing restock for bulk ordering
         const ordersNeeded = [];
 
         // Check each product in inventory
         retailer.productInventory.forEach((inventory, productId) => {
-            // Calculate thresholds based on capacity
-            const capacity = inventory.capacity || 500;
-            const reorderThreshold = capacity * 0.25; // Reorder when below 25% capacity
-            const targetStock = capacity * 0.9; // Fill up to 90% capacity
+            const product = this.productRegistry?.getProduct(productId);
+            const productName = inventory.productName || product?.name || productId;
+            const productCategory = product?.category || 'default';
+
+            // Get capacity based on store type and product category
+            const capacity = capacityByType[productCategory] || capacityByType.default || inventory.capacity || 500;
+
+            // Config-based thresholds
+            const reorderThresholdPct = retailConfig.reorderThresholdPct || 0.25;
+            const targetStockPct = retailConfig.targetStockPct || 0.85;
+            const urgentThresholdPct = retailConfig.urgentThresholdPct || 0.10;
+
+            const reorderThreshold = capacity * reorderThresholdPct;
+            const targetStock = capacity * targetStockPct;
+            const urgentThreshold = capacity * urgentThresholdPct;
 
             if (inventory.quantity < reorderThreshold) {
-                // Get product info for ordering
-                const product = this.productRegistry?.getProduct(productId);
-                const productName = inventory.productName || product?.name || productId;
+                // Calculate order quantity capped by reorderQuantityWeeks equivalent
+                const maxOrderQty = capacity * 0.5; // Max 50% of capacity per order
+                const orderQuantity = Math.floor(Math.min(targetStock - inventory.quantity, maxOrderQty));
 
-                // Calculate bulk order quantity (prefer large orders)
-                const orderQuantity = Math.floor(Math.max(targetStock - inventory.quantity, 200));
-
-                ordersNeeded.push({
-                    productId,
-                    productName,
-                    quantity: orderQuantity,
-                    currentStock: inventory.quantity,
-                    priority: inventory.quantity / reorderThreshold // Lower = more urgent
-                });
+                if (orderQuantity > 0) {
+                    ordersNeeded.push({
+                        productId,
+                        productName,
+                        product,
+                        quantity: orderQuantity,
+                        currentStock: inventory.quantity,
+                        capacity,
+                        isUrgent: inventory.quantity < urgentThreshold,
+                        priority: inventory.quantity / reorderThreshold // Lower = more urgent
+                    });
+                }
             }
         });
 
-        // Sort by priority (most urgent first) and process bulk orders
+        // Sort by priority (most urgent first) and process orders
         ordersNeeded.sort((a, b) => a.priority - b.priority);
 
         for (const order of ordersNeeded) {
-            const unitPrice = this.globalMarket.getMarketPrice(order.productName);
-            const totalCost = order.quantity * unitPrice;
+            let remainingOrder = order.quantity;
 
-            // Check if retailer can afford the bulk order
-            if (retailer.cash >= totalCost) {
-                const result = this.globalMarket.placeOrder(retailer, order.productName, order.quantity, 'bulk');
-                if (result.success) {
-                    this.stats.globalMarketSpend += result.order.totalCost;
+            // First try to buy from local manufacturers
+            const localFulfilled = this.tryLocalRetailPurchase(retailer, order.productId, order.productName, remainingOrder);
+            remainingOrder -= localFulfilled;
 
-                    // Calculate delivery hours from config or use default
-                    const deliveryHours = this.config.globalMarket?.deliveryDelayHours || 24;
+            // If local purchase didn't fully fulfill, use global market
+            if (remainingOrder > 0 && this.globalMarket && this.globalMarket.canPlaceOrder()) {
+                const unitPrice = this.globalMarket.getMarketPrice(order.productName);
+                const totalCost = remainingOrder * unitPrice;
 
-                    this.transactionLog.logGlobalMarketOrder(
-                        retailer,
-                        order.productName,
-                        order.quantity,
-                        result.order.unitPrice || unitPrice,
-                        result.order.totalCost || totalCost,
-                        'PENDING',
-                        deliveryHours,
-                        result.order.id
-                    );
+                // Check if retailer can afford the order
+                if (retailer.cash >= totalCost) {
+                    // If urgent, use direct purchase for immediate delivery
+                    if (order.isUrgent) {
+                        const result = this.globalMarket.directPurchase(retailer, order.productName, remainingOrder);
+                        if (result.success) {
+                            this.stats.globalMarketSpend = (this.stats.globalMarketSpend || 0) + result.totalCost;
+
+                            this.transactionLog.logGlobalMarketOrder(
+                                retailer,
+                                order.productName,
+                                remainingOrder,
+                                result.unitPrice,
+                                result.totalCost,
+                                'DELIVERED',
+                                0,
+                                `DIRECT_${Date.now()}`
+                            );
+                        }
+                    } else {
+                        // Normal order through bidding system
+                        const result = this.globalMarket.placeOrder(retailer, order.productName, remainingOrder, 'bulk');
+                        if (result.success) {
+                            this.stats.globalMarketSpend = (this.stats.globalMarketSpend || 0) + result.order.totalCost;
+
+                            const deliveryHours = this.config.globalMarket?.deliveryDelayHours || 24;
+                            this.transactionLog.logGlobalMarketOrder(
+                                retailer,
+                                order.productName,
+                                remainingOrder,
+                                result.order.unitPrice || unitPrice,
+                                result.order.totalCost || totalCost,
+                                'PENDING',
+                                deliveryHours,
+                                result.order.id
+                            );
+                        }
+                    }
                 }
             }
         }
     }
 
+    /**
+     * Try to purchase materials from local producers
+     * @param {Firm} buyer - The firm buying materials
+     * @param {string} materialName - Name of the material to buy
+     * @param {number} quantity - Desired quantity to purchase
+     * @returns {number} Actual quantity fulfilled (0 if none available)
+     */
     tryLocalPurchase(buyer, materialName, quantity) {
+        let totalFulfilled = 0;
+        let remainingQuantity = quantity;
+
         // Try to find local producers for this material
         const allManufacturers = Array.from(this.firms.values()).filter(f => f.type === 'MANUFACTURING');
         const primaryProducers = Array.from(this.firms.values()).filter(f =>
@@ -903,32 +1108,90 @@ export class SimulationEngine {
         // Check if it's a raw material (from primary producers)
         const rawSuppliers = primaryProducers.filter(p => {
             const producesType = p.resourceType || p.timberType || p.cropType || p.livestockType;
-            return producesType === materialName && p.inventory && p.inventory.quantity > quantity * 0.5;
-        });
+            return producesType === materialName && p.inventory && p.inventory.quantity > 0;
+        }).sort((a, b) => b.inventory.quantity - a.inventory.quantity); // Sort by stock descending
 
-        if (rawSuppliers.length > 0) {
-            const supplier = rawSuppliers.sort((a, b) => b.inventory.quantity - a.inventory.quantity)[0];
-            this.executeTrade(supplier, buyer, materialName, quantity);
-            return true;
+        // Buy from multiple raw suppliers if needed
+        for (const supplier of rawSuppliers) {
+            if (remainingQuantity <= 0) break;
+
+            const availableQty = Math.floor(supplier.inventory.quantity * 0.8); // Leave 20% buffer
+            if (availableQty <= 0) continue;
+
+            const purchaseQty = Math.min(remainingQuantity, availableQty);
+            const fulfilled = this.executeTrade(supplier, buyer, materialName, purchaseQty);
+
+            if (fulfilled > 0) {
+                totalFulfilled += fulfilled;
+                remainingQuantity -= fulfilled;
+            }
         }
 
-        // Check if it's a semi-raw material (from semi-raw manufacturers)
-        const semiRawSuppliers = allManufacturers.filter(m =>
-            m.isSemiRawProducer &&
-            m.product &&
-            m.product.name === materialName &&
-            m.finishedGoodsInventory &&
-            m.finishedGoodsInventory.quantity > quantity * 0.5
-        );
+        // If still need more, check semi-raw material suppliers
+        if (remainingQuantity > 0) {
+            const semiRawSuppliers = allManufacturers.filter(m =>
+                m.isSemiRawProducer &&
+                m.product &&
+                m.product.name === materialName &&
+                m.finishedGoodsInventory &&
+                m.finishedGoodsInventory.quantity > 0
+            ).sort((a, b) => b.finishedGoodsInventory.quantity - a.finishedGoodsInventory.quantity);
 
-        if (semiRawSuppliers.length > 0) {
-            const supplier = semiRawSuppliers.sort((a, b) =>
-                b.finishedGoodsInventory.quantity - a.finishedGoodsInventory.quantity)[0];
-            this.executeManufacturerToManufacturerTrade(supplier, buyer, materialName, quantity);
-            return true;
+            for (const supplier of semiRawSuppliers) {
+                if (remainingQuantity <= 0) break;
+
+                const availableQty = Math.floor(supplier.finishedGoodsInventory.quantity * 0.8);
+                if (availableQty <= 0) continue;
+
+                const purchaseQty = Math.min(remainingQuantity, availableQty);
+                const fulfilled = this.executeManufacturerToManufacturerTrade(supplier, buyer, materialName, purchaseQty);
+
+                if (fulfilled > 0) {
+                    totalFulfilled += fulfilled;
+                    remainingQuantity -= fulfilled;
+                }
+            }
         }
 
-        return false;
+        return totalFulfilled;
+    }
+
+    /**
+     * Try to purchase finished goods from local manufacturers for retail
+     * @param {Firm} buyer - The retail firm buying products
+     * @param {number} productId - Product ID to buy
+     * @param {string} productName - Name of the product
+     * @param {number} quantity - Desired quantity
+     * @returns {number} Actual quantity fulfilled
+     */
+    tryLocalRetailPurchase(buyer, productId, productName, quantity) {
+        let totalFulfilled = 0;
+        let remainingQuantity = quantity;
+
+        // Find manufacturers that produce this product
+        const manufacturers = Array.from(this.firms.values()).filter(f =>
+            f.type === 'MANUFACTURING' &&
+            f.product?.id === productId &&
+            f.finishedGoodsInventory &&
+            f.finishedGoodsInventory.quantity > 0
+        ).sort((a, b) => b.finishedGoodsInventory.quantity - a.finishedGoodsInventory.quantity);
+
+        for (const manufacturer of manufacturers) {
+            if (remainingQuantity <= 0) break;
+
+            const availableQty = Math.floor(manufacturer.finishedGoodsInventory.quantity * 0.7); // Leave 30% for other buyers
+            if (availableQty <= 0) continue;
+
+            const purchaseQty = Math.min(remainingQuantity, availableQty);
+            const fulfilled = this.executeRetailPurchase(manufacturer, buyer, productId, productName, purchaseQty);
+
+            if (fulfilled > 0) {
+                totalFulfilled += fulfilled;
+                remainingQuantity -= fulfilled;
+            }
+        }
+
+        return totalFulfilled;
     }
 
     checkExcessInventory() {
@@ -1278,8 +1541,12 @@ export class SimulationEngine {
         });
     }
 
+    /**
+     * Execute a trade from semi-raw manufacturer to final manufacturer
+     * @returns {number} Actual quantity traded (0 if trade failed)
+     */
     executeManufacturerToManufacturerTrade(seller, buyer, materialName, requestedQuantity) {
-        if (!seller.finishedGoodsInventory || seller.finishedGoodsInventory.quantity <= 0) return;
+        if (!seller.finishedGoodsInventory || seller.finishedGoodsInventory.quantity <= 0) return 0;
 
         // Get product info for minimum B2B quantity
         const product = seller.product || this.productRegistry.getProductByName(materialName);
@@ -1289,7 +1556,7 @@ export class SimulationEngine {
         const availableQuantity = seller.finishedGoodsInventory.quantity;
 
         // Enforce minimum B2B quantity
-        if (availableQuantity < minB2BQuantity) return;
+        if (availableQuantity < minB2BQuantity) return 0;
 
         // Trade quantity must be at least minB2BQuantity
         const tradeQuantity = Math.floor(Math.min(
@@ -1297,14 +1564,39 @@ export class SimulationEngine {
             availableQuantity
         ));
 
-        if (tradeQuantity < minB2BQuantity) return;
+        if (tradeQuantity < minB2BQuantity) return 0;
 
-        const totalCost = tradeQuantity * price;
+        const productCost = tradeQuantity * price;
 
-        // Check if buyer can afford
-        if (buyer.cash < totalCost) return;
+        // Calculate transportation cost and time
+        let transportCost = 0;
+        let transitHours = 0;
+        let transportDetails = null;
 
-        // Execute transaction
+        if (seller.city && buyer.city && this.cityManager?.transportation) {
+            const route = this.cityManager.transportation.findOptimalRoute(
+                seller.city, buyer.city, tradeQuantity, 'balanced'
+            );
+
+            if (route.optimalRoute) {
+                transportCost = route.optimalRoute.baseCost || 0;
+                transitHours = Math.ceil(route.optimalRoute.transitTime?.hours || 0);
+                transportDetails = {
+                    distance: route.distance,
+                    mode: route.optimalRoute.type,
+                    modeName: route.optimalRoute.typeName,
+                    originCity: seller.city.name,
+                    destinationCity: buyer.city.name
+                };
+            }
+        }
+
+        const totalCost = productCost + transportCost;
+
+        // Check if buyer can afford (including transport)
+        if (buyer.cash < totalCost) return 0;
+
+        // Execute transaction - deduct inventory and money immediately
         seller.finishedGoodsInventory.quantity -= tradeQuantity;
         seller.cash += totalCost;
         seller.revenue += totalCost;
@@ -1312,12 +1604,6 @@ export class SimulationEngine {
 
         buyer.cash -= totalCost;
         buyer.expenses += totalCost;
-
-        // Add to buyer's raw material inventory
-        if (buyer.rawMaterialInventory && buyer.rawMaterialInventory.has(materialName)) {
-            const buyerInv = buyer.rawMaterialInventory.get(materialName);
-            buyerInv.quantity += tradeQuantity;
-        }
 
         // Track last B2B sale for excess inventory check
         seller.lastB2BSaleHour = this.clock.totalHours;
@@ -1327,14 +1613,42 @@ export class SimulationEngine {
         this.hourlyTransactions.count++;
         this.hourlyTransactions.value += totalCost;
 
+        // If transit time > 0, create pending delivery; otherwise immediate transfer
+        if (transitHours > 0) {
+            this.createPendingLocalDelivery({
+                type: 'SEMI_TO_MANUFACTURED',
+                seller: seller,
+                buyer: buyer,
+                materialName: materialName,
+                quantity: tradeQuantity,
+                productCost: productCost,
+                transportCost: transportCost,
+                transitHours: transitHours,
+                deliveryHour: this.clock.totalHours + transitHours,
+                transportDetails: transportDetails
+            });
+        } else {
+            // Immediate delivery for same-city or zero-distance trades
+            if (buyer.rawMaterialInventory && buyer.rawMaterialInventory.has(materialName)) {
+                const buyerInv = buyer.rawMaterialInventory.get(materialName);
+                buyerInv.quantity += tradeQuantity;
+            }
+        }
+
         // Log detailed transaction
         this.transactionLog.logB2BTransaction(
             seller, buyer, materialName, tradeQuantity, price, totalCost, 'SEMI_TO_MANUFACTURED'
         );
+
+        return tradeQuantity;
     }
 
+    /**
+     * Execute a trade from primary producer to manufacturer
+     * @returns {number} Actual quantity traded (0 if trade failed)
+     */
     executeTrade(seller, buyer, materialName, requestedQuantity) {
-        if (!seller.inventory || seller.inventory.quantity <= 0) return;
+        if (!seller.inventory || seller.inventory.quantity <= 0) return 0;
 
         // Get product info by name
         const product = this.productRegistry.getProductByName(materialName);
@@ -1344,7 +1658,7 @@ export class SimulationEngine {
         const availableQuantity = seller.inventory.quantity;
 
         // Enforce minimum B2B quantity - only trade if we can meet minimum
-        if (availableQuantity < minB2BQuantity) return;
+        if (availableQuantity < minB2BQuantity) return 0;
 
         // Trade quantity must be at least minB2BQuantity
         const tradeQuantity = Math.floor(Math.min(
@@ -1352,14 +1666,39 @@ export class SimulationEngine {
             availableQuantity
         ));
 
-        if (tradeQuantity < minB2BQuantity) return;
+        if (tradeQuantity < minB2BQuantity) return 0;
 
-        const totalCost = tradeQuantity * price;
+        const productCost = tradeQuantity * price;
 
-        // Check if buyer can afford
-        if (buyer.cash < totalCost) return;
+        // Calculate transportation cost and time
+        let transportCost = 0;
+        let transitHours = 0;
+        let transportDetails = null;
 
-        // Execute transaction
+        if (seller.city && buyer.city && this.cityManager?.transportation) {
+            const route = this.cityManager.transportation.findOptimalRoute(
+                seller.city, buyer.city, tradeQuantity, 'balanced'
+            );
+
+            if (route.optimalRoute) {
+                transportCost = route.optimalRoute.baseCost || 0;
+                transitHours = Math.ceil(route.optimalRoute.transitTime?.hours || 0);
+                transportDetails = {
+                    distance: route.distance,
+                    mode: route.optimalRoute.type,
+                    modeName: route.optimalRoute.typeName,
+                    originCity: seller.city.name,
+                    destinationCity: buyer.city.name
+                };
+            }
+        }
+
+        const totalCost = productCost + transportCost;
+
+        // Check if buyer can afford (including transport)
+        if (buyer.cash < totalCost) return 0;
+
+        // Execute transaction - deduct inventory and money immediately
         seller.inventory.quantity -= tradeQuantity;
         seller.cash += totalCost;
         seller.revenue += totalCost;
@@ -1367,12 +1706,6 @@ export class SimulationEngine {
 
         buyer.cash -= totalCost;
         buyer.expenses += totalCost;
-
-        // Add to buyer's raw material inventory
-        if (buyer.rawMaterialInventory && buyer.rawMaterialInventory.has(materialName)) {
-            const buyerInv = buyer.rawMaterialInventory.get(materialName);
-            buyerInv.quantity += tradeQuantity;
-        }
 
         // Track last B2B sale for excess inventory check
         seller.lastB2BSaleHour = this.clock.totalHours;
@@ -1382,52 +1715,146 @@ export class SimulationEngine {
         this.hourlyTransactions.count++;
         this.hourlyTransactions.value += totalCost;
 
+        // If transit time > 0, create pending delivery; otherwise immediate transfer
+        if (transitHours > 0) {
+            this.createPendingLocalDelivery({
+                type: 'RAW_TO_SEMI',
+                seller: seller,
+                buyer: buyer,
+                materialName: materialName,
+                quantity: tradeQuantity,
+                productCost: productCost,
+                transportCost: transportCost,
+                transitHours: transitHours,
+                deliveryHour: this.clock.totalHours + transitHours,
+                transportDetails: transportDetails
+            });
+        } else {
+            // Immediate delivery for same-city or zero-distance trades
+            if (buyer.rawMaterialInventory && buyer.rawMaterialInventory.has(materialName)) {
+                const buyerInv = buyer.rawMaterialInventory.get(materialName);
+                buyerInv.quantity += tradeQuantity;
+            }
+        }
+
         // Log detailed transaction
         this.transactionLog.logB2BTransaction(
             seller, buyer, materialName, tradeQuantity, price, totalCost, 'RAW_TO_SEMI'
         );
+
+        return tradeQuantity;
     }
 
-    executeRetailPurchase(manufacturer, retailer, quantity) {
-        if (!manufacturer.finishedGoodsInventory || manufacturer.finishedGoodsInventory.quantity <= 0) return;
+    /**
+     * Execute a retail purchase from manufacturer
+     * @param {Firm} manufacturer - The manufacturing firm selling
+     * @param {Firm} retailer - The retail firm buying
+     * @param {number} productIdParam - Optional product ID (if known)
+     * @param {string} productNameParam - Optional product name (if known)
+     * @param {number} quantity - Requested quantity
+     * @returns {number} Actual quantity traded (0 if trade failed)
+     */
+    executeRetailPurchase(manufacturer, retailer, productIdParam, productNameParam, quantity) {
+        // Handle legacy calls with just 3 args (manufacturer, retailer, quantity)
+        let actualQuantity = quantity;
+        let actualProductId = productIdParam;
+        let actualProductName = productNameParam;
+
+        if (typeof productIdParam === 'number' && productNameParam === undefined && quantity === undefined) {
+            // Legacy call: executeRetailPurchase(manufacturer, retailer, quantity)
+            actualQuantity = productIdParam;
+            actualProductId = null;
+            actualProductName = null;
+        }
+
+        if (!manufacturer.finishedGoodsInventory || manufacturer.finishedGoodsInventory.quantity <= 0) return 0;
 
         // Get product info
         const product = manufacturer.product;
-        const productId = product?.id || manufacturer.productType || 'generic';
-        const productName = product?.name || manufacturer.productType || 'Unknown Product';
+        const productId = actualProductId || product?.id || manufacturer.productType || 'generic';
+        const productName = actualProductName || product?.name || manufacturer.productType || 'Unknown Product';
         const minB2BQuantity = product?.minB2BQuantity || 1;
 
         // Check if retailer can sell this type of product
         if (productId && !retailer.canSellProductById(productId, this.productRegistry)) {
-            return; // Retailer doesn't sell this category of product
+            return 0; // Retailer doesn't sell this category of product
         }
 
         const availableQuantity = manufacturer.finishedGoodsInventory.quantity;
 
         // Enforce minimum B2B quantity
-        if (availableQuantity < minB2BQuantity) return;
+        if (availableQuantity < minB2BQuantity) return 0;
 
         // Trade quantity must be at least minB2BQuantity
         const tradeQuantity = Math.floor(Math.min(
-            Math.max(quantity, minB2BQuantity),
+            Math.max(actualQuantity, minB2BQuantity),
             availableQuantity
         ));
 
-        if (tradeQuantity < minB2BQuantity) return;
+        if (tradeQuantity < minB2BQuantity) return 0;
 
         // Calculate price based on production cost + markup
         const costPerUnit = manufacturer.calculateProductionCost ? manufacturer.calculateProductionCost() : 100;
         const wholesalePrice = costPerUnit * 1.2; // 20% markup
-        const totalCost = tradeQuantity * wholesalePrice;
+        const productCost = tradeQuantity * wholesalePrice;
 
-        // Check if retailer can afford
-        if (retailer.cash < totalCost) return;
+        // Calculate transportation cost and time
+        let transportCost = 0;
+        let transitHours = 0;
+        let transportDetails = null;
 
-        // Add to retailer inventory (purchaseInventory handles cash deduction and expenses)
-        // Check return value - if purchase fails, don't credit manufacturer
-        const purchaseSuccess = retailer.purchaseInventory(productId, tradeQuantity, wholesalePrice, productName);
-        if (!purchaseSuccess) {
-            return; // Retailer couldn't complete purchase (max inventory, etc.)
+        if (manufacturer.city && retailer.city && this.cityManager?.transportation) {
+            const route = this.cityManager.transportation.findOptimalRoute(
+                manufacturer.city, retailer.city, tradeQuantity, 'balanced'
+            );
+
+            if (route.optimalRoute) {
+                transportCost = route.optimalRoute.baseCost || 0;
+                transitHours = Math.ceil(route.optimalRoute.transitTime?.hours || 0);
+                transportDetails = {
+                    distance: route.distance,
+                    mode: route.optimalRoute.type,
+                    modeName: route.optimalRoute.typeName,
+                    originCity: manufacturer.city.name,
+                    destinationCity: retailer.city.name
+                };
+            }
+        }
+
+        const totalCost = productCost + transportCost;
+
+        // Check if retailer can afford (including transport)
+        if (retailer.cash < totalCost) return 0;
+
+        // For immediate delivery, use the standard purchaseInventory method
+        if (transitHours <= 0) {
+            // Add to retailer inventory (purchaseInventory handles cash deduction and expenses)
+            const purchaseSuccess = retailer.purchaseInventory(productId, tradeQuantity, wholesalePrice, productName);
+            if (!purchaseSuccess) {
+                return 0; // Retailer couldn't complete purchase (max inventory, etc.)
+            }
+            // Deduct transport cost separately (purchaseInventory only handles product cost)
+            retailer.cash -= transportCost;
+            retailer.expenses += transportCost;
+        } else {
+            // Deferred delivery - handle cash manually, inventory added later
+            retailer.cash -= totalCost;
+            retailer.expenses += totalCost;
+
+            this.createPendingLocalDelivery({
+                type: 'RETAIL_PURCHASE',
+                seller: manufacturer,
+                buyer: retailer,
+                productId: productId,
+                productName: productName,
+                quantity: tradeQuantity,
+                wholesalePrice: wholesalePrice,
+                productCost: productCost,
+                transportCost: transportCost,
+                transitHours: transitHours,
+                deliveryHour: this.clock.totalHours + transitHours,
+                transportDetails: transportDetails
+            });
         }
 
         // Execute manufacturer side of transaction
@@ -1448,6 +1875,76 @@ export class SimulationEngine {
         this.transactionLog.logRetailPurchase(
             manufacturer, retailer, productName, tradeQuantity, wholesalePrice, totalCost
         );
+
+        return tradeQuantity;
+    }
+
+    /**
+     * Create a pending local delivery for transport time simulation
+     */
+    createPendingLocalDelivery(deliveryData) {
+        const delivery = {
+            id: `LOCAL_DEL_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            ...deliveryData,
+            status: 'IN_TRANSIT',
+            createdAt: this.clock.totalHours
+        };
+        this.pendingLocalDeliveries.push(delivery);
+        return delivery;
+    }
+
+    /**
+     * Process pending local deliveries - called each hour
+     * Completes deliveries when their transit time has elapsed
+     */
+    processLocalDeliveries() {
+        const currentHour = this.clock.totalHours;
+        const delivered = [];
+
+        this.pendingLocalDeliveries = this.pendingLocalDeliveries.filter(delivery => {
+            if (currentHour >= delivery.deliveryHour) {
+                this.completeLocalDelivery(delivery);
+                delivered.push(delivery);
+                return false;
+            }
+            return true;
+        });
+
+        return delivered;
+    }
+
+    /**
+     * Complete a local delivery - transfer inventory to buyer
+     */
+    completeLocalDelivery(delivery) {
+        const { buyer, materialName, quantity, type, productId, productName, wholesalePrice } = delivery;
+
+        if (type === 'RAW_TO_SEMI' || type === 'SEMI_TO_MANUFACTURED') {
+            // B2B trade - add to buyer's raw material inventory
+            if (buyer.rawMaterialInventory && buyer.rawMaterialInventory.has(materialName)) {
+                const buyerInv = buyer.rawMaterialInventory.get(materialName);
+                buyerInv.quantity += quantity;
+            }
+        } else if (type === 'RETAIL_PURCHASE') {
+            // Retail purchase - add to retailer's inventory via their method
+            // Note: Cash was already deducted at order time, so we just add inventory
+            if (buyer.inventory) {
+                const existingItem = buyer.inventory.find(item => item.productId === productId);
+                if (existingItem) {
+                    existingItem.quantity += quantity;
+                } else {
+                    buyer.inventory.push({
+                        productId: productId,
+                        productName: productName,
+                        quantity: quantity,
+                        purchasePrice: wholesalePrice
+                    });
+                }
+            }
+        }
+
+        delivery.status = 'DELIVERED';
+        delivery.deliveredAt = this.clock.totalHours;
     }
 
     updateMarketHistory() {

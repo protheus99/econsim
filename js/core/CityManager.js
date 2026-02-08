@@ -10,6 +10,16 @@ export class CityManager {
         this.config = config;
         this.transportation = new TransportationNetwork();
         this.cityNameGenerator = new CityNameGenerator(countries);
+
+        // Initialize global market hubs for each country
+        this.initializeGlobalMarketHubs();
+    }
+
+    initializeGlobalMarketHubs() {
+        const countriesArray = Array.from(this.countries.values());
+        countriesArray.forEach((country, index) => {
+            country.setGlobalMarketHub(index);
+        });
     }
 
     generateInitialCities(count = null) {

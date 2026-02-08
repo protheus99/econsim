@@ -3,6 +3,8 @@ export class GlobalMarket {
     constructor(productRegistry, config = {}) {
         this.productRegistry = productRegistry;
         this.firms = null; // Reference to simulation firms Map for inventory updates
+        this.transportationNetwork = null; // Reference to transportation network for cost calculations
+        this.countries = null; // Reference to countries for global hub positions
 
         // Configuration with defaults
         this.config = {
@@ -72,6 +74,12 @@ export class GlobalMarket {
     // Set reference to firms Map for inventory updates during delivery
     setFirms(firms) {
         this.firms = firms;
+    }
+
+    // Set references to transportation network and countries for transport cost calculations
+    setTransportation(transportationNetwork, countries) {
+        this.transportationNetwork = transportationNetwork;
+        this.countries = countries;
     }
 
     // Initialize with 3500+ orders for all non-retail products
@@ -156,12 +164,48 @@ export class GlobalMarket {
         const deliveryDays = Math.floor(Math.random() * 7) + 1;
         const deliveryHours = deliveryDays * 24;
 
-        // Random delivery location (will be updated with actual cities later)
-        const locations = ['North Region', 'South Region', 'East Region', 'West Region', 'Central Region'];
-        const deliveryLocation = locations[Math.floor(Math.random() * locations.length)];
+        // Calculate transport cost and time based on distance from global hub
+        let deliveryFee = 0;
+        let transitHours = 24; // Default transit time
+        let transportDetails = null;
+        let deliveryLocation = 'Global Market';
 
-        // Delivery fee based on distance (simplified)
-        const deliveryFee = quantity * 0.5 * (Math.random() * 2 + 1);
+        if (isCompanyOrder && companyData?.city && this.transportationNetwork) {
+            const buyerCity = companyData.city;
+            const buyerCountry = buyerCity.country;
+            deliveryLocation = buyerCity.name;
+
+            if (buyerCountry?.globalMarketHub) {
+                // Create virtual hub city for route calculation
+                const hubCity = {
+                    coordinates: { x: buyerCountry.globalMarketHub.x, y: buyerCountry.globalMarketHub.y },
+                    hasAirport: buyerCountry.globalMarketHub.hasAirport,
+                    hasSeaport: buyerCountry.globalMarketHub.hasSeaport,
+                    hasRailway: buyerCountry.globalMarketHub.hasRailway
+                };
+
+                const route = this.transportationNetwork.findOptimalRoute(
+                    hubCity, buyerCity, quantity, 'balanced'
+                );
+
+                if (route.optimalRoute) {
+                    deliveryFee = route.optimalRoute.baseCost || 0;
+                    transitHours = Math.ceil(route.optimalRoute.transitTime?.hours || 24);
+                    transportDetails = {
+                        distance: route.distance,
+                        mode: route.optimalRoute.type,
+                        modeName: route.optimalRoute.typeName,
+                        fromHub: { x: hubCity.coordinates.x, y: hubCity.coordinates.y },
+                        toCity: buyerCity.name
+                    };
+                }
+            }
+        } else {
+            // Fallback for market orders without known buyer - random delivery fee
+            const locations = ['North Region', 'South Region', 'East Region', 'West Region', 'Central Region'];
+            deliveryLocation = locations[Math.floor(Math.random() * locations.length)];
+            deliveryFee = quantity * 0.5 * (Math.random() * 2 + 1);
+        }
 
         const order = {
             id: `MKT_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -176,6 +220,8 @@ export class GlobalMarket {
             deliveryLocation: deliveryLocation,
             deliveryDeadlineHours: deliveryHours,
             deliveryDeadlineDay: this.currentDay + deliveryDays,
+            transitHours: transitHours, // Calculated based on distance from hub
+            transportDetails: transportDetails, // Transport mode and distance info
             isCompanyOrder: isCompanyOrder,
             companyId: companyData?.id || null,
             companyName: companyData?.name || 'Market Order',
@@ -284,7 +330,8 @@ export class GlobalMarket {
                 order.status = 'AWARDED';
                 order.awardedAt = Date.now();
                 order.awardedDay = this.currentDay;
-                order.deliveryHoursRemaining = Math.min(order.deliveryDeadlineHours, 48); // Max 48 hours delivery
+                // Use calculated transit time if available, otherwise fallback to deadline (max 48 hours)
+                order.deliveryHoursRemaining = order.transitHours || Math.min(order.deliveryDeadlineHours, 48);
 
                 this.pendingOrders.push(order);
                 awardedOrders.push(order);
@@ -317,10 +364,11 @@ export class GlobalMarket {
             return { success: false, reason: 'PRODUCT_NOT_FOUND' };
         }
 
-        // Company orders pay full price
+        // Company orders pay full price - include city for transport calculations
         const order = this.generateMarketOrder(product, true, {
             id: buyer.id,
-            name: buyer.name || buyer.id
+            name: buyer.name || buyer.id,
+            city: buyer.city  // Pass city for transport cost calculation
         });
 
         // Override quantity with requested amount
@@ -593,7 +641,7 @@ export class GlobalMarket {
     /**
      * Direct purchase from global market - bypasses bidding system
      * Used when local supply is unavailable and materials are urgently needed
-     * Pays a premium (2x price multiplier) for immediate delivery
+     * Pays a premium (1.5x price multiplier) plus transport costs for expedited delivery
      */
     directPurchase(buyer, productIdOrName, quantity) {
         if (!this.config.enabled) {
@@ -613,13 +661,51 @@ export class GlobalMarket {
             return { success: false, reason: 'PRODUCT_NOT_FOUND' };
         }
 
-        // Direct purchase costs 2x the normal market price (premium for immediate delivery)
+        // Direct purchase costs 1.5x the normal market price (premium for expedited delivery)
         const basePrice = product.basePrice || 100;
-        const directPurchaseMultiplier = this.config.priceMultiplier * 1.5; // 50% premium over regular global market
+        const directPurchaseMultiplier = this.config.priceMultiplier * 1.5;
         const unitPrice = basePrice * directPurchaseMultiplier;
-        const totalCost = quantity * unitPrice;
+        const productCost = quantity * unitPrice;
 
-        // Check if buyer can afford
+        // Calculate transport cost from global hub to buyer
+        let transportCost = 0;
+        let transitHours = 1; // Direct purchases are expedited but not instant
+        let transportDetails = null;
+
+        if (buyer.city && this.transportationNetwork) {
+            const buyerCity = buyer.city;
+            const buyerCountry = buyerCity.country;
+
+            if (buyerCountry?.globalMarketHub) {
+                const hubCity = {
+                    coordinates: { x: buyerCountry.globalMarketHub.x, y: buyerCountry.globalMarketHub.y },
+                    hasAirport: buyerCountry.globalMarketHub.hasAirport,
+                    hasSeaport: buyerCountry.globalMarketHub.hasSeaport,
+                    hasRailway: buyerCountry.globalMarketHub.hasRailway
+                };
+
+                // Use 'speed' priority for direct/urgent purchases
+                const route = this.transportationNetwork.findOptimalRoute(
+                    hubCity, buyerCity, quantity, 'speed'
+                );
+
+                if (route.optimalRoute) {
+                    transportCost = route.optimalRoute.baseCost || 0;
+                    transitHours = Math.max(1, Math.ceil(route.optimalRoute.transitTime?.hours || 1));
+                    transportDetails = {
+                        distance: route.distance,
+                        mode: route.optimalRoute.type,
+                        modeName: route.optimalRoute.typeName,
+                        fromHub: { x: hubCity.coordinates.x, y: hubCity.coordinates.y },
+                        toCity: buyerCity.name
+                    };
+                }
+            }
+        }
+
+        const totalCost = productCost + transportCost;
+
+        // Check if buyer can afford (including transport)
         if (buyer.cash < totalCost) {
             return {
                 success: false,
@@ -634,7 +720,7 @@ export class GlobalMarket {
         buyer.expenses += totalCost;
         buyer.monthlyExpenses = (buyer.monthlyExpenses || 0) + totalCost;
 
-        // Deliver immediately to buyer's inventory
+        // Deliver immediately to buyer's inventory (direct purchases are expedited)
         if (buyer.type === 'MANUFACTURING') {
             if (buyer.rawMaterialInventory && buyer.rawMaterialInventory.has(productIdOrName)) {
                 const inventory = buyer.rawMaterialInventory.get(productIdOrName);
@@ -660,7 +746,11 @@ export class GlobalMarket {
             success: true,
             quantity: quantity,
             unitPrice: unitPrice,
+            productCost: productCost,
+            transportCost: transportCost,
             totalCost: totalCost,
+            transitHours: transitHours,
+            transportDetails: transportDetails,
             productName: product.name
         };
     }

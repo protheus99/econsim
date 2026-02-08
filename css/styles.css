@@ -4986,3 +4986,53 @@ body {
     margin-left: auto;
     flex-shrink: 0;
 }
+
+/* Product Producers Links */
+.firm-link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background: var(--bg-tertiary);
+    border-radius: 6px;
+    text-decoration: none;
+    color: var(--text-primary);
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
+}
+
+.firm-link:hover {
+    background: var(--bg-secondary);
+    border-color: var(--accent-blue);
+    transform: translateX(4px);
+}
+
+.firm-link .firm-name {
+    flex: 1;
+    font-weight: 500;
+}
+
+.firm-link .firm-location {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}
+
+.firm-link .firm-type {
+    font-size: 0.75rem;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: var(--bg-primary);
+    color: var(--text-secondary);
+}
+
+.firm-link .firm-stock {
+    font-size: 0.8rem;
+    color: var(--accent-green);
+    font-weight: 500;
+}
+
+.firm-link .firm-price {
+    font-size: 0.85rem;
+    color: var(--accent-blue);
+    font-weight: 600;
+}
