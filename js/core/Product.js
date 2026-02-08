@@ -232,7 +232,7 @@ export class ProductRegistry {
                 id: 110, name: 'Cotton Fabric', category: 'TEXTILES', icon: '🧶',
                 basePrice: 20, weight: 0.4, unit: 'bolt', necessityIndex: 0.6,
                 minB2BQuantity: 50, minRetailQuantity: 1, baseProductionRate: 30,
-                inputs: [{ material: 'Cotton', quantity: 0.63 }],
+                inputs: [{ material: 'Cotton', quantity: 0.65 }],
                 technologyRequired: 2
             },
 
