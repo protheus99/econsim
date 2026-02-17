@@ -1,5 +1,7 @@
 // js/core/firms/ManufacturingPlant.js
 import { Firm } from './Firm.js';
+import { LotInventory, Lot } from '../Lot.js';
+import { getLotConfigForProduct, getRecommendedSaleStrategy, isPerishable, getShelfLife, usesLotSystem } from '../LotSizings.js';
 
 export class ManufacturingPlant extends Firm {
     constructor(location, country, productType, productRegistry, customId = null) {
@@ -23,13 +25,21 @@ export class ManufacturingPlant extends Firm {
         this.rawMaterialInventory = new Map();
         this.initializeRawMaterialStorage();
         
-        // Finished goods inventory
+        // Finished goods inventory (for MANUFACTURED tier products)
         this.finishedGoodsInventory = {
             quantity: 0,
             quality: 50,
             storageCapacity: 10000
         };
-        
+
+        // Lot-based inventory system (for SEMI_RAW tier products only)
+        // Will be initialized properly when isSemiRawProducer is set
+        this.lotInventory = null;
+        this.accumulatedProduction = 0;
+        this.lotConfig = null;
+        this.lotSize = 0;
+        this.lotRegistry = null;
+
         // Labor structure
         this.laborStructure = {
             productionWorkers: { count: 100, wage: 3800 },
@@ -98,7 +108,26 @@ export class ManufacturingPlant extends Firm {
         this.cash = 16000000;
         this.totalAssets = 5000000;
     }
-    
+
+    /**
+     * Initialize lot-based inventory system for SEMI_RAW producers
+     * Should be called after isSemiRawProducer flag is set
+     */
+    initializeLotSystem() {
+        if (!this.isSemiRawProducer) return;
+
+        const productName = this.product?.name || this.productType;
+
+        // Initialize lot inventory
+        this.lotInventory = new LotInventory(this.id, 100); // Max 100 lots
+        this.lotConfig = getLotConfigForProduct(productName, this.productRegistry);
+        this.lotSize = this.lotConfig?.lotSize || 50; // Default for SEMI_RAW
+
+        // Set sale strategy based on product type
+        const recommendedStrategy = getRecommendedSaleStrategy(productName);
+        this.lotInventory.setSaleStrategy(recommendedStrategy);
+    }
+
     calculateLaborCosts() {
         let totalWages = 0;
         
@@ -202,7 +231,42 @@ export class ManufacturingPlant extends Firm {
         // Track actual production rate (good units produced per hour)
         this.actualProductionRate = goodUnits;
 
-        // Add to finished goods
+        // SEMI_RAW producers use lot-based inventory
+        if (this.isSemiRawProducer && this.lotInventory) {
+            // Accumulate production for lot formation
+            this.accumulatedProduction += goodUnits;
+
+            // Track lots created this hour
+            const lotsCreated = [];
+
+            // Create lots when threshold is reached
+            while (this.accumulatedProduction >= this.lotSize) {
+                const lot = this.createLot(productQuality);
+                if (lot) {
+                    lotsCreated.push(lot);
+                    this.accumulatedProduction -= this.lotSize;
+                } else {
+                    break;
+                }
+            }
+
+            // Update legacy inventory for backward compatibility
+            this.finishedGoodsInventory.quantity = this.getAvailableQuantity();
+            this.finishedGoodsInventory.quality = productQuality;
+
+            return {
+                produced: true,
+                product: this.productType,
+                quantity: goodUnits,
+                defects: actualOutput - goodUnits,
+                quality: productQuality,
+                costPerUnit: this.calculateProductionCost(),
+                lotsCreated: lotsCreated.length,
+                accumulatedBuffer: this.accumulatedProduction
+            };
+        }
+
+        // MANUFACTURED tier products use standard inventory
         if (this.finishedGoodsInventory.quantity + goodUnits <= this.finishedGoodsInventory.storageCapacity) {
             this.finishedGoodsInventory.quantity += goodUnits;
             this.finishedGoodsInventory.quality = productQuality;
@@ -218,6 +282,84 @@ export class ManufacturingPlant extends Firm {
             quality: productQuality,
             costPerUnit: this.calculateProductionCost()
         };
+    }
+
+    /**
+     * Create a new lot from accumulated production (SEMI_RAW producers only)
+     * @param {number} quality - Quality rating for the lot
+     * @returns {Lot|null} The created lot or null if failed
+     */
+    createLot(quality) {
+        if (!this.lotInventory) return null;
+
+        // Check if lot inventory has capacity
+        if (this.lotInventory.lots.size >= this.lotInventory.storageCapacity) {
+            return null;
+        }
+
+        const productName = this.product?.name || this.productType;
+
+        // Get current game time (will be set by SimulationEngine)
+        const gameTime = this.getGameTime?.() || { hour: 0, day: 1, month: 1, year: 2025 };
+        const currentHour = gameTime.hour + (gameTime.day - 1) * 24 + (gameTime.month - 1) * 30 * 24;
+        const currentDay = gameTime.day + (gameTime.month - 1) * 30 + (gameTime.year - 2025) * 365;
+
+        // Calculate expiration for perishable goods
+        let expiresDay = null;
+        if (isPerishable(productName)) {
+            const shelfLife = getShelfLife(productName);
+            expiresDay = currentDay + shelfLife;
+        }
+
+        // Create lot configuration
+        const lotConfig = {
+            productName: productName,
+            productId: this.product?.id || null,
+            producerId: this.id,
+            quantity: this.lotSize,
+            unit: this.lotConfig?.unit || 'unit',
+            quality: quality,
+            createdAt: currentHour,
+            createdDay: currentDay,
+            expiresDay: expiresDay
+        };
+
+        // Use lot registry if available, otherwise create locally
+        let lot;
+        if (this.lotRegistry) {
+            lot = this.lotRegistry.createLot(lotConfig);
+        } else {
+            // Create lot with temporary ID
+            const tempId = `LOT_${productName.replace(/\s+/g, '')}_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+            lot = new Lot({ ...lotConfig, id: tempId });
+        }
+
+        // Add to firm's lot inventory
+        this.lotInventory.addLot(lot);
+
+        return lot;
+    }
+
+    /**
+     * Get total available quantity (from lots or standard inventory)
+     * @returns {number}
+     */
+    getAvailableQuantity() {
+        if (this.isSemiRawProducer && this.lotInventory) {
+            return this.lotInventory.getAvailableQuantity() + this.accumulatedProduction;
+        }
+        return this.finishedGoodsInventory.quantity;
+    }
+
+    /**
+     * Get number of available lots (SEMI_RAW producers only)
+     * @returns {number}
+     */
+    getAvailableLotCount() {
+        if (this.lotInventory) {
+            return this.lotInventory.getAvailableLotCount();
+        }
+        return 0;
     }
     
     calculateQuality() {
@@ -260,20 +402,135 @@ export class ManufacturingPlant extends Firm {
         return rawMaterialCostPerUnit + overheadPerUnit;
     }
     
-    sellProduction(quantity, pricePerUnit) {
+    /**
+     * Sell production - lot-based for SEMI_RAW, standard for MANUFACTURED
+     * @param {number} requestedQuantity - Requested quantity to sell
+     * @param {number} pricePerUnit - Price per unit
+     * @param {number} currentDay - Current game day (for lot selection)
+     * @returns {Object} Sale result
+     */
+    sellProduction(requestedQuantity, pricePerUnit, currentDay = 0) {
+        // SEMI_RAW producers use lot-based sales
+        if (this.isSemiRawProducer && this.lotInventory) {
+            const productName = this.product?.name || this.productType;
+
+            const selection = this.lotInventory.selectLotsForSale(
+                productName,
+                requestedQuantity,
+                currentDay
+            );
+
+            if (selection.lots.length === 0) {
+                return { revenue: 0, lots: [], totalQuantity: 0, avgQuality: 0 };
+            }
+
+            // Calculate revenue based on average quality
+            const qualityMultiplier = selection.avgQuality / 50;
+            const adjustedPrice = pricePerUnit * Math.sqrt(qualityMultiplier);
+            const revenue = selection.totalQuantity * adjustedPrice;
+
+            // Remove sold lots
+            const soldLotIds = selection.lots.map(lot => lot.id);
+            const soldLots = this.lotInventory.removeLots(soldLotIds);
+
+            // Update financials
+            this.cash += revenue;
+            this.revenue += revenue;
+            this.monthlyRevenue += revenue;
+
+            // Update legacy inventory
+            this.finishedGoodsInventory.quantity = this.getAvailableQuantity();
+
+            return {
+                revenue,
+                lots: soldLots,
+                totalQuantity: selection.totalQuantity,
+                avgQuality: selection.avgQuality
+            };
+        }
+
+        // MANUFACTURED products use standard inventory
+        let quantity = requestedQuantity;
         if (quantity > this.finishedGoodsInventory.quantity) {
             quantity = this.finishedGoodsInventory.quantity;
         }
-        
-        if (quantity <= 0) return 0;
-        
+
+        if (quantity <= 0) return { revenue: 0, totalQuantity: 0 };
+
         const revenue = quantity * pricePerUnit;
         this.finishedGoodsInventory.quantity -= quantity;
         this.cash += revenue;
         this.revenue += revenue;
         this.monthlyRevenue += revenue;
-        
-        return revenue;
+
+        return { revenue, totalQuantity: quantity };
+    }
+
+    /**
+     * Select lots for a potential sale (SEMI_RAW producers only)
+     * @param {number} requestedQuantity - Quantity requested
+     * @param {number} currentDay - Current game day
+     * @returns {{ lots: Lot[], totalQuantity: number, avgQuality: number }}
+     */
+    selectLotsForSale(requestedQuantity, currentDay = 0) {
+        if (!this.lotInventory) {
+            return { lots: [], totalQuantity: 0, avgQuality: 0 };
+        }
+        const productName = this.product?.name || this.productType;
+        return this.lotInventory.selectLotsForSale(
+            productName,
+            requestedQuantity,
+            currentDay
+        );
+    }
+
+    /**
+     * Commit selected lots for a trade (mark as reserved)
+     * @param {Lot[]} lots - Lots to commit
+     * @param {string} buyerId - ID of the buyer
+     * @returns {boolean} Success status
+     */
+    commitLotsForTrade(lots, buyerId) {
+        for (const lot of lots) {
+            if (!lot.reserve(buyerId)) {
+                lots.forEach(l => l.releaseReservation());
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Release lots from a cancelled trade
+     * @param {Lot[]} lots - Lots to release
+     */
+    releaseLotsFromTrade(lots) {
+        lots.forEach(lot => lot.releaseReservation());
+    }
+
+    /**
+     * Transfer lots to a buyer (after successful trade)
+     * @param {Lot[]} lots - Lots to transfer
+     * @param {string} deliveryId - Delivery tracking ID
+     */
+    transferLots(lots, deliveryId = null) {
+        if (!this.lotInventory) return [];
+
+        const transferredLots = [];
+        for (const lot of lots) {
+            if (deliveryId) {
+                lot.markInTransit(deliveryId);
+            }
+            const removed = this.lotInventory.removeLot(lot.id);
+            if (removed) {
+                transferredLots.push(removed);
+            }
+        }
+
+        // Update legacy inventory
+        this.finishedGoodsInventory.quantity = this.getAvailableQuantity();
+
+        return transferredLots;
     }
     
     getRawMaterialNeeds() {
@@ -315,10 +572,11 @@ export class ManufacturingPlant extends Firm {
     }
     
     getStatus() {
-        return {
+        const status = {
             firmId: this.id,
             type: this.type,
             product: this.productType,
+            isSemiRawProducer: this.isSemiRawProducer || false,
             production: {
                 outputPerHour: this.productionLine.outputPerHour.toFixed(2),
                 finishedGoods: this.finishedGoodsInventory.quantity.toFixed(0),
@@ -340,6 +598,21 @@ export class ManufacturingPlant extends Firm {
                 costPerUnit: this.calculateProductionCost().toFixed(2)
             }
         };
+
+        // Add lot information for SEMI_RAW producers
+        if (this.isSemiRawProducer && this.lotInventory) {
+            const lotStatus = this.lotInventory.getStatus();
+            status.lots = {
+                total: lotStatus.totalLots,
+                available: lotStatus.availableLots,
+                totalQuantity: lotStatus.totalQuantity,
+                saleStrategy: lotStatus.saleStrategy,
+                accumulatedBuffer: this.accumulatedProduction.toFixed(2),
+                lotSize: this.lotSize
+            };
+        }
+
+        return status;
     }
 
     // Override: Get display name for this manufacturing plant

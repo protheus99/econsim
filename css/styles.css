@@ -2159,6 +2159,68 @@ body {
     margin-top: 5px;
 }
 
+/* Lot Stats in Production Grid */
+.production-stat.lot-stat {
+    background: rgba(76, 175, 80, 0.15);
+    border: 1px solid rgba(76, 175, 80, 0.3);
+}
+
+.production-stat.lot-stat .production-stat-value {
+    color: var(--accent-green);
+}
+
+/* Lot Inventory Section */
+.lot-inventory-section {
+    margin-top: 15px;
+    padding: 15px;
+    background: rgba(76, 175, 80, 0.1);
+    border-radius: 8px;
+    border: 1px solid rgba(76, 175, 80, 0.2);
+}
+
+.lot-inventory-header {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent-green);
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(76, 175, 80, 0.3);
+}
+
+.lot-inventory-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 10px;
+}
+
+.lot-info-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 6px;
+}
+
+.lot-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.lot-value {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.lot-value.lot-strategy {
+    font-size: 11px;
+    padding: 3px 8px;
+    background: rgba(76, 175, 80, 0.2);
+    border-radius: 4px;
+    color: var(--accent-green);
+}
+
 /* Specific Details */
 .specific-details-grid {
     display: grid;
@@ -5035,4 +5097,18 @@ body {
     font-size: 0.85rem;
     color: var(--accent-blue);
     font-weight: 600;
+}
+
+.firm-link .firm-lots {
+    font-size: 0.8rem;
+    color: var(--accent-green);
+    font-weight: 500;
+    padding: 2px 6px;
+    background: rgba(76, 175, 80, 0.15);
+    border-radius: 4px;
+}
+
+.firm-link .firm-lots.empty {
+    color: var(--text-secondary);
+    background: rgba(0, 0, 0, 0.2);
 }

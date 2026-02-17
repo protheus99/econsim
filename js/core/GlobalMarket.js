@@ -531,20 +531,35 @@ export class GlobalMarket {
             const seller = this.firms.get(order.winningBid.firmId);
 
             if (seller) {
-                // Deduct inventory from seller based on firm type
-                let inventorySource = null;
-                if (seller.type === 'MANUFACTURING') {
-                    inventorySource = seller.finishedGoodsInventory;
-                } else if (seller.type === 'MINING' || seller.type === 'LOGGING' || seller.type === 'FARM') {
-                    inventorySource = seller.inventory;
-                }
+                // Check if seller uses lot-based inventory
+                if (seller.lotInventory && seller.selectLotsForSale) {
+                    // Lot-based inventory deduction
+                    const selection = seller.selectLotsForSale(order.quantity, this.currentDay);
+                    if (selection.lots.length > 0) {
+                        // Transfer lots from seller
+                        seller.transferLots(selection.lots, null);
 
-                if (inventorySource && inventorySource.quantity >= order.quantity) {
-                    inventorySource.quantity -= order.quantity;
-                } else if (inventorySource) {
-                    // Deduct what's available (partial fulfillment)
-                    console.warn(`⚠️ Firm ${seller.id} has insufficient inventory for order ${order.id}. Available: ${inventorySource.quantity}, Required: ${order.quantity}`);
-                    inventorySource.quantity = Math.max(0, inventorySource.quantity - order.quantity);
+                        // Mark lots as delivered
+                        selection.lots.forEach(lot => lot.markDelivered?.());
+                    } else {
+                        console.warn(`⚠️ Firm ${seller.id} has no available lots for order ${order.id}`);
+                    }
+                } else {
+                    // Legacy quantity-based inventory deduction
+                    let inventorySource = null;
+                    if (seller.type === 'MANUFACTURING') {
+                        inventorySource = seller.finishedGoodsInventory;
+                    } else if (seller.type === 'MINING' || seller.type === 'LOGGING' || seller.type === 'FARM') {
+                        inventorySource = seller.inventory;
+                    }
+
+                    if (inventorySource && inventorySource.quantity >= order.quantity) {
+                        inventorySource.quantity -= order.quantity;
+                    } else if (inventorySource) {
+                        // Deduct what's available (partial fulfillment)
+                        console.warn(`⚠️ Firm ${seller.id} has insufficient inventory for order ${order.id}. Available: ${inventorySource.quantity}, Required: ${order.quantity}`);
+                        inventorySource.quantity = Math.max(0, inventorySource.quantity - order.quantity);
+                    }
                 }
 
                 // Pay the seller
@@ -585,29 +600,58 @@ export class GlobalMarket {
 
         const marketPrice = this.getMarketPrice(productIdOrName);
         const sellPrice = marketPrice / this.config.priceMultiplier;
-        const totalRevenue = quantity * sellPrice;
 
-        let inventorySource = null;
-        if (seller.type === 'MANUFACTURING') {
-            inventorySource = seller.finishedGoodsInventory;
-        } else if (seller.type === 'MINING' || seller.type === 'LOGGING' || seller.type === 'FARM') {
-            inventorySource = seller.inventory;
+        // Check if seller uses lot-based inventory
+        let actualQuantitySold = 0;
+        let totalRevenue = 0;
+
+        if (seller.lotInventory && seller.selectLotsForSale) {
+            // Lot-based inventory
+            const selection = seller.selectLotsForSale(quantity, this.currentDay);
+
+            if (selection.lots.length === 0) {
+                return {
+                    success: false,
+                    reason: 'NO_AVAILABLE_LOTS',
+                    available: seller.getAvailableQuantity?.() || 0
+                };
+            }
+
+            actualQuantitySold = selection.totalQuantity;
+            totalRevenue = actualQuantitySold * sellPrice;
+
+            // Transfer lots from seller
+            seller.transferLots(selection.lots, null);
+
+            // Mark lots as delivered
+            selection.lots.forEach(lot => lot.markDelivered?.());
+        } else {
+            // Legacy quantity-based inventory
+            let inventorySource = null;
+            if (seller.type === 'MANUFACTURING') {
+                inventorySource = seller.finishedGoodsInventory;
+            } else if (seller.type === 'MINING' || seller.type === 'LOGGING' || seller.type === 'FARM') {
+                inventorySource = seller.inventory;
+            }
+
+            if (!inventorySource || inventorySource.quantity < quantity) {
+                return {
+                    success: false,
+                    reason: 'INSUFFICIENT_INVENTORY',
+                    available: inventorySource?.quantity || 0
+                };
+            }
+
+            inventorySource.quantity -= quantity;
+            actualQuantitySold = quantity;
+            totalRevenue = quantity * sellPrice;
         }
 
-        if (!inventorySource || inventorySource.quantity < quantity) {
-            return {
-                success: false,
-                reason: 'INSUFFICIENT_INVENTORY',
-                available: inventorySource?.quantity || 0
-            };
-        }
-
-        inventorySource.quantity -= quantity;
         seller.cash += totalRevenue;
         seller.revenue += totalRevenue;
         seller.monthlyRevenue += totalRevenue;
 
-        this.stats.totalSoldToMarket = (this.stats.totalSoldToMarket || 0) + quantity;
+        this.stats.totalSoldToMarket = (this.stats.totalSoldToMarket || 0) + actualQuantitySold;
         this.stats.totalSalesRevenue = (this.stats.totalSalesRevenue || 0) + totalRevenue;
 
         const sale = {
@@ -615,7 +659,7 @@ export class GlobalMarket {
             sellerId: seller.id,
             sellerName: seller.name || seller.id,
             productIdOrName: productIdOrName,
-            quantity: quantity,
+            quantity: actualQuantitySold,
             unitPrice: sellPrice,
             totalRevenue: totalRevenue,
             soldAt: Date.now(),

@@ -403,8 +403,22 @@ function renderProductionStats(firm) {
     if (!container) return;
     let html = '<div class="production-stats-grid">';
 
+    // Helper to get lot info
+    const getLotInfo = (f) => {
+        if (!f.lotInventory) return null;
+        const status = f.lotInventory.getStatus ? f.lotInventory.getStatus() : null;
+        return {
+            lotCount: status?.availableLots || f.lotInventory.lots?.size || 0,
+            totalQty: status?.totalQuantity || 0,
+            buffer: f.accumulatedProduction || 0,
+            strategy: status?.saleStrategy || f.lotInventory.saleStrategy || 'FIFO',
+            lotSize: f.lotSize || 0
+        };
+    };
+
     switch (firm.type) {
         case 'MINING':
+            const miningLots = getLotInfo(firm);
             html += `
                 <div class="production-stat">
                     <div class="production-stat-value">${firm.actualExtractionRate?.toFixed(2) || 0}</div>
@@ -415,8 +429,21 @@ function renderProductionStats(firm) {
                     <div class="production-stat-label">Inventory</div>
                 </div>
             `;
+            if (miningLots) {
+                html += `
+                    <div class="production-stat lot-stat">
+                        <div class="production-stat-value">${miningLots.lotCount}</div>
+                        <div class="production-stat-label">Lots Available</div>
+                    </div>
+                    <div class="production-stat lot-stat">
+                        <div class="production-stat-value">${miningLots.buffer?.toFixed(1) || 0}</div>
+                        <div class="production-stat-label">Buffer (next lot at ${miningLots.lotSize})</div>
+                    </div>
+                `;
+            }
             break;
         case 'LOGGING':
+            const loggingLots = getLotInfo(firm);
             html += `
                 <div class="production-stat">
                     <div class="production-stat-value">${firm.actualHarvestRate?.toFixed(2) || 0}</div>
@@ -427,8 +454,21 @@ function renderProductionStats(firm) {
                     <div class="production-stat-label">Inventory</div>
                 </div>
             `;
+            if (loggingLots) {
+                html += `
+                    <div class="production-stat lot-stat">
+                        <div class="production-stat-value">${loggingLots.lotCount}</div>
+                        <div class="production-stat-label">Lots Available</div>
+                    </div>
+                    <div class="production-stat lot-stat">
+                        <div class="production-stat-value">${loggingLots.buffer?.toFixed(1) || 0}</div>
+                        <div class="production-stat-label">Buffer (next lot at ${loggingLots.lotSize})</div>
+                    </div>
+                `;
+            }
             break;
         case 'FARM':
+            const farmLots = getLotInfo(firm);
             html += `
                 <div class="production-stat">
                     <div class="production-stat-value">${firm.actualProductionRate?.toFixed(2) || 0}</div>
@@ -439,8 +479,21 @@ function renderProductionStats(firm) {
                     <div class="production-stat-label">Inventory</div>
                 </div>
             `;
+            if (farmLots) {
+                html += `
+                    <div class="production-stat lot-stat">
+                        <div class="production-stat-value">${farmLots.lotCount}</div>
+                        <div class="production-stat-label">Lots Available</div>
+                    </div>
+                    <div class="production-stat lot-stat">
+                        <div class="production-stat-value">${farmLots.buffer?.toFixed(1) || 0}</div>
+                        <div class="production-stat-label">Buffer (next lot at ${farmLots.lotSize})</div>
+                    </div>
+                `;
+            }
             break;
         case 'MANUFACTURING':
+            const mfgLots = firm.isSemiRawProducer ? getLotInfo(firm) : null;
             html += `
                 <div class="production-stat">
                     <div class="production-stat-value">${firm.actualProductionRate?.toFixed(2) || 0}</div>
@@ -451,6 +504,18 @@ function renderProductionStats(firm) {
                     <div class="production-stat-label">Finished Goods</div>
                 </div>
             `;
+            if (mfgLots) {
+                html += `
+                    <div class="production-stat lot-stat">
+                        <div class="production-stat-value">${mfgLots.lotCount}</div>
+                        <div class="production-stat-label">Lots Available</div>
+                    </div>
+                    <div class="production-stat lot-stat">
+                        <div class="production-stat-value">${mfgLots.buffer?.toFixed(1) || 0}</div>
+                        <div class="production-stat-label">Buffer (next lot at ${mfgLots.lotSize})</div>
+                    </div>
+                `;
+            }
             break;
         case 'RETAIL':
             const totalInventory = firm.productInventory ?
@@ -560,6 +625,52 @@ function renderProductsInfo(firm) {
         const productNecessity = firm.product?.necessityIndex ?? 0.5;
         const productNecessityLabel = getNecessityLabel(productNecessity);
 
+        // Get lot info for semi-raw producers
+        let lotInfoHtml = '';
+        if (firm.isSemiRawProducer && firm.lotInventory) {
+            const lotStatus = firm.lotInventory.getStatus ? firm.lotInventory.getStatus() : null;
+            const lotCount = lotStatus?.availableLots || firm.lotInventory.lots?.size || 0;
+            const totalQty = lotStatus?.totalQuantity || 0;
+            const strategy = lotStatus?.saleStrategy || firm.lotInventory.saleStrategy || 'FIFO';
+            const buffer = firm.accumulatedProduction || 0;
+            const lotSize = firm.lotSize || 0;
+
+            const strategyLabels = {
+                'FIFO': 'First In, First Out',
+                'HIGHEST_QUALITY': 'Highest Quality First',
+                'LOWEST_QUALITY': 'Lowest Quality First',
+                'EXPIRING_SOON': 'Expiring Soon First'
+            };
+
+            lotInfoHtml = `
+                <div class="lot-inventory-section">
+                    <div class="lot-inventory-header">Lot Inventory (Semi-Raw)</div>
+                    <div class="lot-inventory-grid">
+                        <div class="lot-info-item">
+                            <span class="lot-label">Available Lots:</span>
+                            <span class="lot-value">${lotCount}</span>
+                        </div>
+                        <div class="lot-info-item">
+                            <span class="lot-label">Total in Lots:</span>
+                            <span class="lot-value">${totalQty?.toFixed(0) || 0} ${firm.lotConfig?.unit || 'units'}</span>
+                        </div>
+                        <div class="lot-info-item">
+                            <span class="lot-label">Lot Size:</span>
+                            <span class="lot-value">${lotSize} ${firm.lotConfig?.unit || 'units'}</span>
+                        </div>
+                        <div class="lot-info-item">
+                            <span class="lot-label">Buffer:</span>
+                            <span class="lot-value">${buffer?.toFixed(1) || 0} ${firm.lotConfig?.unit || 'units'}</span>
+                        </div>
+                        <div class="lot-info-item">
+                            <span class="lot-label">Sale Strategy:</span>
+                            <span class="lot-value lot-strategy">${strategyLabels[strategy] || strategy}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
         container.innerHTML = `
             <div class="product-info">
                 <div class="product-header">${firm.product?.name || 'Unknown Product'}</div>
@@ -576,6 +687,7 @@ function renderProductsInfo(firm) {
                         <span class="inv-pct">${finishedPct}%</span>
                     </div>
                 </div>
+                ${lotInfoHtml}
                 ${inputInventoryHtml}
             </div>
         `;
@@ -586,6 +698,53 @@ function renderProductsInfo(firm) {
         const necessity = product?.necessityIndex ?? 0.5;
         const necessityLabel = getNecessityLabel(necessity);
 
+        // Get lot information if available
+        let lotInfoHtml = '';
+        if (firm.lotInventory) {
+            const lotStatus = firm.lotInventory.getStatus ? firm.lotInventory.getStatus() : null;
+            const lotCount = lotStatus?.availableLots || firm.lotInventory.lots?.size || 0;
+            const totalQty = lotStatus?.totalQuantity || 0;
+            const strategy = lotStatus?.saleStrategy || firm.lotInventory.saleStrategy || 'FIFO';
+            const buffer = firm.accumulatedProduction || 0;
+            const lotSize = firm.lotSize || 0;
+
+            // Get strategy label
+            const strategyLabels = {
+                'FIFO': 'First In, First Out',
+                'HIGHEST_QUALITY': 'Highest Quality First',
+                'LOWEST_QUALITY': 'Lowest Quality First',
+                'EXPIRING_SOON': 'Expiring Soon First'
+            };
+
+            lotInfoHtml = `
+                <div class="lot-inventory-section">
+                    <div class="lot-inventory-header">Lot Inventory</div>
+                    <div class="lot-inventory-grid">
+                        <div class="lot-info-item">
+                            <span class="lot-label">Available Lots:</span>
+                            <span class="lot-value">${lotCount}</span>
+                        </div>
+                        <div class="lot-info-item">
+                            <span class="lot-label">Total in Lots:</span>
+                            <span class="lot-value">${totalQty?.toFixed(0) || 0} ${firm.lotConfig?.unit || 'units'}</span>
+                        </div>
+                        <div class="lot-info-item">
+                            <span class="lot-label">Lot Size:</span>
+                            <span class="lot-value">${lotSize} ${firm.lotConfig?.unit || 'units'}</span>
+                        </div>
+                        <div class="lot-info-item">
+                            <span class="lot-label">Buffer:</span>
+                            <span class="lot-value">${buffer?.toFixed(1) || 0} ${firm.lotConfig?.unit || 'units'}</span>
+                        </div>
+                        <div class="lot-info-item">
+                            <span class="lot-label">Sale Strategy:</span>
+                            <span class="lot-value lot-strategy">${strategyLabels[strategy] || strategy}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
         container.innerHTML = `
             <div class="product-info">
                 <div class="product-header">${resourceName}</div>
@@ -594,6 +753,7 @@ function renderProductsInfo(firm) {
                     <span>Quality: ${firm.inventory?.quality?.toFixed(0) || 0}%</span>
                     <span class="product-necessity">Necessity: <span class="${necessityLabel.class}">${necessityLabel.text}</span></span>
                 </div>
+                ${lotInfoHtml}
             </div>
         `;
     }

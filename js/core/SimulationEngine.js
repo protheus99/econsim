@@ -12,6 +12,7 @@ import { Bank } from '../core/firms/Bank.js';
 import { GlobalMarket } from '../core/GlobalMarket.js';
 import { TransactionLog } from '../core/TransactionLog.js';
 import { ProductCostCalculator } from '../core/ProductCostCalculator.js';
+import { LotRegistry } from '../core/Lot.js';
 
 export class SimulationEngine {
     constructor() {
@@ -48,6 +49,9 @@ export class SimulationEngine {
 
         // Product Cost Calculator for balancing
         this.costCalculator = null;
+
+        // Lot Registry for lot-based inventory system
+        this.lotRegistry = new LotRegistry();
 
         // Configuration settings (loaded from config.json or use defaults)
         this.config = {
@@ -1543,28 +1547,50 @@ export class SimulationEngine {
 
     /**
      * Execute a trade from semi-raw manufacturer to final manufacturer
+     * Uses lot-based system for SEMI_RAW products
      * @returns {number} Actual quantity traded (0 if trade failed)
      */
     executeManufacturerToManufacturerTrade(seller, buyer, materialName, requestedQuantity) {
-        if (!seller.finishedGoodsInventory || seller.finishedGoodsInventory.quantity <= 0) return 0;
-
         // Get product info for minimum B2B quantity
         const product = seller.product || this.productRegistry.getProductByName(materialName);
         const price = product ? product.basePrice : 100;
         const minB2BQuantity = product ? product.minB2BQuantity : 1;
 
-        const availableQuantity = seller.finishedGoodsInventory.quantity;
+        // Calculate current game day for lot selection
+        const gameTime = this.clock.getGameTime();
+        const currentDay = gameTime.day + (gameTime.month - 1) * 30 + (gameTime.year - 2025) * 365;
 
-        // Enforce minimum B2B quantity
-        if (availableQuantity < minB2BQuantity) return 0;
+        // Check if seller uses lot-based inventory (SEMI_RAW producer)
+        let tradeQuantity = 0;
+        let selectedLots = [];
+        let avgQuality = 50;
 
-        // Trade quantity must be at least minB2BQuantity
-        const tradeQuantity = Math.floor(Math.min(
-            Math.max(requestedQuantity, minB2BQuantity),
-            availableQuantity
-        ));
+        if (seller.isSemiRawProducer && seller.lotInventory && seller.selectLotsForSale) {
+            // Lot-based trade
+            const selection = seller.selectLotsForSale(requestedQuantity, currentDay);
 
-        if (tradeQuantity < minB2BQuantity) return 0;
+            if (selection.lots.length === 0) return 0;
+
+            selectedLots = selection.lots;
+            tradeQuantity = selection.totalQuantity;
+            avgQuality = selection.avgQuality;
+
+            // Enforce minimum B2B quantity
+            if (tradeQuantity < minB2BQuantity) return 0;
+        } else {
+            // Legacy quantity-based trade (backward compatibility)
+            if (!seller.finishedGoodsInventory || seller.finishedGoodsInventory.quantity <= 0) return 0;
+
+            const availableQuantity = seller.finishedGoodsInventory.quantity;
+            if (availableQuantity < minB2BQuantity) return 0;
+
+            tradeQuantity = Math.floor(Math.min(
+                Math.max(requestedQuantity, minB2BQuantity),
+                availableQuantity
+            ));
+
+            if (tradeQuantity < minB2BQuantity) return 0;
+        }
 
         const productCost = tradeQuantity * price;
 
@@ -1596,11 +1622,22 @@ export class SimulationEngine {
         // Check if buyer can afford (including transport)
         if (buyer.cash < totalCost) return 0;
 
-        // Execute transaction - deduct inventory and money immediately
-        seller.finishedGoodsInventory.quantity -= tradeQuantity;
-        seller.cash += totalCost;
-        seller.revenue += totalCost;
-        seller.monthlyRevenue += totalCost;
+        // Execute transaction
+        if (selectedLots.length > 0) {
+            // Transfer lots from seller
+            const transferredLots = seller.transferLots(selectedLots, transitHours > 0 ? `DEL_${Date.now()}` : null);
+
+            // Update seller financials
+            seller.cash += totalCost;
+            seller.revenue += totalCost;
+            seller.monthlyRevenue += totalCost;
+        } else {
+            // Legacy quantity-based transfer
+            seller.finishedGoodsInventory.quantity -= tradeQuantity;
+            seller.cash += totalCost;
+            seller.revenue += totalCost;
+            seller.monthlyRevenue += totalCost;
+        }
 
         buyer.cash -= totalCost;
         buyer.expenses += totalCost;
@@ -1625,7 +1662,9 @@ export class SimulationEngine {
                 transportCost: transportCost,
                 transitHours: transitHours,
                 deliveryHour: this.clock.totalHours + transitHours,
-                transportDetails: transportDetails
+                transportDetails: transportDetails,
+                lots: selectedLots.map(lot => lot.id),
+                avgQuality: avgQuality
             });
         } else {
             // Immediate delivery for same-city or zero-distance trades
@@ -1633,6 +1672,9 @@ export class SimulationEngine {
                 const buyerInv = buyer.rawMaterialInventory.get(materialName);
                 buyerInv.quantity += tradeQuantity;
             }
+
+            // Mark lots as delivered if lot-based
+            selectedLots.forEach(lot => lot.markDelivered?.());
         }
 
         // Log detailed transaction
@@ -1645,28 +1687,50 @@ export class SimulationEngine {
 
     /**
      * Execute a trade from primary producer to manufacturer
+     * Uses lot-based system for RAW materials
      * @returns {number} Actual quantity traded (0 if trade failed)
      */
     executeTrade(seller, buyer, materialName, requestedQuantity) {
-        if (!seller.inventory || seller.inventory.quantity <= 0) return 0;
-
         // Get product info by name
         const product = this.productRegistry.getProductByName(materialName);
         const price = product ? product.basePrice : 50;
         const minB2BQuantity = product ? product.minB2BQuantity : 1;
 
-        const availableQuantity = seller.inventory.quantity;
+        // Calculate current game day for lot selection
+        const gameTime = this.clock.getGameTime();
+        const currentDay = gameTime.day + (gameTime.month - 1) * 30 + (gameTime.year - 2025) * 365;
 
-        // Enforce minimum B2B quantity - only trade if we can meet minimum
-        if (availableQuantity < minB2BQuantity) return 0;
+        // Check if seller uses lot-based inventory
+        let tradeQuantity = 0;
+        let selectedLots = [];
+        let avgQuality = 50;
 
-        // Trade quantity must be at least minB2BQuantity
-        const tradeQuantity = Math.floor(Math.min(
-            Math.max(requestedQuantity, minB2BQuantity),
-            availableQuantity
-        ));
+        if (seller.lotInventory && seller.selectLotsForSale) {
+            // Lot-based trade
+            const selection = seller.selectLotsForSale(requestedQuantity, currentDay);
 
-        if (tradeQuantity < minB2BQuantity) return 0;
+            if (selection.lots.length === 0) return 0;
+
+            selectedLots = selection.lots;
+            tradeQuantity = selection.totalQuantity;
+            avgQuality = selection.avgQuality;
+
+            // Enforce minimum B2B quantity
+            if (tradeQuantity < minB2BQuantity) return 0;
+        } else {
+            // Legacy quantity-based trade (backward compatibility)
+            if (!seller.inventory || seller.inventory.quantity <= 0) return 0;
+
+            const availableQuantity = seller.inventory.quantity;
+            if (availableQuantity < minB2BQuantity) return 0;
+
+            tradeQuantity = Math.floor(Math.min(
+                Math.max(requestedQuantity, minB2BQuantity),
+                availableQuantity
+            ));
+
+            if (tradeQuantity < minB2BQuantity) return 0;
+        }
 
         const productCost = tradeQuantity * price;
 
@@ -1698,11 +1762,22 @@ export class SimulationEngine {
         // Check if buyer can afford (including transport)
         if (buyer.cash < totalCost) return 0;
 
-        // Execute transaction - deduct inventory and money immediately
-        seller.inventory.quantity -= tradeQuantity;
-        seller.cash += totalCost;
-        seller.revenue += totalCost;
-        seller.monthlyRevenue += totalCost;
+        // Execute transaction
+        if (selectedLots.length > 0) {
+            // Transfer lots from seller
+            const transferredLots = seller.transferLots(selectedLots, transitHours > 0 ? `DEL_${Date.now()}` : null);
+
+            // Update seller financials
+            seller.cash += totalCost;
+            seller.revenue += totalCost;
+            seller.monthlyRevenue += totalCost;
+        } else {
+            // Legacy quantity-based transfer
+            seller.inventory.quantity -= tradeQuantity;
+            seller.cash += totalCost;
+            seller.revenue += totalCost;
+            seller.monthlyRevenue += totalCost;
+        }
 
         buyer.cash -= totalCost;
         buyer.expenses += totalCost;
@@ -1727,7 +1802,9 @@ export class SimulationEngine {
                 transportCost: transportCost,
                 transitHours: transitHours,
                 deliveryHour: this.clock.totalHours + transitHours,
-                transportDetails: transportDetails
+                transportDetails: transportDetails,
+                lots: selectedLots.map(lot => lot.id),
+                avgQuality: avgQuality
             });
         } else {
             // Immediate delivery for same-city or zero-distance trades
@@ -1735,6 +1812,9 @@ export class SimulationEngine {
                 const buyerInv = buyer.rawMaterialInventory.get(materialName);
                 buyerInv.quantity += tradeQuantity;
             }
+
+            // Mark lots as delivered if lot-based
+            selectedLots.forEach(lot => lot.markDelivered?.());
         }
 
         // Log detailed transaction
@@ -1917,13 +1997,23 @@ export class SimulationEngine {
      * Complete a local delivery - transfer inventory to buyer
      */
     completeLocalDelivery(delivery) {
-        const { buyer, materialName, quantity, type, productId, productName, wholesalePrice } = delivery;
+        const { buyer, materialName, quantity, type, productId, productName, wholesalePrice, lots } = delivery;
 
         if (type === 'RAW_TO_SEMI' || type === 'SEMI_TO_MANUFACTURED') {
             // B2B trade - add to buyer's raw material inventory
             if (buyer.rawMaterialInventory && buyer.rawMaterialInventory.has(materialName)) {
                 const buyerInv = buyer.rawMaterialInventory.get(materialName);
                 buyerInv.quantity += quantity;
+            }
+
+            // Mark lots as delivered if lot-based delivery
+            if (lots && lots.length > 0) {
+                lots.forEach(lotId => {
+                    const lot = this.lotRegistry.getLot(lotId);
+                    if (lot) {
+                        lot.markDelivered();
+                    }
+                });
             }
         } else if (type === 'RETAIL_PURCHASE') {
             // Retail purchase - add to retailer's inventory via their method
@@ -1979,8 +2069,49 @@ export class SimulationEngine {
         this.stats.totalProducts = this.productRegistry.getAllProducts().length;
     }
 
+    /**
+     * Process lot expiration for all perishable goods
+     * Called daily to remove expired lots from inventory
+     */
+    processLotExpiration() {
+        const gameTime = this.clock.getGameTime();
+        const currentDay = gameTime.day + (gameTime.month - 1) * 30 + (gameTime.year - 2025) * 365;
+
+        // Process expiration in the global lot registry
+        const expiredLots = this.lotRegistry.processAllExpirations(currentDay);
+
+        // Also process expiration in each firm's lot inventory
+        this.firms.forEach(firm => {
+            if (firm.lotInventory) {
+                const firmExpired = firm.lotInventory.processExpiration(currentDay);
+
+                // Log significant losses
+                if (firmExpired.length > 0) {
+                    let totalLoss = 0;
+                    firmExpired.forEach(lot => {
+                        const product = this.productRegistry.getProductByName(lot.productName);
+                        if (product) {
+                            totalLoss += lot.quantity * product.basePrice;
+                        }
+                    });
+
+                    if (totalLoss > 0) {
+                        console.log(`📦 ${firm.getDisplayName?.() || firm.id}: ${firmExpired.length} lot(s) expired (loss: $${totalLoss.toFixed(2)})`);
+                    }
+                }
+            }
+        });
+
+        if (expiredLots.length > 0) {
+            console.log(`🗑️ Daily: ${expiredLots.length} lots expired globally`);
+        }
+    }
+
     updateDaily() {
         this.monthlyTick++;
+
+        // Process lot expiration for perishable goods
+        this.processLotExpiration();
 
         // Daily inventory restocking - check all firms and place bulk orders
         this.checkInventoryLevels();

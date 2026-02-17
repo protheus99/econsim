@@ -234,11 +234,26 @@ function showProductDetail(productId) {
     if (producers.length > 0) {
         producersList.innerHTML = producers.map(f => {
             const firmName = f.getDisplayName ? f.getDisplayName() : (f.name || f.id);
+
+            // Get lot information if available
+            let lotInfo = '';
+            if (f.lotInventory) {
+                const lotStatus = f.lotInventory.getStatus ? f.lotInventory.getStatus() : null;
+                const lotCount = lotStatus?.availableLots || f.lotInventory.lots?.size || 0;
+                const totalQty = lotStatus?.totalQuantity || 0;
+                if (lotCount > 0) {
+                    lotInfo = `<span class="firm-lots">${lotCount} lots (${formatNumber(totalQty)} ${f.lotConfig?.unit || 'units'})</span>`;
+                } else {
+                    lotInfo = `<span class="firm-lots empty">No lots</span>`;
+                }
+            }
+
             return `
                 <a href="firms.html?id=${f.id}" class="firm-item firm-link">
                     <span class="firm-name">${firmName}</span>
                     <span class="firm-location">${f.city?.name || 'Unknown'}</span>
                     <span class="firm-type">${f.type}</span>
+                    ${lotInfo}
                 </a>
             `;
         }).join('');

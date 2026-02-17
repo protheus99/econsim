@@ -1,5 +1,7 @@
 // js/core/firms/MiningCompany.js
 import { Firm } from './Firm.js';
+import { LotInventory, Lot } from '../Lot.js';
+import { getLotConfigForProduct, getRecommendedSaleStrategy, isPerishable, getShelfLife } from '../LotSizings.js';
 
 export class MiningCompany extends Firm {
     constructor(location, country, resourceType, customId = null, productRegistry = null) {
@@ -50,16 +52,29 @@ export class MiningCompany extends Firm {
         this.environmentalComplianceCost = 10000; // Monthly
         this.licensingFees = 5000; // Monthly
         
-        // Output inventory
+        // Output inventory (legacy - kept for backward compatibility during transition)
         this.inventory = {
             quantity: 0,
             quality: this.reserveQuality,
             storageCapacity: 100000
         };
-        
+
+        // Lot-based inventory system
+        this.lotInventory = new LotInventory(this.id, 200); // Max 200 lots
+        this.accumulatedProduction = 0; // Buffer for production before lot formation
+        this.lotConfig = getLotConfigForProduct(resourceType, productRegistry);
+        this.lotSize = this.lotConfig?.lotSize || 500; // Default lot size
+
+        // Set sale strategy based on product type
+        const recommendedStrategy = getRecommendedSaleStrategy(resourceType);
+        this.lotInventory.setSaleStrategy(recommendedStrategy);
+
+        // Reference to lot registry (set by SimulationEngine after firm creation)
+        this.lotRegistry = null;
+
         // Market
         this.brandRating = 20; // Mining companies don't focus much on branding
-        
+
         this.initialize();
     }
     
@@ -157,9 +172,26 @@ export class MiningCompany extends Firm {
         this.remainingReserves = Math.max(0, this.remainingReserves - extractionAmount);
         this.depletionRate = ((this.totalReserves - this.remainingReserves) / this.totalReserves) * 100;
 
-        // Add to inventory - direct assignment to ensure it works
-        const newQuantity = this.inventory.quantity + extractionAmount;
-        this.inventory.quantity = Math.min(newQuantity, this.inventory.storageCapacity);
+        // Accumulate production for lot formation
+        this.accumulatedProduction += extractionAmount;
+
+        // Track lots created this hour
+        const lotsCreated = [];
+
+        // Create lots when threshold is reached
+        while (this.accumulatedProduction >= this.lotSize) {
+            const lot = this.createLot();
+            if (lot) {
+                lotsCreated.push(lot);
+                this.accumulatedProduction -= this.lotSize;
+            } else {
+                // Can't create more lots (storage full), keep in buffer
+                break;
+            }
+        }
+
+        // Update legacy inventory for backward compatibility
+        this.inventory.quantity = this.getAvailableQuantity();
 
         this.currentProduction = extractionAmount;
 
@@ -171,8 +203,77 @@ export class MiningCompany extends Firm {
             resource: this.resourceType,
             quantity: extractionAmount,
             quality: this.inventory.quality,
-            inventoryLevel: this.inventory.quantity
+            inventoryLevel: this.inventory.quantity,
+            lotsCreated: lotsCreated.length,
+            accumulatedBuffer: this.accumulatedProduction
         };
+    }
+
+    /**
+     * Create a new lot from accumulated production
+     * @returns {Lot|null} The created lot or null if failed
+     */
+    createLot() {
+        // Check if lot inventory has capacity
+        if (this.lotInventory.lots.size >= this.lotInventory.storageCapacity) {
+            return null;
+        }
+
+        // Get current game time (will be set by SimulationEngine)
+        const gameTime = this.getGameTime?.() || { hour: 0, day: 1, month: 1, year: 2025 };
+        const currentHour = gameTime.hour + (gameTime.day - 1) * 24 + (gameTime.month - 1) * 30 * 24;
+        const currentDay = gameTime.day + (gameTime.month - 1) * 30 + (gameTime.year - 2025) * 365;
+
+        // Calculate expiration for perishable goods
+        let expiresDay = null;
+        if (isPerishable(this.resourceType)) {
+            const shelfLife = getShelfLife(this.resourceType);
+            expiresDay = currentDay + shelfLife;
+        }
+
+        // Create lot configuration
+        const lotConfig = {
+            productName: this.resourceType,
+            productId: this.product?.id || null,
+            producerId: this.id,
+            quantity: this.lotSize,
+            unit: this.lotConfig?.unit || 'ton',
+            quality: this.reserveQuality,
+            createdAt: currentHour,
+            createdDay: currentDay,
+            expiresDay: expiresDay
+        };
+
+        // Use lot registry if available, otherwise create locally
+        let lot;
+        if (this.lotRegistry) {
+            lot = this.lotRegistry.createLot(lotConfig);
+        } else {
+            // Create lot with temporary ID (will be registered later)
+            const tempId = `LOT_${this.resourceType.replace(/\s+/g, '')}_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+            lot = new Lot({ ...lotConfig, id: tempId });
+        }
+
+        // Add to firm's lot inventory
+        this.lotInventory.addLot(lot);
+
+        return lot;
+    }
+
+    /**
+     * Get total available quantity from lot inventory
+     * @returns {number}
+     */
+    getAvailableQuantity() {
+        return this.lotInventory.getAvailableQuantity() + this.accumulatedProduction;
+    }
+
+    /**
+     * Get number of available lots
+     * @returns {number}
+     */
+    getAvailableLotCount() {
+        return this.lotInventory.getAvailableLotCount();
     }
     
     calculateProductionCost() {
@@ -189,20 +290,111 @@ export class MiningCompany extends Firm {
         return totalMonthlyCost / monthlyProduction;
     }
     
-    sellProduction(quantity, pricePerUnit) {
-        if (quantity > this.inventory.quantity) {
-            quantity = this.inventory.quantity;
+    /**
+     * Sell production using lot-based system
+     * @param {number} requestedQuantity - Requested quantity to sell
+     * @param {number} pricePerUnit - Price per unit
+     * @param {number} currentDay - Current game day (for lot selection)
+     * @returns {{ revenue: number, lots: Lot[], totalQuantity: number, avgQuality: number }}
+     */
+    sellProduction(requestedQuantity, pricePerUnit, currentDay = 0) {
+        // Use lot-based sales
+        const selection = this.lotInventory.selectLotsForSale(
+            this.resourceType,
+            requestedQuantity,
+            currentDay
+        );
+
+        if (selection.lots.length === 0) {
+            return { revenue: 0, lots: [], totalQuantity: 0, avgQuality: 0 };
         }
-        
-        if (quantity <= 0) return 0;
-        
-        const revenue = quantity * pricePerUnit;
-        this.inventory.quantity -= quantity;
+
+        // Calculate revenue based on average quality
+        const qualityMultiplier = selection.avgQuality / 50; // Base quality is 50
+        const adjustedPrice = pricePerUnit * Math.sqrt(qualityMultiplier);
+        const revenue = selection.totalQuantity * adjustedPrice;
+
+        // Remove sold lots from inventory
+        const soldLotIds = selection.lots.map(lot => lot.id);
+        const soldLots = this.lotInventory.removeLots(soldLotIds);
+
+        // Update financials
         this.cash += revenue;
         this.revenue += revenue;
         this.monthlyRevenue += revenue;
-        
-        return revenue;
+
+        // Update legacy inventory for backward compatibility
+        this.inventory.quantity = this.getAvailableQuantity();
+
+        return {
+            revenue,
+            lots: soldLots,
+            totalQuantity: selection.totalQuantity,
+            avgQuality: selection.avgQuality
+        };
+    }
+
+    /**
+     * Select lots for a potential sale (without actually selling)
+     * Used by trade execution to check availability
+     * @param {number} requestedQuantity - Quantity requested
+     * @param {number} currentDay - Current game day
+     * @returns {{ lots: Lot[], totalQuantity: number, avgQuality: number }}
+     */
+    selectLotsForSale(requestedQuantity, currentDay = 0) {
+        return this.lotInventory.selectLotsForSale(
+            this.resourceType,
+            requestedQuantity,
+            currentDay
+        );
+    }
+
+    /**
+     * Commit selected lots for a trade (mark as reserved)
+     * @param {Lot[]} lots - Lots to commit
+     * @param {string} buyerId - ID of the buyer
+     * @returns {boolean} Success status
+     */
+    commitLotsForTrade(lots, buyerId) {
+        for (const lot of lots) {
+            if (!lot.reserve(buyerId)) {
+                // Rollback any reservations made
+                lots.forEach(l => l.releaseReservation());
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Release lots from a cancelled trade
+     * @param {Lot[]} lots - Lots to release
+     */
+    releaseLotsFromTrade(lots) {
+        lots.forEach(lot => lot.releaseReservation());
+    }
+
+    /**
+     * Transfer lots to a buyer (after successful trade)
+     * @param {Lot[]} lots - Lots to transfer
+     * @param {string} deliveryId - Delivery tracking ID
+     */
+    transferLots(lots, deliveryId = null) {
+        const transferredLots = [];
+        for (const lot of lots) {
+            if (deliveryId) {
+                lot.markInTransit(deliveryId);
+            }
+            const removed = this.lotInventory.removeLot(lot.id);
+            if (removed) {
+                transferredLots.push(removed);
+            }
+        }
+
+        // Update legacy inventory
+        this.inventory.quantity = this.getAvailableQuantity();
+
+        return transferredLots;
     }
     
     upgradeEquipment(investmentAmount) {
@@ -242,6 +434,8 @@ export class MiningCompany extends Firm {
     }
     
     getStatus() {
+        const lotStatus = this.lotInventory.getStatus();
+
         return {
             firmId: this.id,
             type: this.type,
@@ -255,7 +449,15 @@ export class MiningCompany extends Firm {
             production: {
                 hourlyRate: this.actualExtractionRate.toFixed(2),
                 inventory: this.inventory.quantity.toFixed(2),
-                quality: this.inventory.quality.toFixed(0)
+                quality: this.inventory.quality.toFixed(0),
+                accumulatedBuffer: this.accumulatedProduction.toFixed(2),
+                lotSize: this.lotSize
+            },
+            lots: {
+                total: lotStatus.totalLots,
+                available: lotStatus.availableLots,
+                totalQuantity: lotStatus.totalQuantity,
+                saleStrategy: lotStatus.saleStrategy
             },
             employees: this.totalEmployees,
             financials: {

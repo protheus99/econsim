@@ -1,5 +1,7 @@
 // js/core/firms/Farm.js
 import { Firm } from './Firm.js';
+import { LotInventory, Lot } from '../Lot.js';
+import { getLotConfigForProduct, getRecommendedSaleStrategy, isPerishable, getShelfLife } from '../LotSizings.js';
 
 export class Farm extends Firm {
     constructor(location, country, farmType, customId = null, productRegistry = null) {
@@ -54,12 +56,25 @@ export class Farm extends Firm {
         this.equipmentCosts = 25000;
         this.operationalExpenses = 20000;
 
-        // Inventory
+        // Inventory (legacy - kept for backward compatibility)
         this.inventory = {
             quantity: 0,
             quality: 60,
             storageCapacity: this.landSize * 100 // kg
         };
+
+        // Lot-based inventory system
+        this.lotInventory = new LotInventory(this.id, 100); // Max 100 lots
+        this.accumulatedProduction = 0; // Buffer for production before lot formation
+        this.lotConfig = getLotConfigForProduct(this.cropType, this.productRegistry);
+        this.lotSize = this.lotConfig?.lotSize || 1000; // Default lot size
+
+        // Set sale strategy based on product type
+        const recommendedStrategy = getRecommendedSaleStrategy(this.cropType);
+        this.lotInventory.setSaleStrategy(recommendedStrategy);
+
+        // Reference to lot registry (set by SimulationEngine after firm creation)
+        this.lotRegistry = null;
 
         // Production tracking
         this.actualProductionRate = 0;
@@ -96,12 +111,25 @@ export class Farm extends Firm {
         this.equipmentCosts = 20000;
         this.operationalExpenses = 18000;
 
-        // Inventory - stores the primary output product
+        // Inventory (legacy - kept for backward compatibility)
         this.inventory = {
             quantity: 0,
             quality: 65,
             storageCapacity: this.herdSize * 50 // kg
         };
+
+        // Lot-based inventory system
+        this.lotInventory = new LotInventory(this.id, 100); // Max 100 lots
+        this.accumulatedProduction = 0; // Buffer for production before lot formation
+        this.lotConfig = getLotConfigForProduct(this.livestockType, this.productRegistry);
+        this.lotSize = this.lotConfig?.lotSize || 20; // Default lot size
+
+        // Set sale strategy based on product type (perishables use EXPIRING_SOON)
+        const recommendedStrategy = getRecommendedSaleStrategy(this.livestockType);
+        this.lotInventory.setSaleStrategy(recommendedStrategy);
+
+        // Reference to lot registry (set by SimulationEngine after firm creation)
+        this.lotRegistry = null;
 
         // Production tracking
         this.actualProductionRate = 0;
@@ -237,9 +265,24 @@ export class Farm extends Firm {
             // Track production rate (average over growing season)
             this.actualProductionRate = totalYield / seasonHours;
 
-            // Add harvest to existing inventory
-            const newQuantity = this.inventory.quantity + totalYield;
-            this.inventory.quantity = Math.min(newQuantity, this.inventory.storageCapacity);
+            // Accumulate production for lot formation
+            this.accumulatedProduction += totalYield;
+
+            // Create lots from harvest
+            const lotsCreated = [];
+            while (this.accumulatedProduction >= this.lotSize) {
+                const lot = this.createLot(this.cropType);
+                if (lot) {
+                    lotsCreated.push(lot);
+                    this.accumulatedProduction -= this.lotSize;
+                } else {
+                    break;
+                }
+            }
+
+            // Update legacy inventory for backward compatibility
+            this.inventory.quantity = this.getAvailableQuantity();
+
             this.currentGrowthStage = 0; // Reset for next season
 
             return {
@@ -248,7 +291,9 @@ export class Farm extends Firm {
                 quantity: totalYield,
                 quality: this.inventory.quality,
                 inventoryLevel: this.inventory.quantity,
-                harvest: true
+                harvest: true,
+                lotsCreated: lotsCreated.length,
+                accumulatedBuffer: this.accumulatedProduction
             };
         }
 
@@ -277,10 +322,27 @@ export class Farm extends Firm {
         // Track actual production rate
         this.actualProductionRate = hourlyOutput;
 
+        // Accumulate production for lot formation
         if (hourlyOutput > 0) {
-            const newQuantity = this.inventory.quantity + hourlyOutput;
-            this.inventory.quantity = Math.min(newQuantity, this.inventory.storageCapacity);
+            this.accumulatedProduction += hourlyOutput;
         }
+
+        // Track lots created this hour
+        const lotsCreated = [];
+
+        // Create lots when threshold is reached
+        while (this.accumulatedProduction >= this.lotSize) {
+            const lot = this.createLot(this.livestockType);
+            if (lot) {
+                lotsCreated.push(lot);
+                this.accumulatedProduction -= this.lotSize;
+            } else {
+                break;
+            }
+        }
+
+        // Update legacy inventory for backward compatibility
+        this.inventory.quantity = this.getAvailableQuantity();
 
         // When mature, grow the herd
         const readyForMarket = this.currentMaturity >= 100;
@@ -299,7 +361,9 @@ export class Farm extends Firm {
             quality: this.inventory.quality,
             inventoryLevel: this.inventory.quantity,
             readyForMarket: readyForMarket,
-            herdSize: this.herdSize
+            herdSize: this.herdSize,
+            lotsCreated: lotsCreated.length,
+            accumulatedBuffer: this.accumulatedProduction
         };
     }
     
@@ -311,8 +375,84 @@ export class Farm extends Firm {
             'Chickens': 0.8,    // eggs per hour per chicken
             'Sheep': 0.1        // wool per hour per sheep
         };
-        
+
         return (outputs[this.livestockType] || 0) * this.herdSize / 24;
+    }
+
+    /**
+     * Create a new lot from accumulated production
+     * @param {string} productName - Name of the product
+     * @returns {Lot|null} The created lot or null if failed
+     */
+    createLot(productName) {
+        // Check if lot inventory has capacity
+        if (this.lotInventory.lots.size >= this.lotInventory.storageCapacity) {
+            return null;
+        }
+
+        // Get current game time (will be set by SimulationEngine)
+        const gameTime = this.getGameTime?.() || { hour: 0, day: 1, month: 1, year: 2025 };
+        const currentHour = gameTime.hour + (gameTime.day - 1) * 24 + (gameTime.month - 1) * 30 * 24;
+        const currentDay = gameTime.day + (gameTime.month - 1) * 30 + (gameTime.year - 2025) * 365;
+
+        // Calculate expiration for perishable goods
+        let expiresDay = null;
+        if (isPerishable(productName)) {
+            const shelfLife = getShelfLife(productName);
+            expiresDay = currentDay + shelfLife;
+        }
+
+        // Create lot configuration
+        const lotConfig = {
+            productName: productName,
+            productId: this.product?.id || null,
+            producerId: this.id,
+            quantity: this.lotSize,
+            unit: this.lotConfig?.unit || 'unit',
+            quality: this.inventory.quality,
+            createdAt: currentHour,
+            createdDay: currentDay,
+            expiresDay: expiresDay
+        };
+
+        // Use lot registry if available, otherwise create locally
+        let lot;
+        if (this.lotRegistry) {
+            lot = this.lotRegistry.createLot(lotConfig);
+        } else {
+            // Create lot with temporary ID
+            const tempId = `LOT_${productName.replace(/\s+/g, '')}_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+            lot = new Lot({ ...lotConfig, id: tempId });
+        }
+
+        // Add to firm's lot inventory
+        this.lotInventory.addLot(lot);
+
+        return lot;
+    }
+
+    /**
+     * Get total available quantity from lot inventory
+     * @returns {number}
+     */
+    getAvailableQuantity() {
+        return this.lotInventory.getAvailableQuantity() + this.accumulatedProduction;
+    }
+
+    /**
+     * Get number of available lots
+     * @returns {number}
+     */
+    getAvailableLotCount() {
+        return this.lotInventory.getAvailableLotCount();
+    }
+
+    /**
+     * Get the product name for this farm
+     * @returns {string}
+     */
+    getProductName() {
+        return this.farmType === 'CROP' ? this.cropType : this.livestockType;
     }
     
     calculateProductionCost() {
@@ -333,20 +473,112 @@ export class Farm extends Firm {
         return totalMonthlyCost / monthlyProduction;
     }
     
-    sellProduction(quantity, pricePerUnit) {
-        if (quantity > this.inventory.quantity) {
-            quantity = this.inventory.quantity;
+    /**
+     * Sell production using lot-based system
+     * @param {number} requestedQuantity - Requested quantity to sell
+     * @param {number} pricePerUnit - Price per unit
+     * @param {number} currentDay - Current game day (for lot selection)
+     * @returns {{ revenue: number, lots: Lot[], totalQuantity: number, avgQuality: number }}
+     */
+    sellProduction(requestedQuantity, pricePerUnit, currentDay = 0) {
+        const productName = this.getProductName();
+
+        // Use lot-based sales
+        const selection = this.lotInventory.selectLotsForSale(
+            productName,
+            requestedQuantity,
+            currentDay
+        );
+
+        if (selection.lots.length === 0) {
+            return { revenue: 0, lots: [], totalQuantity: 0, avgQuality: 0 };
         }
-        
-        if (quantity <= 0) return 0;
-        
-        const revenue = quantity * pricePerUnit;
-        this.inventory.quantity -= quantity;
+
+        // Calculate revenue based on average quality
+        const qualityMultiplier = selection.avgQuality / 50; // Base quality is 50
+        const adjustedPrice = pricePerUnit * Math.sqrt(qualityMultiplier);
+        const revenue = selection.totalQuantity * adjustedPrice;
+
+        // Remove sold lots from inventory
+        const soldLotIds = selection.lots.map(lot => lot.id);
+        const soldLots = this.lotInventory.removeLots(soldLotIds);
+
+        // Update financials
         this.cash += revenue;
         this.revenue += revenue;
         this.monthlyRevenue += revenue;
-        
-        return revenue;
+
+        // Update legacy inventory for backward compatibility
+        this.inventory.quantity = this.getAvailableQuantity();
+
+        return {
+            revenue,
+            lots: soldLots,
+            totalQuantity: selection.totalQuantity,
+            avgQuality: selection.avgQuality
+        };
+    }
+
+    /**
+     * Select lots for a potential sale (without actually selling)
+     * @param {number} requestedQuantity - Quantity requested
+     * @param {number} currentDay - Current game day
+     * @returns {{ lots: Lot[], totalQuantity: number, avgQuality: number }}
+     */
+    selectLotsForSale(requestedQuantity, currentDay = 0) {
+        const productName = this.getProductName();
+        return this.lotInventory.selectLotsForSale(
+            productName,
+            requestedQuantity,
+            currentDay
+        );
+    }
+
+    /**
+     * Commit selected lots for a trade (mark as reserved)
+     * @param {Lot[]} lots - Lots to commit
+     * @param {string} buyerId - ID of the buyer
+     * @returns {boolean} Success status
+     */
+    commitLotsForTrade(lots, buyerId) {
+        for (const lot of lots) {
+            if (!lot.reserve(buyerId)) {
+                lots.forEach(l => l.releaseReservation());
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Release lots from a cancelled trade
+     * @param {Lot[]} lots - Lots to release
+     */
+    releaseLotsFromTrade(lots) {
+        lots.forEach(lot => lot.releaseReservation());
+    }
+
+    /**
+     * Transfer lots to a buyer (after successful trade)
+     * @param {Lot[]} lots - Lots to transfer
+     * @param {string} deliveryId - Delivery tracking ID
+     */
+    transferLots(lots, deliveryId = null) {
+        const transferredLots = [];
+        for (const lot of lots) {
+            if (deliveryId) {
+                lot.markInTransit(deliveryId);
+            }
+            const removed = this.lotInventory.removeLot(lot.id);
+            if (removed) {
+                transferredLots.push(removed);
+            }
+        }
+
+        // Update legacy inventory
+        this.inventory.quantity = this.getAvailableQuantity();
+
+        return transferredLots;
     }
     
     improveSoilQuality(investmentAmount) {
@@ -376,12 +608,22 @@ export class Farm extends Firm {
     }
     
     getStatus() {
+        const lotStatus = this.lotInventory.getStatus();
+
         const status = {
             firmId: this.id,
             type: this.type,
             farmType: this.farmType,
             landSize: this.landSize.toFixed(1) + ' hectares',
             employees: this.totalEmployees,
+            lots: {
+                total: lotStatus.totalLots,
+                available: lotStatus.availableLots,
+                totalQuantity: lotStatus.totalQuantity,
+                saleStrategy: lotStatus.saleStrategy,
+                accumulatedBuffer: this.accumulatedProduction.toFixed(2),
+                lotSize: this.lotSize
+            },
             financials: {
                 cash: this.cash.toFixed(2),
                 revenue: this.revenue.toFixed(2),
@@ -389,7 +631,7 @@ export class Farm extends Firm {
                 costPerUnit: this.calculateProductionCost().toFixed(2)
             }
         };
-        
+
         if (this.farmType === 'CROP') {
             status.crop = {
                 type: this.cropType,
