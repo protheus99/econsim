@@ -990,6 +990,11 @@ Products have a `necessityIndex` (0.0-1.0) that affects consumer behavior:
 - [x] Lot integration with B2B trade execution
 - [x] Lot tracking through transportation/delivery system
 - [x] UI display for lot information in firm details and product pages
+- [x] Global Market lot-based order generation with lot sizing
+- [x] Bid validation requiring sufficient lot availability
+- [x] Lot reservation on winning bids with quality bonus scoring
+- [x] Lot-based delivery tracking in Global Market orders
+- [x] Market Activity page displays lot badges and lot counts
 - [x] Distance-based transportation costs for all inventory orders
 - [x] Transit time delays for cross-city deliveries
 - [x] Global Market Hubs positioned at each country's center
