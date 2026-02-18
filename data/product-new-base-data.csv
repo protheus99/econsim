@@ -1,0 +1,73 @@
+MainCategory,Subcategory,Product,purchaseFrequency_perHour_per1000Pop,publicDemand,publicNecessity,publicLuxury,priceConcern,qualityConcern,reputationConcern,standardPrice,standardCost,exampleHourlySales_cityPop_2500000
+
+Grocery,Fresh Food,Meat,12,0.9,0.85,0.2,0.7,0.6,0.4,8,5,27000
+Grocery,Fresh Food,Seafood,6,0.75,0.7,0.3,0.65,0.7,0.5,12,8,11250
+Grocery,Fresh Food,Fruits,14,0.95,0.9,0.1,0.7,0.5,0.3,4,2,33250
+Grocery,Bakery & Grains,Bread,15,0.95,0.95,0.05,0.8,0.4,0.2,3,1.5,35625
+Grocery,Bakery & Grains,Breakfast Cereal,8,0.85,0.7,0.2,0.75,0.5,0.5,5,2.5,17000
+Grocery,Sweets & Snacks,Cake,4,0.7,0.1,0.6,0.6,0.6,0.5,15,7,7000
+Grocery,Sweets & Snacks,Candy,9,0.8,0.05,0.6,0.75,0.4,0.5,2,0.7,18000
+Grocery,Frozen & Desserts,Ice Cream,6,0.75,0.05,0.6,0.6,0.5,0.45,5,2.5,11250
+Grocery,Beverages,Soda,10,0.8,0.1,0.4,0.75,0.3,0.5,2,0.8,20000
+Grocery,Beverages,Alcohol,5,0.7,0.05,0.7,0.6,0.6,0.6,18,10,8750
+Grocery,Pantry Staples,Canned Goods,7,0.85,0.8,0.1,0.75,0.4,0.3,3,1.5,14875
+Grocery,Pantry Staples,Cooking Oil,5,0.9,0.85,0.05,0.8,0.4,0.3,6,3,11250
+
+Clothing & Baby,Apparel,Shirts,4,0.85,0.6,0.3,0.65,0.65,0.55,25,10,8500
+Clothing & Baby,Apparel,Jackets,1.5,0.75,0.5,0.4,0.6,0.75,0.65,80,40,2812.5
+Clothing & Baby,Apparel,Jeans,2,0.8,0.6,0.35,0.6,0.7,0.6,50,25,4000
+Clothing & Baby,Apparel,Sweaters,1.8,0.75,0.5,0.35,0.6,0.7,0.6,45,22,3375
+Clothing & Baby,Footwear,Shoes,3,0.9,0.75,0.35,0.6,0.75,0.7,70,35,6750
+Clothing & Baby,Footwear,Socks,6,0.85,0.7,0.1,0.75,0.4,0.3,10,4,12750
+Clothing & Baby,Accessories,Watches,0.8,0.6,0.2,0.7,0.45,0.8,0.85,250,150,1200
+Clothing & Baby,Accessories,Jewelry,0.5,0.5,0.05,0.9,0.4,0.85,0.9,500,300,625
+Clothing & Baby,Accessories,Belts,2,0.7,0.5,0.2,0.7,0.5,0.4,20,8,3500
+Clothing & Baby,Accessories,Bags,1.5,0.8,0.4,0.6,0.6,0.8,0.8,120,60,3000
+Clothing & Baby,Baby Care,Diapers,8,0.95,0.95,0.05,0.85,0.6,0.5,35,18,19000
+Clothing & Baby,Baby Care,Formula,5,0.95,0.95,0.05,0.8,0.7,0.6,25,14,11875
+Clothing & Baby,Baby Equipment,Car Seats,0.3,0.85,0.85,0.1,0.6,0.85,0.8,200,120,637.5
+Clothing & Baby,Baby Equipment,Strollers,0.2,0.8,0.8,0.2,0.6,0.8,0.75,300,180,400
+
+Health & Wellness,Medicine,Cold Medicine,5,0.8,0.85,0.05,0.5,0.75,0.6,12,6,10000
+Health & Wellness,Medicine,Pain Killers,6,0.85,0.9,0.05,0.5,0.7,0.6,10,5,12750
+Health & Wellness,Supplements,Vitamins,4,0.8,0.6,0.3,0.6,0.7,0.65,20,10,8000
+Health & Wellness,Hygiene,Shampoo,7,0.9,0.75,0.2,0.65,0.7,0.65,6,2.5,15750
+Health & Wellness,Hygiene,Deodorant,6,0.9,0.8,0.1,0.7,0.6,0.6,5,2,13500
+Health & Wellness,Hygiene,Soap,8,0.95,0.9,0.05,0.75,0.4,0.3,3,1.2,19000
+Health & Wellness,Hygiene,Toothpaste,7,0.95,0.95,0.05,0.8,0.5,0.4,4,1.5,16625
+Health & Wellness,Beauty,Makeup,3,0.7,0.1,0.8,0.45,0.85,0.8,40,15,5250
+Health & Wellness,Beauty,Perfume,1,0.6,0.05,0.9,0.4,0.85,0.9,100,50,1500
+Health & Wellness,Vision,Glasses,0.5,0.8,0.8,0.2,0.6,0.9,0.8,250,120,1000
+
+Auto & Home Goods,Tools & Hardware,Tools,1.2,0.75,0.6,0.2,0.6,0.8,0.6,60,30,2250
+Auto & Home Goods,Automotive,Tires,0.5,0.85,0.8,0.1,0.5,0.85,0.65,600,350,1062.5
+Auto & Home Goods,Automotive,Auto Parts,1,0.8,0.75,0.15,0.6,0.8,0.7,120,70,2000
+Auto & Home Goods,Automotive,Oil & Fluids,2,0.85,0.8,0.05,0.7,0.6,0.4,40,20,4250
+Auto & Home Goods,Automotive,Car Battery,0.2,0.85,0.8,0.1,0.6,0.85,0.75,180,100,425
+Auto & Home Goods,Cleaning,Cleaning Supplies,5,0.9,0.8,0.1,0.75,0.5,0.4,12,6,11250
+Auto & Home Goods,Cleaning,Vacuums,0.15,0.8,0.7,0.3,0.6,0.8,0.7,250,150,300
+Auto & Home Goods,Cleaning,Paper Towels,7,0.95,0.9,0.05,0.8,0.4,0.3,8,3,16625
+Auto & Home Goods,Cleaning,Trash Bags,6,0.9,0.85,0.05,0.8,0.4,0.3,10,4,13500
+Auto & Home Goods,Furniture,Sofa,0.2,0.85,0.7,0.5,0.6,0.8,0.75,900,450,425
+Auto & Home Goods,Furniture,Dresser,0.15,0.8,0.6,0.4,0.6,0.75,0.7,600,300,300
+Auto & Home Goods,Furniture,Bedroom,0.1,0.8,0.7,0.5,0.6,0.8,0.75,1500,800,200
+Auto & Home Goods,Furniture,Table,0.2,0.8,0.6,0.3,0.6,0.7,0.6,400,200,400
+Auto & Home Goods,Appliances,Microwave,0.3,0.8,0.65,0.3,0.55,0.65,0.5,150,80,600
+Auto & Home Goods,Appliances,Air Conditioner,0.25,0.85,0.8,0.3,0.6,0.8,0.7,800,450,531.25
+Auto & Home Goods,Appliances,Washing Machine,0.1,0.85,0.8,0.3,0.6,0.8,0.7,700,400,212.5
+Auto & Home Goods,Appliances,Dryer,0.1,0.8,0.75,0.3,0.6,0.8,0.7,650,380,200
+Auto & Home Goods,Recreation,Bikes,0.4,0.75,0.4,0.6,0.6,0.7,0.6,500,250,750
+
+Games & Electronics,Computing,Laptop,0.4,0.9,0.7,0.6,0.55,0.9,0.8,1200,800,900
+Games & Electronics,Computing,Personal Computer,0.3,0.85,0.7,0.6,0.6,0.9,0.8,1500,1000,637.5
+Games & Electronics,Computing,Tablets,0.5,0.85,0.6,0.6,0.6,0.85,0.75,600,400,1062.5
+Games & Electronics,Computing,Monitors,0.4,0.85,0.6,0.5,0.6,0.85,0.7,300,180,850
+Games & Electronics,Mobile,Cellphone,1.2,0.95,0.75,0.65,0.5,0.9,0.85,1000,650,2850
+Games & Electronics,Entertainment,TV,0.3,0.8,0.4,0.7,0.6,0.8,0.75,800,500,600
+Games & Electronics,Entertainment,Console,0.25,0.75,0.1,0.9,0.45,0.8,0.85,500,300,468.75
+Games & Electronics,Audio,Headphones,1.5,0.9,0.4,0.6,0.6,0.85,0.8,200,120,3375
+Games & Electronics,Office Electronics,Printers,0.2,0.75,0.5,0.3,0.6,0.8,0.7,250,150,375
+Games & Electronics,Imaging,Cameras,0.15,0.6,0.3,0.8,0.5,0.9,0.85,900,600,225
+Games & Electronics,Power,Batteries,3,0.85,0.6,0.1,0.7,0.5,0.4,10,4,6375
+Games & Electronics,Advanced Tech,Drones,0.05,0.4,0,0.95,0.4,0.85,0.85,900,600,50
+Games & Electronics,Toys,Toys,1.5,0.8,0.3,0.7,0.6,0.7,0.6,40,20,3000

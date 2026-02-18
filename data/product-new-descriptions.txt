@@ -1,0 +1,14 @@
+FieldName,Description
+MainCategory,Top-level classification grouping similar types of products (e.g., Grocery Electronics Auto & Home Goods).
+Subcategory,Secondary classification organizing products within a main category by function or usage (e.g., Fresh Food Appliances Automotive).
+Product,Specific item being modeled and sold in the simulation.
+purchaseFrequency_perHour_per1000Pop,Average number of times the product is purchased per hour per 1000 people. Serves as the base demand rate before modifiers.
+publicDemand,Overall popularity or market interest level for the product on a 0 to 1 scale. Represents general consumer appeal.
+publicNecessity,How essential the product is for basic living or survival on a 0 to 1 scale. Higher values mean demand remains strong during downturns.
+publicLuxury,Degree to which the product is discretionary or status-driven on a 0 to 1 scale. Higher values indicate income-sensitive demand.
+priceConcern,How sensitive consumers are to price changes for this product on a 0 to 1 scale. Higher values mean demand drops quickly when price increases.
+qualityConcern,How much product quality influences purchasing decisions on a 0 to 1 scale. Higher values mean quality strongly impacts demand.
+reputationConcern,How important brand reputation or seller credibility is when purchasing on a 0 to 1 scale. Higher values give strong advantage to trusted brands.
+standardPrice,Baseline retail price used as the reference point for price elasticity modeling.
+standardCost,Baseline production or wholesale cost used for margin and profit calculations.
+exampleHourlySales_cityPop_2500000,Estimated number of units sold per hour in a city with 2500000 people based on base frequency and demand values.
