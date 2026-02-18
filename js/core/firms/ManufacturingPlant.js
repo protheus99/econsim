@@ -21,8 +21,10 @@ export class ManufacturingPlant extends Firm {
         this.qualityControl = 50;
         this.productionEfficiency = 1.0;
         
-        // Raw material inventory
+        // Raw material inventory (quantity tracking for backward compatibility)
         this.rawMaterialInventory = new Map();
+        // Lot-based raw material inventory (tracks actual lots per material)
+        this.rawMaterialLots = new Map();
         this.initializeRawMaterialStorage();
         
         // Finished goods inventory (for MANUFACTURED tier products)
@@ -88,10 +90,17 @@ export class ManufacturingPlant extends Firm {
     
     initializeRawMaterialStorage() {
         this.product.inputs.forEach(input => {
+            // Quantity-based tracking (for backward compatibility and quick checks)
             this.rawMaterialInventory.set(input.material, {
                 quantity: 0,
                 capacity: 10000,
-                minRequired: input.quantity * 100 // Keep 100 hours of production
+                minRequired: input.quantity * 100, // Keep 100 hours of production
+                avgQuality: 50 // Track average quality of materials
+            });
+            // Lot-based tracking (for proper lot consumption)
+            this.rawMaterialLots.set(input.material, {
+                lots: [], // Array of received lots
+                consumptionStrategy: 'FIFO' // FIFO, HIGHEST_QUALITY, LOWEST_QUALITY
             });
         });
     }
@@ -163,13 +172,205 @@ export class ManufacturingPlant extends Firm {
     }
     
     consumeRawMaterials(multiplier = 1) {
-        // Consume raw materials for production
+        // Consume raw materials for production - lot-based with fallback
+        let totalQualityWeighted = 0;
+        let totalQuantityConsumed = 0;
+
         this.product.inputs.forEach(input => {
             const inventory = this.rawMaterialInventory.get(input.material);
-            if (inventory) {
-                inventory.quantity -= input.quantity * multiplier;
+            const lotStorage = this.rawMaterialLots.get(input.material);
+            const amountNeeded = input.quantity * multiplier;
+
+            if (lotStorage && lotStorage.lots.length > 0) {
+                // Consume from lots
+                const consumed = this.consumeFromLots(input.material, amountNeeded);
+                totalQualityWeighted += consumed.avgQuality * consumed.quantity;
+                totalQuantityConsumed += consumed.quantity;
+
+                // Sync quantity with lot-based inventory
+                if (inventory) {
+                    inventory.quantity = this.calculateLotQuantity(input.material);
+                    inventory.avgQuality = consumed.avgQuality;
+                }
+            } else if (inventory) {
+                // Fallback to quantity-based consumption
+                inventory.quantity -= amountNeeded;
+                totalQualityWeighted += (inventory.avgQuality || 50) * amountNeeded;
+                totalQuantityConsumed += amountNeeded;
             }
         });
+
+        // Return average quality of consumed materials
+        return totalQuantityConsumed > 0
+            ? totalQualityWeighted / totalQuantityConsumed
+            : 50;
+    }
+
+    /**
+     * Consume a specific amount from lots of a given material
+     * @param {string} materialName - Name of the material
+     * @param {number} amountNeeded - Amount to consume
+     * @returns {{ quantity: number, avgQuality: number }}
+     */
+    consumeFromLots(materialName, amountNeeded) {
+        const lotStorage = this.rawMaterialLots.get(materialName);
+        if (!lotStorage || lotStorage.lots.length === 0) {
+            return { quantity: 0, avgQuality: 50 };
+        }
+
+        // Sort lots based on consumption strategy
+        const sortedLots = this.sortLotsForConsumption(lotStorage.lots, lotStorage.consumptionStrategy);
+
+        let remainingNeeded = amountNeeded;
+        let totalConsumed = 0;
+        let qualitySum = 0;
+        const lotsToRemove = [];
+
+        for (const lot of sortedLots) {
+            if (remainingNeeded <= 0) break;
+
+            const availableInLot = lot.remainingQuantity ?? lot.quantity;
+            const consumeFromLot = Math.min(availableInLot, remainingNeeded);
+
+            // Track consumption
+            qualitySum += consumeFromLot * (lot.quality || 50);
+            totalConsumed += consumeFromLot;
+            remainingNeeded -= consumeFromLot;
+
+            // Update lot's remaining quantity
+            if (lot.remainingQuantity === undefined) {
+                lot.remainingQuantity = lot.quantity;
+            }
+            lot.remainingQuantity -= consumeFromLot;
+
+            // Mark lot for removal if fully consumed
+            if (lot.remainingQuantity <= 0) {
+                lotsToRemove.push(lot);
+            }
+        }
+
+        // Remove fully consumed lots
+        lotsToRemove.forEach(lot => {
+            const index = lotStorage.lots.indexOf(lot);
+            if (index > -1) {
+                lotStorage.lots.splice(index, 1);
+            }
+        });
+
+        return {
+            quantity: totalConsumed,
+            avgQuality: totalConsumed > 0 ? qualitySum / totalConsumed : 50
+        };
+    }
+
+    /**
+     * Sort lots based on consumption strategy
+     * @param {Array} lots - Lots to sort
+     * @param {string} strategy - FIFO, HIGHEST_QUALITY, LOWEST_QUALITY, EXPIRING_SOON
+     * @returns {Array} Sorted lots
+     */
+    sortLotsForConsumption(lots, strategy) {
+        const sorted = [...lots];
+        switch (strategy) {
+            case 'FIFO':
+                // First in, first out - sort by creation time (oldest first)
+                sorted.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+                break;
+            case 'HIGHEST_QUALITY':
+                // Use highest quality first
+                sorted.sort((a, b) => (b.quality || 50) - (a.quality || 50));
+                break;
+            case 'LOWEST_QUALITY':
+                // Use lowest quality first
+                sorted.sort((a, b) => (a.quality || 50) - (b.quality || 50));
+                break;
+            case 'EXPIRING_SOON':
+                // Use lots expiring soonest first
+                sorted.sort((a, b) => {
+                    if (a.expiresDay === null && b.expiresDay === null) return 0;
+                    if (a.expiresDay === null) return 1;
+                    if (b.expiresDay === null) return -1;
+                    return a.expiresDay - b.expiresDay;
+                });
+                break;
+            default:
+                // Default to FIFO
+                sorted.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+        }
+        return sorted;
+    }
+
+    /**
+     * Calculate total quantity available in lots for a material
+     * @param {string} materialName - Name of the material
+     * @returns {number} Total available quantity
+     */
+    calculateLotQuantity(materialName) {
+        const lotStorage = this.rawMaterialLots.get(materialName);
+        if (!lotStorage || lotStorage.lots.length === 0) return 0;
+
+        return lotStorage.lots.reduce((sum, lot) => {
+            return sum + (lot.remainingQuantity ?? lot.quantity);
+        }, 0);
+    }
+
+    /**
+     * Receive lots from a supplier (called when delivery completes)
+     * @param {string} materialName - Name of the material
+     * @param {Array} lots - Array of lot objects to receive
+     */
+    receiveLots(materialName, lots) {
+        const lotStorage = this.rawMaterialLots.get(materialName);
+        const inventory = this.rawMaterialInventory.get(materialName);
+
+        if (!lotStorage) {
+            // Material not in inputs - shouldn't happen but handle gracefully
+            console.warn(`Received lots for unknown material: ${materialName}`);
+            return;
+        }
+
+        // Add lots to storage
+        lots.forEach(lot => {
+            // Initialize remainingQuantity if not set
+            if (lot.remainingQuantity === undefined) {
+                lot.remainingQuantity = lot.quantity;
+            }
+            lotStorage.lots.push(lot);
+        });
+
+        // Update quantity tracking for backward compatibility
+        if (inventory) {
+            inventory.quantity = this.calculateLotQuantity(materialName);
+            // Update average quality
+            const totalLots = lotStorage.lots;
+            if (totalLots.length > 0) {
+                const qualitySum = totalLots.reduce((sum, lot) => {
+                    const qty = lot.remainingQuantity ?? lot.quantity;
+                    return sum + (lot.quality || 50) * qty;
+                }, 0);
+                const totalQty = this.calculateLotQuantity(materialName);
+                inventory.avgQuality = totalQty > 0 ? qualitySum / totalQty : 50;
+            }
+        }
+    }
+
+    /**
+     * Receive quantity without lot tracking (legacy method for backward compatibility)
+     * @param {string} materialName - Name of the material
+     * @param {number} quantity - Quantity to add
+     * @param {number} quality - Quality of the material (default 50)
+     */
+    receiveQuantity(materialName, quantity, quality = 50) {
+        const inventory = this.rawMaterialInventory.get(materialName);
+        if (inventory) {
+            // Weighted average quality
+            const currentTotal = inventory.quantity * (inventory.avgQuality || 50);
+            const newTotal = quantity * quality;
+            inventory.quantity += quantity;
+            inventory.avgQuality = inventory.quantity > 0
+                ? (currentTotal + newTotal) / inventory.quantity
+                : 50;
+        }
     }
     
     purchaseRawMaterial(materialName, quantity, pricePerUnit) {
@@ -380,8 +581,34 @@ export class ManufacturingPlant extends Firm {
     }
     
     getAverageInputQuality() {
-        // Simplified - would normally track actual input quality
-        return 60 + Math.random() * 20;
+        // Calculate average quality from lot-based raw material inventory
+        let totalQuality = 0;
+        let totalQuantity = 0;
+
+        this.product.inputs.forEach(input => {
+            const lotStorage = this.rawMaterialLots.get(input.material);
+            const inventory = this.rawMaterialInventory.get(input.material);
+
+            if (lotStorage && lotStorage.lots.length > 0) {
+                // Use lot-based quality
+                lotStorage.lots.forEach(lot => {
+                    const qty = lot.remainingQuantity ?? lot.quantity;
+                    totalQuality += (lot.quality || 50) * qty;
+                    totalQuantity += qty;
+                });
+            } else if (inventory && inventory.quantity > 0) {
+                // Use inventory-tracked average quality
+                totalQuality += (inventory.avgQuality || 50) * inventory.quantity;
+                totalQuantity += inventory.quantity;
+            }
+        });
+
+        if (totalQuantity > 0) {
+            return totalQuality / totalQuantity;
+        }
+
+        // Default quality if no materials available
+        return 50;
     }
     
     calculateProductionCost() {
@@ -584,11 +811,17 @@ export class ManufacturingPlant extends Firm {
                 defectRate: (this.defectRate * 100).toFixed(2) + '%',
                 downtime: (this.downtimePercentage * 100).toFixed(0) + '%'
             },
-            rawMaterials: Array.from(this.rawMaterialInventory.entries()).map(([material, inv]) => ({
-                material: material,
-                quantity: inv.quantity.toFixed(0),
-                capacity: inv.capacity
-            })),
+            rawMaterials: Array.from(this.rawMaterialInventory.entries()).map(([material, inv]) => {
+                const lotStorage = this.rawMaterialLots.get(material);
+                return {
+                    material: material,
+                    quantity: inv.quantity.toFixed(0),
+                    capacity: inv.capacity,
+                    avgQuality: (inv.avgQuality || 50).toFixed(1),
+                    lotCount: lotStorage ? lotStorage.lots.length : 0,
+                    consumptionStrategy: lotStorage?.consumptionStrategy || 'FIFO'
+                };
+            }),
             employees: this.totalEmployees,
             technology: this.technologyLevel,
             financials: {

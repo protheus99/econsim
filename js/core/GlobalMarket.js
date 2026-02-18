@@ -150,7 +150,7 @@ export class GlobalMarket {
                 maxQty = Math.min(50000, maxQty);
         }
 
-        const quantity = Math.floor(Math.random() * (maxQty - minQty + 1)) + minQty;
+        let quantity = Math.floor(Math.random() * (maxQty - minQty + 1)) + minQty;
 
         // Price calculation (basePrice already defined above)
         let offerPrice;

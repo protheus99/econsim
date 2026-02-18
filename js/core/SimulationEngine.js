@@ -1718,17 +1718,20 @@ export class SimulationEngine {
                 deliveryHour: this.clock.totalHours + transitHours,
                 transportDetails: transportDetails,
                 lots: selectedLots.map(lot => lot.id),
+                lotObjects: selectedLots, // Store actual lot objects for transfer
                 avgQuality: avgQuality
             });
         } else {
             // Immediate delivery for same-city or zero-distance trades
-            if (buyer.rawMaterialInventory && buyer.rawMaterialInventory.has(materialName)) {
+            if (selectedLots.length > 0 && buyer.receiveLots) {
+                // Lot-based transfer - pass actual lots to buyer
+                selectedLots.forEach(lot => lot.markDelivered?.());
+                buyer.receiveLots(materialName, selectedLots);
+            } else if (buyer.rawMaterialInventory && buyer.rawMaterialInventory.has(materialName)) {
+                // Fallback to quantity-based transfer
                 const buyerInv = buyer.rawMaterialInventory.get(materialName);
                 buyerInv.quantity += tradeQuantity;
             }
-
-            // Mark lots as delivered if lot-based
-            selectedLots.forEach(lot => lot.markDelivered?.());
         }
 
         // Log detailed transaction
@@ -1858,17 +1861,20 @@ export class SimulationEngine {
                 deliveryHour: this.clock.totalHours + transitHours,
                 transportDetails: transportDetails,
                 lots: selectedLots.map(lot => lot.id),
+                lotObjects: selectedLots, // Store actual lot objects for transfer
                 avgQuality: avgQuality
             });
         } else {
             // Immediate delivery for same-city or zero-distance trades
-            if (buyer.rawMaterialInventory && buyer.rawMaterialInventory.has(materialName)) {
+            if (selectedLots.length > 0 && buyer.receiveLots) {
+                // Lot-based transfer - pass actual lots to buyer
+                selectedLots.forEach(lot => lot.markDelivered?.());
+                buyer.receiveLots(materialName, selectedLots);
+            } else if (buyer.rawMaterialInventory && buyer.rawMaterialInventory.has(materialName)) {
+                // Fallback to quantity-based transfer
                 const buyerInv = buyer.rawMaterialInventory.get(materialName);
                 buyerInv.quantity += tradeQuantity;
             }
-
-            // Mark lots as delivered if lot-based
-            selectedLots.forEach(lot => lot.markDelivered?.());
         }
 
         // Log detailed transaction
@@ -2051,16 +2057,12 @@ export class SimulationEngine {
      * Complete a local delivery - transfer inventory to buyer
      */
     completeLocalDelivery(delivery) {
-        const { buyer, materialName, quantity, type, productId, productName, wholesalePrice, lots } = delivery;
+        const { buyer, materialName, quantity, type, productId, productName, wholesalePrice, lots, lotObjects, avgQuality } = delivery;
 
         if (type === 'RAW_TO_SEMI' || type === 'SEMI_TO_MANUFACTURED') {
-            // B2B trade - add to buyer's raw material inventory
-            if (buyer.rawMaterialInventory && buyer.rawMaterialInventory.has(materialName)) {
-                const buyerInv = buyer.rawMaterialInventory.get(materialName);
-                buyerInv.quantity += quantity;
-            }
+            // B2B trade - transfer lots or quantity to buyer's raw material inventory
 
-            // Mark lots as delivered if lot-based delivery
+            // Mark lots as delivered
             if (lots && lots.length > 0) {
                 lots.forEach(lotId => {
                     const lot = this.lotRegistry.getLot(lotId);
@@ -2068,6 +2070,20 @@ export class SimulationEngine {
                         lot.markDelivered();
                     }
                 });
+            }
+
+            // Transfer using lot-based system if buyer supports it
+            if (lotObjects && lotObjects.length > 0 && buyer.receiveLots) {
+                // Lot-based transfer - pass actual lots to buyer
+                buyer.receiveLots(materialName, lotObjects);
+            } else if (buyer.rawMaterialInventory && buyer.rawMaterialInventory.has(materialName)) {
+                // Fallback to quantity-based transfer
+                const buyerInv = buyer.rawMaterialInventory.get(materialName);
+                buyerInv.quantity += quantity;
+                // Update average quality if available
+                if (avgQuality && buyer.receiveQuantity) {
+                    buyer.receiveQuantity(materialName, quantity, avgQuality);
+                }
             }
         } else if (type === 'RETAIL_PURCHASE') {
             // Retail purchase - add to retailer's inventory via their method

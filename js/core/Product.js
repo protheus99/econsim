@@ -148,7 +148,24 @@ export class ProductRegistry {
             { id: 20, name: 'Pigs', category: 'LIVESTOCK', icon: '🐷', basePrice: 400, weight: 100, unit: 'head', necessityIndex: 0.6, minB2BQuantity: 50, minRetailQuantity: 0, baseProductionRate: 5 },
             { id: 21, name: 'Chickens', category: 'LIVESTOCK', icon: '🐔', basePrice: 15, weight: 2, unit: 'dozen', necessityIndex: 0.7, minB2BQuantity: 100, minRetailQuantity: 0, baseProductionRate: 20 },
             { id: 22, name: 'Raw Milk', category: 'ANIMAL_PRODUCTS', icon: '🥛', basePrice: 5, weight: 1.0, unit: 'gallon', necessityIndex: 0.8, minB2BQuantity: 500, minRetailQuantity: 0, baseProductionRate: 100 },
-            { id: 23, name: 'Eggs', category: 'ANIMAL_PRODUCTS', icon: '🥚', basePrice: 3, weight: 0.5, unit: 'dozen', necessityIndex: 0.8, minB2BQuantity: 100, minRetailQuantity: 0, baseProductionRate: 50 }
+            { id: 23, name: 'Eggs', category: 'ANIMAL_PRODUCTS', icon: '🥚', basePrice: 3, weight: 0.5, unit: 'dozen', necessityIndex: 0.8, minB2BQuantity: 100, minRetailQuantity: 0, baseProductionRate: 50 },
+
+            // Fishing (B2B: bulk tons, no retail)
+            { id: 24, name: 'Fish', category: 'SEAFOOD', icon: '🐟', basePrice: 200, weight: 1.0, unit: 'ton', necessityIndex: 0.6, minB2BQuantity: 50, minRetailQuantity: 0, baseProductionRate: 25 },
+
+            // Additional Industrial Crops
+            { id: 25, name: 'Rubber Latex', category: 'INDUSTRIAL_CROPS', icon: '🌴', basePrice: 80, weight: 0.9, unit: 'ton', necessityIndex: 0.4, minB2BQuantity: 100, minRetailQuantity: 0, baseProductionRate: 30 },
+            { id: 26, name: 'Soybeans', category: 'GRAINS', icon: '🫘', basePrice: 12, weight: 0.8, unit: 'bushel', necessityIndex: 0.7, minB2BQuantity: 500, minRetailQuantity: 0, baseProductionRate: 140 },
+
+            // Fresh Produce (B2B: bulk crates, no retail - processed before sale)
+            { id: 27, name: 'Fresh Fruits', category: 'PRODUCE', icon: '🍎', basePrice: 30, weight: 0.5, unit: 'crate', necessityIndex: 0.7, minB2BQuantity: 200, minRetailQuantity: 0, baseProductionRate: 60 },
+            { id: 28, name: 'Vegetables', category: 'PRODUCE', icon: '🥕', basePrice: 25, weight: 0.5, unit: 'crate', necessityIndex: 0.75, minB2BQuantity: 200, minRetailQuantity: 0, baseProductionRate: 70 },
+
+            // Additional minerals for glass/chemicals
+            { id: 29, name: 'Silica Sand', category: 'MINERALS', icon: '🏖️', basePrice: 15, weight: 2.0, unit: 'ton', necessityIndex: 0.3, minB2BQuantity: 500, minRetailQuantity: 0, baseProductionRate: 90 },
+
+            // Hides from livestock (byproduct)
+            { id: 30, name: 'Raw Hides', category: 'ANIMAL_PRODUCTS', icon: '🐂', basePrice: 150, weight: 5.0, unit: 'hide', necessityIndex: 0.3, minB2BQuantity: 50, minRetailQuantity: 0, baseProductionRate: 10 }
         ];
         
         rawMaterials.forEach(product => {
@@ -275,6 +292,108 @@ export class ProductRegistry {
                 minB2BQuantity: 100, minRetailQuantity: 1, baseProductionRate: 50,
                 inputs: [{ material: 'Chickens', quantity: 0.28 }],
                 technologyRequired: 1
+            },
+
+            // Plastics & Polymers (from Crude Oil)
+            {
+                id: 115, name: 'Plastic Pellets', category: 'POLYMERS', icon: '🔘',
+                basePrice: 120, weight: 1.0, unit: 'ton', necessityIndex: 0.5,
+                minB2BQuantity: 50, minRetailQuantity: 0, baseProductionRate: 40,
+                inputs: [{ material: 'Crude Oil', quantity: 0.42 }],
+                technologyRequired: 3
+            },
+
+            // Rubber (from Rubber Latex or Crude Oil for synthetic)
+            {
+                id: 116, name: 'Rubber', category: 'POLYMERS', icon: '⚫',
+                basePrice: 150, weight: 1.0, unit: 'ton', necessityIndex: 0.5,
+                minB2BQuantity: 50, minRetailQuantity: 0, baseProductionRate: 30,
+                inputs: [{ material: 'Rubber Latex', quantity: 0.65 }],
+                technologyRequired: 2
+            },
+
+            // Glass (from Silica Sand and Limestone)
+            {
+                id: 117, name: 'Glass', category: 'MATERIALS', icon: '🪟',
+                basePrice: 80, weight: 1.5, unit: 'ton', necessityIndex: 0.4,
+                minB2BQuantity: 50, minRetailQuantity: 0, baseProductionRate: 35,
+                inputs: [
+                    { material: 'Silica Sand', quantity: 0.70 },
+                    { material: 'Limestone', quantity: 0.15 }
+                ],
+                technologyRequired: 2
+            },
+
+            // Leather (from Raw Hides)
+            {
+                id: 118, name: 'Leather', category: 'TEXTILES', icon: '🧥',
+                basePrice: 250, weight: 0.5, unit: 'hide', necessityIndex: 0.4,
+                minB2BQuantity: 25, minRetailQuantity: 0, baseProductionRate: 20,
+                inputs: [
+                    { material: 'Raw Hides', quantity: 0.58 },
+                    { material: 'Salt', quantity: 0.05 }
+                ],
+                technologyRequired: 2
+            },
+
+            // Chemicals (base chemicals from Crude Oil and Salt)
+            {
+                id: 119, name: 'Industrial Chemicals', category: 'CHEMICALS', icon: '🧪',
+                basePrice: 100, weight: 1.0, unit: 'ton', necessityIndex: 0.4,
+                minB2BQuantity: 50, minRetailQuantity: 0, baseProductionRate: 45,
+                inputs: [
+                    { material: 'Crude Oil', quantity: 0.30 },
+                    { material: 'Salt', quantity: 0.15 }
+                ],
+                technologyRequired: 3
+            },
+
+            // Paper (from Wood Pulp)
+            {
+                id: 120, name: 'Paper', category: 'PAPER', icon: '📄',
+                basePrice: 50, weight: 0.5, unit: 'ream', necessityIndex: 0.5,
+                minB2BQuantity: 100, minRetailQuantity: 1, baseProductionRate: 60,
+                inputs: [{ material: 'Wood Pulp', quantity: 0.35 }],
+                technologyRequired: 2
+            },
+
+            // Processed Fish (from Fish)
+            {
+                id: 121, name: 'Processed Fish', category: 'SEAFOOD', icon: '🐠',
+                basePrice: 350, weight: 1.0, unit: 'ton', necessityIndex: 0.5,
+                minB2BQuantity: 25, minRetailQuantity: 1, baseProductionRate: 20,
+                inputs: [
+                    { material: 'Fish', quantity: 0.60 },
+                    { material: 'Salt', quantity: 0.05 }
+                ],
+                technologyRequired: 1
+            },
+
+            // Vegetable Oil (from Soybeans or Corn)
+            {
+                id: 122, name: 'Vegetable Oil', category: 'FOOD_INGREDIENTS', icon: '🫒',
+                basePrice: 40, weight: 1.0, unit: 'gallon', necessityIndex: 0.7,
+                minB2BQuantity: 100, minRetailQuantity: 1, baseProductionRate: 50,
+                inputs: [{ material: 'Soybeans', quantity: 0.75 }],
+                technologyRequired: 1
+            },
+
+            // Fruit Concentrate (from Fresh Fruits)
+            {
+                id: 123, name: 'Fruit Concentrate', category: 'FOOD_INGREDIENTS', icon: '🍊',
+                basePrice: 45, weight: 1.0, unit: 'gallon', necessityIndex: 0.6,
+                minB2BQuantity: 100, minRetailQuantity: 0, baseProductionRate: 40,
+                inputs: [{ material: 'Fresh Fruits', quantity: 0.80 }],
+                technologyRequired: 1
+            },
+
+            // Cardboard (from Wood Pulp - for packaging)
+            {
+                id: 124, name: 'Cardboard', category: 'PAPER', icon: '📦',
+                basePrice: 35, weight: 0.8, unit: 'sheet', necessityIndex: 0.4,
+                minB2BQuantity: 200, minRetailQuantity: 0, baseProductionRate: 70,
+                inputs: [{ material: 'Wood Pulp', quantity: 0.25 }],
+                technologyRequired: 1
             }
         ];
         
@@ -319,7 +438,10 @@ export class ProductRegistry {
                 id: 213, name: 'Seafood', category: 'PACKAGED_FOOD', icon: '🐟',
                 basePrice: 18, weight: 1.0, unit: 'lb', necessityIndex: 0.6,
                 minB2BQuantity: 30, minRetailQuantity: 1, baseProductionRate: 40,
-                inputs: [{ material: 'Salt', quantity: 0.1 }],
+                inputs: [
+                    { material: 'Processed Fish', quantity: 0.5 },
+                    { material: 'Salt', quantity: 0.02 }
+                ],
                 technologyRequired: 1,
                 purchaseFrequency: 3, publicDemand: 0.5, publicNecessity: 0.4,
                 publicLuxury: 0.5, priceConcern: 0.5, qualityConcern: 0.7, reputationConcern: 0.4,
@@ -329,7 +451,10 @@ export class ProductRegistry {
                 id: 214, name: 'Fruits', category: 'PACKAGED_FOOD', icon: '🍎',
                 basePrice: 5, weight: 1.0, unit: 'lb', necessityIndex: 0.8,
                 minB2BQuantity: 100, minRetailQuantity: 1, baseProductionRate: 80,
-                inputs: [{ material: 'Sugar', quantity: 0.05 }],
+                inputs: [
+                    { material: 'Fruit Concentrate', quantity: 0.3 },
+                    { material: 'Sugar', quantity: 0.02 }
+                ],
                 technologyRequired: 1,
                 purchaseFrequency: 10, publicDemand: 0.75, publicNecessity: 0.7,
                 publicLuxury: 0.1, priceConcern: 0.6, qualityConcern: 0.5, reputationConcern: 0.2,
@@ -390,8 +515,9 @@ export class ProductRegistry {
                 basePrice: 2, weight: 0.5, unit: 'can', necessityIndex: 0.3,
                 minB2BQuantity: 100, minRetailQuantity: 1, baseProductionRate: 150,
                 inputs: [
-                    { material: 'Sugar', quantity: 0.1 },
-                    { material: 'Aluminum Sheets', quantity: 0.02 }
+                    { material: 'Sugar', quantity: 0.08 },
+                    { material: 'Plastic Pellets', quantity: 0.02 },
+                    { material: 'Industrial Chemicals', quantity: 0.01 }
                 ],
                 technologyRequired: 2,
                 purchaseFrequency: 12, publicDemand: 0.6, publicNecessity: 0.2,
@@ -403,8 +529,9 @@ export class ProductRegistry {
                 basePrice: 15, weight: 0.75, unit: 'bottle', necessityIndex: 0.2,
                 minB2BQuantity: 50, minRetailQuantity: 1, baseProductionRate: 50,
                 inputs: [
-                    { material: 'Corn', quantity: 0.2 },
-                    { material: 'Sugar', quantity: 0.1 }
+                    { material: 'Corn', quantity: 0.15 },
+                    { material: 'Sugar', quantity: 0.08 },
+                    { material: 'Glass', quantity: 0.03 }
                 ],
                 technologyRequired: 2,
                 purchaseFrequency: 4, publicDemand: 0.55, publicNecessity: 0.1,
@@ -428,7 +555,10 @@ export class ProductRegistry {
                 id: 221, name: 'Cooking Oil', category: 'PACKAGED_FOOD', icon: '🫒',
                 basePrice: 8, weight: 1.0, unit: 'bottle', necessityIndex: 0.85,
                 minB2BQuantity: 50, minRetailQuantity: 1, baseProductionRate: 70,
-                inputs: [{ material: 'Corn', quantity: 0.3 }],
+                inputs: [
+                    { material: 'Vegetable Oil', quantity: 0.5 },
+                    { material: 'Plastic Pellets', quantity: 0.02 }
+                ],
                 technologyRequired: 1,
                 purchaseFrequency: 3, publicDemand: 0.7, publicNecessity: 0.8,
                 publicLuxury: 0.05, priceConcern: 0.6, qualityConcern: 0.4, reputationConcern: 0.3,
@@ -484,8 +614,9 @@ export class ProductRegistry {
                 basePrice: 70, weight: 0.8, unit: 'pair', necessityIndex: 0.8,
                 minB2BQuantity: 30, minRetailQuantity: 1, baseProductionRate: 25,
                 inputs: [
-                    { material: 'Cotton Fabric', quantity: 0.1 },
-                    { material: 'Plywood', quantity: 0.05 }
+                    { material: 'Leather', quantity: 0.15 },
+                    { material: 'Rubber', quantity: 0.08 },
+                    { material: 'Cotton Fabric', quantity: 0.05 }
                 ],
                 technologyRequired: 2,
                 purchaseFrequency: 1, publicDemand: 0.7, publicNecessity: 0.75,
@@ -533,7 +664,10 @@ export class ProductRegistry {
                 id: 228, name: 'Belts', category: 'ACCESSORIES', icon: '🩹',
                 basePrice: 30, weight: 0.2, unit: 'unit', necessityIndex: 0.5,
                 minB2BQuantity: 50, minRetailQuantity: 1, baseProductionRate: 40,
-                inputs: [{ material: 'Cotton Fabric', quantity: 0.05 }],
+                inputs: [
+                    { material: 'Leather', quantity: 0.08 },
+                    { material: 'Steel', quantity: 0.01 }
+                ],
                 technologyRequired: 1,
                 purchaseFrequency: 0.5, publicDemand: 0.45, publicNecessity: 0.4,
                 publicLuxury: 0.3, priceConcern: 0.5, qualityConcern: 0.5, reputationConcern: 0.5,
@@ -544,7 +678,8 @@ export class ProductRegistry {
                 basePrice: 60, weight: 0.5, unit: 'unit', necessityIndex: 0.5,
                 minB2BQuantity: 30, minRetailQuantity: 1, baseProductionRate: 30,
                 inputs: [
-                    { material: 'Cotton Fabric', quantity: 0.15 },
+                    { material: 'Leather', quantity: 0.12 },
+                    { material: 'Cotton Fabric', quantity: 0.08 },
                     { material: 'Steel', quantity: 0.02 }
                 ],
                 technologyRequired: 2,
@@ -613,8 +748,9 @@ export class ProductRegistry {
                 basePrice: 12, weight: 0.2, unit: 'box', necessityIndex: 0.85,
                 minB2BQuantity: 50, minRetailQuantity: 1, baseProductionRate: 60,
                 inputs: [
-                    { material: 'Sugar', quantity: 0.05 },
-                    { material: 'Corn', quantity: 0.02 }
+                    { material: 'Industrial Chemicals', quantity: 0.08 },
+                    { material: 'Sugar', quantity: 0.02 },
+                    { material: 'Plastic Pellets', quantity: 0.01 }
                 ],
                 technologyRequired: 4,
                 purchaseFrequency: 2, publicDemand: 0.6, publicNecessity: 0.85,
@@ -626,8 +762,8 @@ export class ProductRegistry {
                 basePrice: 10, weight: 0.15, unit: 'bottle', necessityIndex: 0.9,
                 minB2BQuantity: 60, minRetailQuantity: 1, baseProductionRate: 70,
                 inputs: [
-                    { material: 'Sugar', quantity: 0.03 },
-                    { material: 'Coal', quantity: 0.01 }
+                    { material: 'Industrial Chemicals', quantity: 0.06 },
+                    { material: 'Plastic Pellets', quantity: 0.01 }
                 ],
                 technologyRequired: 4,
                 purchaseFrequency: 3, publicDemand: 0.7, publicNecessity: 0.9,
@@ -639,8 +775,8 @@ export class ProductRegistry {
                 basePrice: 20, weight: 0.3, unit: 'bottle', necessityIndex: 0.5,
                 minB2BQuantity: 40, minRetailQuantity: 1, baseProductionRate: 50,
                 inputs: [
-                    { material: 'Sugar', quantity: 0.08 },
-                    { material: 'Salt', quantity: 0.02 }
+                    { material: 'Industrial Chemicals', quantity: 0.1 },
+                    { material: 'Plastic Pellets', quantity: 0.02 }
                 ],
                 technologyRequired: 3,
                 purchaseFrequency: 1, publicDemand: 0.5, publicNecessity: 0.4,
@@ -652,8 +788,8 @@ export class ProductRegistry {
                 basePrice: 8, weight: 0.5, unit: 'bottle', necessityIndex: 0.85,
                 minB2BQuantity: 50, minRetailQuantity: 1, baseProductionRate: 70,
                 inputs: [
-                    { material: 'Crude Oil', quantity: 0.02 },
-                    { material: 'Salt', quantity: 0.01 }
+                    { material: 'Industrial Chemicals', quantity: 0.05 },
+                    { material: 'Plastic Pellets', quantity: 0.02 }
                 ],
                 technologyRequired: 2,
                 purchaseFrequency: 2, publicDemand: 0.75, publicNecessity: 0.8,
@@ -665,8 +801,8 @@ export class ProductRegistry {
                 basePrice: 6, weight: 0.15, unit: 'unit', necessityIndex: 0.8,
                 minB2BQuantity: 60, minRetailQuantity: 1, baseProductionRate: 80,
                 inputs: [
-                    { material: 'Aluminum Sheets', quantity: 0.01 },
-                    { material: 'Salt', quantity: 0.02 }
+                    { material: 'Industrial Chemicals', quantity: 0.04 },
+                    { material: 'Plastic Pellets', quantity: 0.02 }
                 ],
                 technologyRequired: 2,
                 purchaseFrequency: 2, publicDemand: 0.7, publicNecessity: 0.75,
@@ -678,8 +814,8 @@ export class ProductRegistry {
                 basePrice: 4, weight: 0.2, unit: 'bar', necessityIndex: 0.9,
                 minB2BQuantity: 100, minRetailQuantity: 1, baseProductionRate: 100,
                 inputs: [
-                    { material: 'Crude Oil', quantity: 0.03 },
-                    { material: 'Salt', quantity: 0.02 }
+                    { material: 'Industrial Chemicals', quantity: 0.03 },
+                    { material: 'Vegetable Oil', quantity: 0.02 }
                 ],
                 technologyRequired: 1,
                 purchaseFrequency: 4, publicDemand: 0.8, publicNecessity: 0.9,
@@ -691,8 +827,8 @@ export class ProductRegistry {
                 basePrice: 5, weight: 0.2, unit: 'tube', necessityIndex: 0.95,
                 minB2BQuantity: 80, minRetailQuantity: 1, baseProductionRate: 90,
                 inputs: [
-                    { material: 'Limestone', quantity: 0.02 },
-                    { material: 'Sugar', quantity: 0.01 }
+                    { material: 'Industrial Chemicals', quantity: 0.04 },
+                    { material: 'Plastic Pellets', quantity: 0.01 }
                 ],
                 technologyRequired: 2,
                 purchaseFrequency: 2, publicDemand: 0.85, publicNecessity: 0.95,
@@ -704,8 +840,8 @@ export class ProductRegistry {
                 basePrice: 25, weight: 0.1, unit: 'kit', necessityIndex: 0.3,
                 minB2BQuantity: 30, minRetailQuantity: 1, baseProductionRate: 40,
                 inputs: [
-                    { material: 'Crude Oil', quantity: 0.02 },
-                    { material: 'Aluminum Sheets', quantity: 0.01 }
+                    { material: 'Industrial Chemicals', quantity: 0.06 },
+                    { material: 'Plastic Pellets', quantity: 0.02 }
                 ],
                 technologyRequired: 3,
                 purchaseFrequency: 0.5, publicDemand: 0.45, publicNecessity: 0.2,
@@ -717,8 +853,8 @@ export class ProductRegistry {
                 basePrice: 80, weight: 0.2, unit: 'bottle', necessityIndex: 0.2,
                 minB2BQuantity: 20, minRetailQuantity: 1, baseProductionRate: 30,
                 inputs: [
-                    { material: 'Sugar', quantity: 0.05 },
-                    { material: 'Crude Oil', quantity: 0.01 }
+                    { material: 'Industrial Chemicals', quantity: 0.08 },
+                    { material: 'Glass', quantity: 0.03 }
                 ],
                 technologyRequired: 3,
                 purchaseFrequency: 0.2, publicDemand: 0.35, publicNecessity: 0.1,
@@ -730,8 +866,9 @@ export class ProductRegistry {
                 basePrice: 150, weight: 0.1, unit: 'pair', necessityIndex: 0.7,
                 minB2BQuantity: 20, minRetailQuantity: 1, baseProductionRate: 25,
                 inputs: [
-                    { material: 'Steel', quantity: 0.03 },
-                    { material: 'Limestone', quantity: 0.02 }
+                    { material: 'Glass', quantity: 0.05 },
+                    { material: 'Steel', quantity: 0.02 },
+                    { material: 'Plastic Pellets', quantity: 0.01 }
                 ],
                 technologyRequired: 3,
                 purchaseFrequency: 0.1, publicDemand: 0.5, publicNecessity: 0.7,
@@ -758,8 +895,8 @@ export class ProductRegistry {
                 basePrice: 120, weight: 10.0, unit: 'unit', necessityIndex: 0.7,
                 minB2BQuantity: 20, minRetailQuantity: 1, baseProductionRate: 25,
                 inputs: [
-                    { material: 'Crude Oil', quantity: 0.8 },
-                    { material: 'Steel', quantity: 0.1 }
+                    { material: 'Rubber', quantity: 0.4 },
+                    { material: 'Steel', quantity: 0.08 }
                 ],
                 technologyRequired: 3,
                 purchaseFrequency: 0.15, publicDemand: 0.5, publicNecessity: 0.7,
@@ -807,8 +944,8 @@ export class ProductRegistry {
                 basePrice: 10, weight: 1.0, unit: 'unit', necessityIndex: 0.85,
                 minB2BQuantity: 50, minRetailQuantity: 1, baseProductionRate: 70,
                 inputs: [
-                    { material: 'Crude Oil', quantity: 0.05 },
-                    { material: 'Salt', quantity: 0.02 }
+                    { material: 'Industrial Chemicals', quantity: 0.06 },
+                    { material: 'Plastic Pellets', quantity: 0.03 }
                 ],
                 technologyRequired: 1,
                 purchaseFrequency: 3, publicDemand: 0.7, publicNecessity: 0.8,
@@ -833,7 +970,10 @@ export class ProductRegistry {
                 id: 251, name: 'Paper Towels', category: 'CLEANING', icon: '🧻',
                 basePrice: 8, weight: 0.5, unit: 'pack', necessityIndex: 0.85,
                 minB2BQuantity: 80, minRetailQuantity: 1, baseProductionRate: 90,
-                inputs: [{ material: 'Wood Pulp', quantity: 0.3 }],
+                inputs: [
+                    { material: 'Paper', quantity: 0.4 },
+                    { material: 'Cardboard', quantity: 0.05 }
+                ],
                 technologyRequired: 1,
                 purchaseFrequency: 4, publicDemand: 0.75, publicNecessity: 0.8,
                 publicLuxury: 0.05, priceConcern: 0.6, qualityConcern: 0.4, reputationConcern: 0.3,
@@ -843,7 +983,10 @@ export class ProductRegistry {
                 id: 252, name: 'Trash Bags', category: 'CLEANING', icon: '🗑️',
                 basePrice: 12, weight: 0.8, unit: 'box', necessityIndex: 0.9,
                 minB2BQuantity: 60, minRetailQuantity: 1, baseProductionRate: 80,
-                inputs: [{ material: 'Crude Oil', quantity: 0.1 }],
+                inputs: [
+                    { material: 'Plastic Pellets', quantity: 0.15 },
+                    { material: 'Cardboard', quantity: 0.02 }
+                ],
                 technologyRequired: 1,
                 purchaseFrequency: 3, publicDemand: 0.7, publicNecessity: 0.85,
                 publicLuxury: 0.05, priceConcern: 0.6, qualityConcern: 0.3, reputationConcern: 0.2,
@@ -1144,8 +1287,8 @@ export class ProductRegistry {
                 basePrice: 25, weight: 0.5, unit: 'unit', necessityIndex: 0.3,
                 minB2BQuantity: 50, minRetailQuantity: 1, baseProductionRate: 50,
                 inputs: [
-                    { material: 'Cotton Fabric', quantity: 0.1 },
-                    { material: 'Plywood', quantity: 0.15 }
+                    { material: 'Plastic Pellets', quantity: 0.12 },
+                    { material: 'Cotton Fabric', quantity: 0.05 }
                 ],
                 technologyRequired: 1,
                 purchaseFrequency: 0.5, publicDemand: 0.45, publicNecessity: 0.2,
