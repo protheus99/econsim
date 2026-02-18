@@ -398,6 +398,14 @@ export class ManufacturingPlant extends Firm {
     }
     
     produceHourly() {
+        // Auto-initialize lot system for firms created before lot system update
+        if (!this.lotInventory && this.productRegistry) {
+            const productName = this.product?.name || this.productType;
+            if (usesLotSystem(productName, this.productRegistry)) {
+                this.initializeLotSystem();
+            }
+        }
+
         // Check if we can produce
         if (!this.checkRawMaterials()) {
             this.actualProductionRate = 0;

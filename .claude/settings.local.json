@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(wc -l:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "WebFetch(domain:htsremoval.com)"
     ]
   }
 }
