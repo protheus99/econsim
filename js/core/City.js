@@ -23,6 +23,11 @@ export class City {
         this.marketSize = this.calculateMarketSize();
         this.consumerConfidence = 0.7;
 
+        // Local preference for competitive retail system (0.0-1.0)
+        // Determines what % of demand is reserved for local retailers
+        // Higher values favor local businesses, lower values favor chains/brands
+        this.localPreference = this.calculateLocalPreference();
+
         // Location and infrastructure (thresholds from config)
         const infraConfig = config.cities?.infrastructure ?? {};
         this.coordinates = { x: 0, y: 0 };
@@ -152,6 +157,27 @@ export class City {
             daily: this.totalPurchasingPower / 365,
             hourly: this.totalPurchasingPower / 365 / 24
         };
+    }
+
+    /**
+     * Calculate local preference based on city size and characteristics
+     * - Small cities (< 500K): Higher local preference (0.6-0.8)
+     * - Medium cities (500K-2M): Medium local preference (0.4-0.6)
+     * - Large cities (> 2M): Lower local preference (0.2-0.4)
+     */
+    calculateLocalPreference() {
+        const pop = this.population;
+
+        if (pop < 500000) {
+            // Small towns: strong local preference
+            return 0.6 + Math.random() * 0.2; // 0.6-0.8
+        } else if (pop < 2000000) {
+            // Medium cities: balanced
+            return 0.4 + Math.random() * 0.2; // 0.4-0.6
+        } else {
+            // Large metropolitan areas: brand-focused
+            return 0.2 + Math.random() * 0.2; // 0.2-0.4
+        }
     }
     
     generateLocalCompetitors() {

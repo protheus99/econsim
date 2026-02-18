@@ -67,32 +67,38 @@ export class RetailStore extends Firm {
         // Categories must match ProductRegistry categories
         const categoryMap = {
             'SUPERMARKET': [
-                // Food & Groceries (SEMI_RAW and MANUFACTURED food products)
-                'FOOD_INGREDIENTS', 'DAIRY', 'MEAT', 'PACKAGED_FOOD'
+                // Food, beverages, health, beauty, cleaning
+                'FOOD_INGREDIENTS', 'DAIRY', 'MEAT', 'PACKAGED_FOOD',
+                'BEVERAGES', 'HEALTH', 'BEAUTY', 'CLEANING'
             ],
             'DEPARTMENT': [
                 // General merchandise - wide variety
-                'CLOTHING', 'TEXTILES', 'FURNITURE', 'ELECTRONICS', 'PACKAGED_FOOD'
+                'CLOTHING', 'TEXTILES', 'FURNITURE', 'ELECTRONICS', 'PACKAGED_FOOD',
+                'BABY', 'ACCESSORIES', 'TOYS', 'APPLIANCES', 'HEALTH', 'BEAUTY', 'CLEANING'
             ],
             'ELECTRONICS': [
-                // Electronics only
-                'ELECTRONICS'
+                // Electronics and appliances
+                'ELECTRONICS', 'APPLIANCES'
             ],
             'FASHION': [
-                // Clothing and textiles
-                'CLOTHING', 'TEXTILES'
+                // Clothing, textiles, and accessories
+                'CLOTHING', 'TEXTILES', 'ACCESSORIES', 'BEAUTY'
             ],
             'HARDWARE': [
-                // Construction and building materials
-                'CONSTRUCTION', 'LUMBER', 'REFINED_METALS'
+                // Construction, tools, automotive parts
+                'CONSTRUCTION', 'LUMBER', 'REFINED_METALS', 'HARDWARE', 'AUTOMOTIVE', 'APPLIANCES'
             ],
             'FURNITURE': [
                 // Furniture and home goods
-                'FURNITURE', 'LUMBER', 'TEXTILES'
+                'FURNITURE', 'LUMBER', 'TEXTILES', 'APPLIANCES'
             ],
             'AUTO': [
                 // Vehicles and automotive
-                'VEHICLES', 'FUELS'
+                'VEHICLES', 'FUELS', 'AUTOMOTIVE', 'RECREATION'
+            ],
+            'PHARMACY': [
+                // Health and beauty products
+                'HEALTH', 'BEAUTY', 'BABY'
             ]
         };
 
@@ -614,6 +620,93 @@ export class RetailStore extends Firm {
         return false;
     }
     
+    /**
+     * Fulfill allocated demand from the competitive retail system
+     * Called by CityRetailDemandManager when demand is distributed to this retailer
+     *
+     * @param {number} productId - The product ID to sell
+     * @param {number} demandQuantity - Quantity of demand allocated to this retailer
+     * @param {number} hourOfDay - Current hour (for logging)
+     * @returns {Object} { sold, unfulfilled, revenue, cost }
+     */
+    fulfillAllocatedDemand(productId, demandQuantity, hourOfDay) {
+        const inventory = this.productInventory.get(productId);
+
+        if (!inventory || inventory.quantity <= 0) {
+            return { sold: 0, unfulfilled: demandQuantity, revenue: 0, cost: 0 };
+        }
+
+        // Sell up to available inventory
+        const actualSold = Math.min(demandQuantity, inventory.quantity);
+        const unfulfilled = demandQuantity - actualSold;
+
+        // Calculate financials
+        const revenue = actualSold * inventory.retailPrice;
+        const cost = actualSold * inventory.wholesalePrice;
+        const grossProfit = revenue - cost;
+
+        // Update inventory
+        inventory.quantity -= actualSold;
+        this.currentInventoryValue -= cost;
+        if (this.currentInventoryValue < 0) {
+            this.currentInventoryValue = 0;
+        }
+
+        // Update turnover rate for this product
+        inventory.turnoverRate = (inventory.turnoverRate || 0) + actualSold;
+
+        // Update financials
+        this.cash += revenue;
+        this.revenue += revenue;
+        this.monthlyRevenue += revenue;
+
+        // Update daily stats
+        this.dailyRevenue = (this.dailyRevenue || 0) + revenue;
+        this.dailyTransactions = (this.dailyTransactions || 0) + 1;
+
+        // Track for transaction logging
+        if (!this.pendingCompetitiveSales) {
+            this.pendingCompetitiveSales = [];
+        }
+        if (actualSold > 0) {
+            this.pendingCompetitiveSales.push({
+                productId,
+                productName: inventory.productName || productId,
+                quantity: actualSold,
+                unitPrice: inventory.retailPrice,
+                total: revenue,
+                cost: cost,
+                grossProfit: grossProfit
+            });
+        }
+
+        // Update customer satisfaction based on fulfillment
+        if (unfulfilled > 0) {
+            // Stockout hurts satisfaction
+            this.customerSatisfaction = Math.max(0, this.customerSatisfaction - 0.05);
+        } else {
+            // Successful fulfillment slightly improves satisfaction
+            this.customerSatisfaction = Math.min(100, this.customerSatisfaction + 0.01);
+        }
+
+        return {
+            sold: actualSold,
+            unfulfilled: unfulfilled,
+            revenue: revenue,
+            cost: cost,
+            grossProfit: grossProfit
+        };
+    }
+
+    /**
+     * Get and clear pending competitive sales for transaction logging
+     */
+    getPendingCompetitiveSales() {
+        const sales = this.pendingCompetitiveSales || [];
+        this.pendingCompetitiveSales = [];
+        return sales;
+    }
+
     getStatus() {
         const inventoryList = [];
         this.productInventory.forEach((inv, productId) => {

@@ -13,6 +13,7 @@ import { GlobalMarket } from '../core/GlobalMarket.js';
 import { TransactionLog } from '../core/TransactionLog.js';
 import { ProductCostCalculator } from '../core/ProductCostCalculator.js';
 import { LotRegistry } from '../core/Lot.js';
+import { CityRetailDemandManager } from '../core/CityRetailDemandManager.js';
 
 export class SimulationEngine {
     constructor() {
@@ -52,6 +53,9 @@ export class SimulationEngine {
 
         // Lot Registry for lot-based inventory system
         this.lotRegistry = new LotRegistry();
+
+        // City Retail Demand Manager for competitive retail system
+        this.cityRetailDemandManager = null;
 
         // Configuration settings (loaded from config.json or use defaults)
         this.config = {
@@ -196,6 +200,10 @@ export class SimulationEngine {
         // Initialize Product Cost Calculator for game balancing
         this.costCalculator = new ProductCostCalculator(this.productRegistry);
         console.log('✅ Product Cost Calculator initialized');
+
+        // Initialize City Retail Demand Manager for competitive retail
+        this.cityRetailDemandManager = new CityRetailDemandManager(this);
+        console.log('✅ City Retail Demand Manager initialized');
 
         // Initialize countries first
         this.initializeCountries();
@@ -1355,24 +1363,10 @@ export class SimulationEngine {
     processFirmOperations() {
         const currentHour = this.clock.hour;
 
-        // Step 1: All firms produce
+        // Step 1: Non-retail firms produce
         this.firms.forEach(firm => {
             try {
-                if (firm.type === 'RETAIL') {
-                    // Build city economics data for retail sales calculation
-                    const cityEconomics = firm.city ? {
-                        salaryLevel: firm.city.salaryLevel,
-                        consumerConfidence: firm.city.consumerConfidence,
-                        marketSize: firm.city.marketSize,
-                        dayOfMonth: this.clock.day
-                    } : null;
-
-                    // Process retail sales and log consumer transactions
-                    const salesResult = firm.sellHourly(currentHour, cityEconomics);
-                    if (salesResult && salesResult.productSales && salesResult.productSales.length > 0) {
-                        this.logRetailConsumerSales(firm, salesResult);
-                    }
-                } else {
+                if (firm.type !== 'RETAIL') {
                     firm.produceHourly();
                 }
             } catch (error) {
@@ -1380,13 +1374,73 @@ export class SimulationEngine {
             }
         });
 
-        // Step 2: Process supply chain transactions
+        // Step 2: Process competitive retail sales using city-wide demand
+        this.processCompetitiveRetailSales(currentHour);
+
+        // Step 3: Process supply chain transactions
         this.processSupplyChain();
 
         // Debug: Log supply chain stats every 24 hours (once per game day)
         if (this.dailyTick === 0) {
             this.logSupplyChainStats();
         }
+    }
+
+    /**
+     * Process competitive retail sales using city-wide demand distribution
+     * Replaces the old per-retailer sellHourly system
+     */
+    processCompetitiveRetailSales(currentHour) {
+        if (!this.cityRetailDemandManager) return;
+
+        // Process city-wide demand and distribute to retailers competitively
+        const demandStats = this.cityRetailDemandManager.processCompetitiveRetailSales(currentHour);
+
+        // Log retail sales for each retailer
+        this.firms.forEach(firm => {
+            if (firm.type === 'RETAIL') {
+                const sales = firm.getPendingCompetitiveSales();
+                if (sales && sales.length > 0) {
+                    this.logCompetitiveRetailSales(firm, sales);
+                }
+            }
+        });
+
+        // Update stats
+        this.stats.competitiveRetailDemand = demandStats.totalDemand;
+        this.stats.competitiveRetailFulfilled = demandStats.fulfilledDemand;
+        this.stats.competitiveRetailUnfulfilled = demandStats.unfulfilledDemand;
+
+        // Log demand stats periodically (every 24 hours)
+        if (this.dailyTick === 0 && demandStats.totalDemand > 0) {
+            const fulfillmentRate = (demandStats.fulfilledDemand / demandStats.totalDemand * 100).toFixed(1);
+            console.log(`📊 Retail Demand: ${demandStats.totalDemand} total, ${demandStats.fulfilledDemand} fulfilled (${fulfillmentRate}%)`);
+        }
+    }
+
+    /**
+     * Log sales from competitive retail system
+     */
+    logCompetitiveRetailSales(retailer, sales) {
+        let totalRevenue = 0;
+        let totalTransactions = 0;
+
+        sales.forEach(sale => {
+            this.transactionLog.logConsumerSale(
+                retailer,
+                sale.productName,
+                sale.quantity,
+                sale.unitPrice,
+                sale.total,
+                retailer.city?.name || 'Unknown'
+            );
+            totalRevenue += sale.total;
+            totalTransactions++;
+        });
+
+        // Update stats
+        this.stats.consumerSales = (this.stats.consumerSales || 0) + totalTransactions;
+        this.stats.consumerRevenue = (this.stats.consumerRevenue || 0) + totalRevenue;
     }
 
     logRetailConsumerSales(retailer, salesResult) {

@@ -120,15 +120,27 @@
   "retail": {
     "maxRetailQuantity": 3,
     "purchaseChance": 0.3,
+    "demand": {
+      "recessionImpactOnLuxury": 0.5,
+      "boomImpactOnLuxury": 1.3,
+      "necessityFloor": 0.7
+    },
+    "competition": {
+      "priceWeightBase": 0.4,
+      "qualityWeightBase": 0.3,
+      "reputationWeightBase": 0.2,
+      "availabilityBonus": 10
+    },
     "inventory": {
       "capacityByStoreType": {
-        "SUPERMARKET": { "default": 1000, "PACKAGED_FOOD": 2000, "DAIRY": 800, "MEAT": 600 },
-        "DEPARTMENT": { "default": 500, "CLOTHING": 800, "ELECTRONICS": 300 },
+        "SUPERMARKET": { "default": 1000, "PACKAGED_FOOD": 2000, "DAIRY": 800, "MEAT": 600, "BEVERAGES": 1500, "HEALTH": 500, "BEAUTY": 400, "CLEANING": 600 },
+        "DEPARTMENT": { "default": 500, "CLOTHING": 800, "ELECTRONICS": 300, "BABY": 400, "ACCESSORIES": 300, "TOYS": 400, "APPLIANCES": 200 },
         "ELECTRONICS": { "default": 200, "ELECTRONICS": 500 },
-        "FASHION": { "default": 600, "CLOTHING": 1000, "TEXTILES": 400 },
-        "HARDWARE": { "default": 800, "CONSTRUCTION": 1500, "LUMBER": 1000 },
-        "FURNITURE": { "default": 200, "FURNITURE": 400 },
-        "AUTO": { "default": 50, "VEHICLES": 30, "FUELS": 2000 }
+        "FASHION": { "default": 600, "CLOTHING": 1000, "TEXTILES": 400, "ACCESSORIES": 500 },
+        "HARDWARE": { "default": 800, "CONSTRUCTION": 1500, "LUMBER": 1000, "AUTOMOTIVE": 600, "HARDWARE": 800 },
+        "FURNITURE": { "default": 200, "FURNITURE": 400, "APPLIANCES": 300 },
+        "AUTO": { "default": 50, "VEHICLES": 30, "FUELS": 2000, "AUTOMOTIVE": 500 },
+        "PHARMACY": { "default": 400, "HEALTH": 800, "BEAUTY": 600 }
       },
       "reorderThresholdPct": 0.25,
       "targetStockPct": 0.85,

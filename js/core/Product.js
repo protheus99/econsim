@@ -34,6 +34,17 @@ export class Product {
         this.producers = new Set();
         this.totalProduced = 0;
         this.totalConsumed = 0;
+
+        // Retail demand attributes (for competitive retail system)
+        this.purchaseFrequency = config.purchaseFrequency || 1; // purchases per hour per 1000 pop
+        this.publicDemand = config.publicDemand || 0.5; // base demand modifier (0-1)
+        this.publicNecessity = config.publicNecessity || 0.5; // how essential (0-1, high = necessity)
+        this.publicLuxury = config.publicLuxury || 0.5; // how luxurious (0-1, high = luxury)
+        this.priceConcern = config.priceConcern || 0.5; // how much price affects purchase (0-1)
+        this.qualityConcern = config.qualityConcern || 0.5; // how much quality affects purchase (0-1)
+        this.reputationConcern = config.reputationConcern || 0.5; // how much brand matters (0-1)
+        this.mainCategory = config.mainCategory || null; // 'Grocery', 'Clothing & Baby', etc.
+        this.subcategory = config.subcategory || null; // 'Fresh Food', 'Apparel', etc.
     }
 
     getDefaultMinB2B() {
@@ -279,99 +290,7 @@ export class ProductRegistry {
         // SEMI_RAW costs used: Steel~$80, Copper Wire~$72, Aluminum~$64,
         // Plywood~$32, Cotton Fabric~$18, Flour~$10, Sugar~$12
         const manufactured = [
-            // Electronics (B2B: small bulk for retailers, retail: individual units)
-            // baseProductionRate = units manufactured per hour
-            {
-                id: 201, name: 'Smartphones', category: 'ELECTRONICS', icon: '📱',
-                basePrice: 800, weight: 0.2, unit: 'unit', necessityIndex: 0.7,
-                minB2BQuantity: 20, minRetailQuantity: 1, baseProductionRate: 15,
-                inputs: [
-                    { material: 'Aluminum Sheets', quantity: 2.5 },
-                    { material: 'Copper Wire', quantity: 1.2 },
-                    { material: 'Gold Ore', quantity: 0.06 }
-                ],
-                technologyRequired: 8
-            },
-            {
-                id: 202, name: 'Laptops', category: 'ELECTRONICS', icon: '💻',
-                basePrice: 1200, weight: 1.5, unit: 'unit', necessityIndex: 0.15,
-                minB2BQuantity: 200, minRetailQuantity: 1, baseProductionRate: 1,
-                inputs: [
-                    { material: 'Aluminum Sheets', quantity: 3.5 },
-                    { material: 'Copper Wire', quantity: 2.0 },
-					{ material: 'Gold Ore', quantity: 1 },
-                    { material: 'Steel', quantity: 0.6 }
-                ],
-                technologyRequired: 8
-            },
-
-            // Vehicles (B2B: small lots for dealerships, retail: individual)
-            {
-                id: 203, name: 'Cars', category: 'VEHICLES', icon: '🚗',
-                basePrice: 25000, weight: 1200, unit: 'unit', necessityIndex: 0.1,
-                minB2BQuantity: 50, minRetailQuantity: 1, baseProductionRate: 2,
-                inputs: [
-                    { material: 'Steel', quantity: 70 },
-                    { material: 'Aluminum Sheets', quantity: 35 },
-                    { material: 'Copper Wire', quantity: 12 }
-                ],
-                technologyRequired: 5
-            },
-            {
-                id: 204, name: 'Motorcycles', category: 'VEHICLES', icon: '🏍️',
-                basePrice: 8000, weight: 180, unit: 'unit', necessityIndex: 0.5,
-                minB2BQuantity: 10, minRetailQuantity: 1, baseProductionRate: 5,
-                inputs: [
-                    { material: 'Steel', quantity: 25 },
-                    { material: 'Aluminum Sheets', quantity: 12.2 }
-                ],
-                technologyRequired: 4
-            },
-
-            // Furniture (B2B: small lots for stores, retail: individual)
-            {
-                id: 205, name: 'Tables', category: 'FURNITURE', icon: '🪑',
-                basePrice: 300, weight: 25, unit: 'unit', necessityIndex: 0.5,
-                minB2BQuantity: 10, minRetailQuantity: 1, baseProductionRate: 12,
-                inputs: [
-                    { material: 'Plywood', quantity: 2.5 },
-                    { material: 'Steel', quantity: 0.3 }
-                ],
-                technologyRequired: 2
-            },
-            {
-                id: 206, name: 'Beds', category: 'FURNITURE', icon: '🛏️',
-                basePrice: 600, weight: 50, unit: 'unit', necessityIndex: 0.7,
-                minB2BQuantity: 5, minRetailQuantity: 1, baseProductionRate: 8,
-                inputs: [
-                    { material: 'Plywood', quantity: 4.5 },
-                    { material: 'Steel', quantity: 0.6 },
-                    { material: 'Cotton Fabric', quantity: 0.9 }
-                ],
-                technologyRequired: 2
-            },
-
-            // Clothing (B2B: bulk for stores, retail: individual)
-            {
-                id: 207, name: 'Shirts', category: 'CLOTHING', icon: '👕',
-                basePrice: 10, weight: 0.2, unit: 'unit', necessityIndex: 0.8,
-                minB2BQuantity: 50, minRetailQuantity: 1, baseProductionRate: 40,
-                inputs: [
-                    { material: 'Cotton Fabric', quantity: 0.1 }
-                ],
-                technologyRequired: 2
-            },
-            {
-                id: 208, name: 'Jeans', category: 'CLOTHING', icon: '👖',
-                basePrice: 25, weight: 0.5, unit: 'pair', necessityIndex: 0.75,
-                minB2BQuantity: 50, minRetailQuantity: 1, baseProductionRate: 30,
-                inputs: [
-                    { material: 'Cotton Fabric', quantity: 0.15 }
-                ],
-                technologyRequired: 2
-            },
-
-            // Packaged Foods (B2B: case lots, retail: individual)
+            // ========== GROCERY PRODUCTS (12) ==========
             {
                 id: 209, name: 'Bread', category: 'PACKAGED_FOOD', icon: '🍞',
                 basePrice: 3, weight: 0.5, unit: 'loaf', necessityIndex: 0.95,
@@ -380,7 +299,117 @@ export class ProductRegistry {
                     { material: 'Flour', quantity: 0.08 },
                     { material: 'Sugar', quantity: 0.02 }
                 ],
-                technologyRequired: 1
+                technologyRequired: 1,
+                // Retail demand attributes
+                purchaseFrequency: 15, publicDemand: 0.9, publicNecessity: 0.95,
+                publicLuxury: 0.05, priceConcern: 0.7, qualityConcern: 0.4, reputationConcern: 0.2,
+                mainCategory: 'Grocery', subcategory: 'Bakery'
+            },
+            {
+                id: 212, name: 'Meat', category: 'PACKAGED_FOOD', icon: '🥩',
+                basePrice: 12, weight: 1.0, unit: 'lb', necessityIndex: 0.85,
+                minB2BQuantity: 50, minRetailQuantity: 1, baseProductionRate: 60,
+                inputs: [{ material: 'Beef', quantity: 0.8 }],
+                technologyRequired: 1,
+                purchaseFrequency: 8, publicDemand: 0.85, publicNecessity: 0.8,
+                publicLuxury: 0.15, priceConcern: 0.6, qualityConcern: 0.6, reputationConcern: 0.3,
+                mainCategory: 'Grocery', subcategory: 'Fresh Food'
+            },
+            {
+                id: 213, name: 'Seafood', category: 'PACKAGED_FOOD', icon: '🐟',
+                basePrice: 18, weight: 1.0, unit: 'lb', necessityIndex: 0.6,
+                minB2BQuantity: 30, minRetailQuantity: 1, baseProductionRate: 40,
+                inputs: [{ material: 'Salt', quantity: 0.1 }],
+                technologyRequired: 1,
+                purchaseFrequency: 3, publicDemand: 0.5, publicNecessity: 0.4,
+                publicLuxury: 0.5, priceConcern: 0.5, qualityConcern: 0.7, reputationConcern: 0.4,
+                mainCategory: 'Grocery', subcategory: 'Fresh Food'
+            },
+            {
+                id: 214, name: 'Fruits', category: 'PACKAGED_FOOD', icon: '🍎',
+                basePrice: 5, weight: 1.0, unit: 'lb', necessityIndex: 0.8,
+                minB2BQuantity: 100, minRetailQuantity: 1, baseProductionRate: 80,
+                inputs: [{ material: 'Sugar', quantity: 0.05 }],
+                technologyRequired: 1,
+                purchaseFrequency: 10, publicDemand: 0.75, publicNecessity: 0.7,
+                publicLuxury: 0.1, priceConcern: 0.6, qualityConcern: 0.5, reputationConcern: 0.2,
+                mainCategory: 'Grocery', subcategory: 'Produce'
+            },
+            {
+                id: 215, name: 'Breakfast Cereal', category: 'PACKAGED_FOOD', icon: '🥣',
+                basePrice: 6, weight: 0.5, unit: 'box', necessityIndex: 0.7,
+                minB2BQuantity: 50, minRetailQuantity: 1, baseProductionRate: 70,
+                inputs: [
+                    { material: 'Corn', quantity: 0.15 },
+                    { material: 'Sugar', quantity: 0.1 }
+                ],
+                technologyRequired: 2,
+                purchaseFrequency: 5, publicDemand: 0.65, publicNecessity: 0.6,
+                publicLuxury: 0.15, priceConcern: 0.5, qualityConcern: 0.4, reputationConcern: 0.5,
+                mainCategory: 'Grocery', subcategory: 'Packaged Food'
+            },
+            {
+                id: 216, name: 'Cake', category: 'PACKAGED_FOOD', icon: '🎂',
+                basePrice: 25, weight: 2.0, unit: 'unit', necessityIndex: 0.3,
+                minB2BQuantity: 20, minRetailQuantity: 1, baseProductionRate: 30,
+                inputs: [
+                    { material: 'Flour', quantity: 0.2 },
+                    { material: 'Sugar', quantity: 0.15 },
+                    { material: 'Eggs', quantity: 0.1 }
+                ],
+                technologyRequired: 1,
+                purchaseFrequency: 1, publicDemand: 0.4, publicNecessity: 0.1,
+                publicLuxury: 0.6, priceConcern: 0.4, qualityConcern: 0.6, reputationConcern: 0.5,
+                mainCategory: 'Grocery', subcategory: 'Bakery'
+            },
+            {
+                id: 217, name: 'Candy', category: 'PACKAGED_FOOD', icon: '🍬',
+                basePrice: 4, weight: 0.25, unit: 'bag', necessityIndex: 0.2,
+                minB2BQuantity: 100, minRetailQuantity: 1, baseProductionRate: 100,
+                inputs: [{ material: 'Sugar', quantity: 0.3 }],
+                technologyRequired: 1,
+                purchaseFrequency: 4, publicDemand: 0.5, publicNecessity: 0.1,
+                publicLuxury: 0.4, priceConcern: 0.4, qualityConcern: 0.3, reputationConcern: 0.6,
+                mainCategory: 'Grocery', subcategory: 'Snacks'
+            },
+            {
+                id: 218, name: 'Ice Cream', category: 'PACKAGED_FOOD', icon: '🍦',
+                basePrice: 7, weight: 1.0, unit: 'pint', necessityIndex: 0.25,
+                minB2BQuantity: 50, minRetailQuantity: 1, baseProductionRate: 60,
+                inputs: [
+                    { material: 'Pasteurized Milk', quantity: 0.3 },
+                    { material: 'Sugar', quantity: 0.15 }
+                ],
+                technologyRequired: 2,
+                purchaseFrequency: 3, publicDemand: 0.5, publicNecessity: 0.1,
+                publicLuxury: 0.5, priceConcern: 0.4, qualityConcern: 0.5, reputationConcern: 0.5,
+                mainCategory: 'Grocery', subcategory: 'Frozen'
+            },
+            {
+                id: 219, name: 'Soda', category: 'BEVERAGES', icon: '🥤',
+                basePrice: 2, weight: 0.5, unit: 'can', necessityIndex: 0.3,
+                minB2BQuantity: 100, minRetailQuantity: 1, baseProductionRate: 150,
+                inputs: [
+                    { material: 'Sugar', quantity: 0.1 },
+                    { material: 'Aluminum Sheets', quantity: 0.02 }
+                ],
+                technologyRequired: 2,
+                purchaseFrequency: 12, publicDemand: 0.6, publicNecessity: 0.2,
+                publicLuxury: 0.3, priceConcern: 0.5, qualityConcern: 0.3, reputationConcern: 0.6,
+                mainCategory: 'Grocery', subcategory: 'Beverages'
+            },
+            {
+                id: 220, name: 'Alcohol', category: 'BEVERAGES', icon: '🍺',
+                basePrice: 15, weight: 0.75, unit: 'bottle', necessityIndex: 0.2,
+                minB2BQuantity: 50, minRetailQuantity: 1, baseProductionRate: 50,
+                inputs: [
+                    { material: 'Corn', quantity: 0.2 },
+                    { material: 'Sugar', quantity: 0.1 }
+                ],
+                technologyRequired: 2,
+                purchaseFrequency: 4, publicDemand: 0.55, publicNecessity: 0.1,
+                publicLuxury: 0.6, priceConcern: 0.4, qualityConcern: 0.5, reputationConcern: 0.6,
+                mainCategory: 'Grocery', subcategory: 'Beverages'
             },
             {
                 id: 210, name: 'Canned Goods', category: 'PACKAGED_FOOD', icon: '🥫',
@@ -390,10 +419,770 @@ export class ProductRegistry {
                     { material: 'Steel', quantity: 0.01 },
                     { material: 'Corn', quantity: 0.12 }
                 ],
-                technologyRequired: 2
+                technologyRequired: 2,
+                purchaseFrequency: 6, publicDemand: 0.7, publicNecessity: 0.75,
+                publicLuxury: 0.1, priceConcern: 0.6, qualityConcern: 0.4, reputationConcern: 0.3,
+                mainCategory: 'Grocery', subcategory: 'Packaged Food'
+            },
+            {
+                id: 221, name: 'Cooking Oil', category: 'PACKAGED_FOOD', icon: '🫒',
+                basePrice: 8, weight: 1.0, unit: 'bottle', necessityIndex: 0.85,
+                minB2BQuantity: 50, minRetailQuantity: 1, baseProductionRate: 70,
+                inputs: [{ material: 'Corn', quantity: 0.3 }],
+                technologyRequired: 1,
+                purchaseFrequency: 3, publicDemand: 0.7, publicNecessity: 0.8,
+                publicLuxury: 0.05, priceConcern: 0.6, qualityConcern: 0.4, reputationConcern: 0.3,
+                mainCategory: 'Grocery', subcategory: 'Cooking'
             },
 
-            // Construction Materials (B2B: bulk pallets, retail: individual bags)
+            // ========== CLOTHING & BABY PRODUCTS (14) ==========
+            {
+                id: 207, name: 'Shirts', category: 'CLOTHING', icon: '👕',
+                basePrice: 25, weight: 0.2, unit: 'unit', necessityIndex: 0.8,
+                minB2BQuantity: 50, minRetailQuantity: 1, baseProductionRate: 40,
+                inputs: [{ material: 'Cotton Fabric', quantity: 0.1 }],
+                technologyRequired: 2,
+                purchaseFrequency: 2, publicDemand: 0.7, publicNecessity: 0.75,
+                publicLuxury: 0.2, priceConcern: 0.5, qualityConcern: 0.5, reputationConcern: 0.5,
+                mainCategory: 'Clothing & Baby', subcategory: 'Apparel'
+            },
+            {
+                id: 222, name: 'Jackets', category: 'CLOTHING', icon: '🧥',
+                basePrice: 80, weight: 0.8, unit: 'unit', necessityIndex: 0.6,
+                minB2BQuantity: 30, minRetailQuantity: 1, baseProductionRate: 20,
+                inputs: [
+                    { material: 'Cotton Fabric', quantity: 0.25 },
+                    { material: 'Steel', quantity: 0.05 }
+                ],
+                technologyRequired: 2,
+                purchaseFrequency: 0.5, publicDemand: 0.5, publicNecessity: 0.5,
+                publicLuxury: 0.4, priceConcern: 0.4, qualityConcern: 0.6, reputationConcern: 0.6,
+                mainCategory: 'Clothing & Baby', subcategory: 'Apparel'
+            },
+            {
+                id: 208, name: 'Jeans', category: 'CLOTHING', icon: '👖',
+                basePrice: 45, weight: 0.5, unit: 'pair', necessityIndex: 0.75,
+                minB2BQuantity: 50, minRetailQuantity: 1, baseProductionRate: 30,
+                inputs: [{ material: 'Cotton Fabric', quantity: 0.15 }],
+                technologyRequired: 2,
+                purchaseFrequency: 1.5, publicDemand: 0.65, publicNecessity: 0.7,
+                publicLuxury: 0.25, priceConcern: 0.5, qualityConcern: 0.5, reputationConcern: 0.5,
+                mainCategory: 'Clothing & Baby', subcategory: 'Apparel'
+            },
+            {
+                id: 223, name: 'Sweaters', category: 'CLOTHING', icon: '🧶',
+                basePrice: 50, weight: 0.4, unit: 'unit', necessityIndex: 0.55,
+                minB2BQuantity: 40, minRetailQuantity: 1, baseProductionRate: 25,
+                inputs: [{ material: 'Cotton Fabric', quantity: 0.2 }],
+                technologyRequired: 2,
+                purchaseFrequency: 0.8, publicDemand: 0.5, publicNecessity: 0.5,
+                publicLuxury: 0.35, priceConcern: 0.45, qualityConcern: 0.55, reputationConcern: 0.5,
+                mainCategory: 'Clothing & Baby', subcategory: 'Apparel'
+            },
+            {
+                id: 224, name: 'Shoes', category: 'CLOTHING', icon: '👟',
+                basePrice: 70, weight: 0.8, unit: 'pair', necessityIndex: 0.8,
+                minB2BQuantity: 30, minRetailQuantity: 1, baseProductionRate: 25,
+                inputs: [
+                    { material: 'Cotton Fabric', quantity: 0.1 },
+                    { material: 'Plywood', quantity: 0.05 }
+                ],
+                technologyRequired: 2,
+                purchaseFrequency: 1, publicDemand: 0.7, publicNecessity: 0.75,
+                publicLuxury: 0.3, priceConcern: 0.45, qualityConcern: 0.6, reputationConcern: 0.6,
+                mainCategory: 'Clothing & Baby', subcategory: 'Footwear'
+            },
+            {
+                id: 225, name: 'Socks', category: 'CLOTHING', icon: '🧦',
+                basePrice: 8, weight: 0.1, unit: 'pair', necessityIndex: 0.85,
+                minB2BQuantity: 100, minRetailQuantity: 1, baseProductionRate: 80,
+                inputs: [{ material: 'Cotton Fabric', quantity: 0.03 }],
+                technologyRequired: 1,
+                purchaseFrequency: 3, publicDemand: 0.7, publicNecessity: 0.8,
+                publicLuxury: 0.1, priceConcern: 0.6, qualityConcern: 0.4, reputationConcern: 0.3,
+                mainCategory: 'Clothing & Baby', subcategory: 'Apparel'
+            },
+            {
+                id: 226, name: 'Watches', category: 'ACCESSORIES', icon: '⌚',
+                basePrice: 200, weight: 0.15, unit: 'unit', necessityIndex: 0.2,
+                minB2BQuantity: 20, minRetailQuantity: 1, baseProductionRate: 15,
+                inputs: [
+                    { material: 'Steel', quantity: 0.05 },
+                    { material: 'Gold Ore', quantity: 0.01 },
+                    { material: 'Aluminum Sheets', quantity: 0.02 }
+                ],
+                technologyRequired: 4,
+                purchaseFrequency: 0.1, publicDemand: 0.35, publicNecessity: 0.1,
+                publicLuxury: 0.8, priceConcern: 0.3, qualityConcern: 0.7, reputationConcern: 0.8,
+                mainCategory: 'Clothing & Baby', subcategory: 'Accessories'
+            },
+            {
+                id: 227, name: 'Jewelry', category: 'ACCESSORIES', icon: '💎',
+                basePrice: 500, weight: 0.05, unit: 'piece', necessityIndex: 0.1,
+                minB2BQuantity: 10, minRetailQuantity: 1, baseProductionRate: 10,
+                inputs: [
+                    { material: 'Gold Ore', quantity: 0.1 },
+                    { material: 'Silver Ore', quantity: 0.05 }
+                ],
+                technologyRequired: 3,
+                purchaseFrequency: 0.05, publicDemand: 0.25, publicNecessity: 0.05,
+                publicLuxury: 0.95, priceConcern: 0.2, qualityConcern: 0.8, reputationConcern: 0.9,
+                mainCategory: 'Clothing & Baby', subcategory: 'Accessories'
+            },
+            {
+                id: 228, name: 'Belts', category: 'ACCESSORIES', icon: '🩹',
+                basePrice: 30, weight: 0.2, unit: 'unit', necessityIndex: 0.5,
+                minB2BQuantity: 50, minRetailQuantity: 1, baseProductionRate: 40,
+                inputs: [{ material: 'Cotton Fabric', quantity: 0.05 }],
+                technologyRequired: 1,
+                purchaseFrequency: 0.5, publicDemand: 0.45, publicNecessity: 0.4,
+                publicLuxury: 0.3, priceConcern: 0.5, qualityConcern: 0.5, reputationConcern: 0.5,
+                mainCategory: 'Clothing & Baby', subcategory: 'Accessories'
+            },
+            {
+                id: 229, name: 'Bags', category: 'ACCESSORIES', icon: '👜',
+                basePrice: 60, weight: 0.5, unit: 'unit', necessityIndex: 0.5,
+                minB2BQuantity: 30, minRetailQuantity: 1, baseProductionRate: 30,
+                inputs: [
+                    { material: 'Cotton Fabric', quantity: 0.15 },
+                    { material: 'Steel', quantity: 0.02 }
+                ],
+                technologyRequired: 2,
+                purchaseFrequency: 0.3, publicDemand: 0.5, publicNecessity: 0.4,
+                publicLuxury: 0.5, priceConcern: 0.4, qualityConcern: 0.6, reputationConcern: 0.6,
+                mainCategory: 'Clothing & Baby', subcategory: 'Accessories'
+            },
+            {
+                id: 230, name: 'Diapers', category: 'BABY', icon: '👶',
+                basePrice: 25, weight: 1.0, unit: 'pack', necessityIndex: 0.95,
+                minB2BQuantity: 50, minRetailQuantity: 1, baseProductionRate: 60,
+                inputs: [
+                    { material: 'Cotton Fabric', quantity: 0.08 },
+                    { material: 'Wood Pulp', quantity: 0.1 }
+                ],
+                technologyRequired: 2,
+                purchaseFrequency: 5, publicDemand: 0.8, publicNecessity: 0.95,
+                publicLuxury: 0.05, priceConcern: 0.6, qualityConcern: 0.6, reputationConcern: 0.4,
+                mainCategory: 'Clothing & Baby', subcategory: 'Baby Care'
+            },
+            {
+                id: 231, name: 'Formula', category: 'BABY', icon: '🍼',
+                basePrice: 30, weight: 0.8, unit: 'can', necessityIndex: 0.95,
+                minB2BQuantity: 40, minRetailQuantity: 1, baseProductionRate: 50,
+                inputs: [
+                    { material: 'Pasteurized Milk', quantity: 0.4 },
+                    { material: 'Sugar', quantity: 0.1 }
+                ],
+                technologyRequired: 3,
+                purchaseFrequency: 4, publicDemand: 0.75, publicNecessity: 0.95,
+                publicLuxury: 0.05, priceConcern: 0.5, qualityConcern: 0.8, reputationConcern: 0.6,
+                mainCategory: 'Clothing & Baby', subcategory: 'Baby Care'
+            },
+            {
+                id: 232, name: 'Car Seats', category: 'BABY', icon: '🚗',
+                basePrice: 200, weight: 8.0, unit: 'unit', necessityIndex: 0.7,
+                minB2BQuantity: 15, minRetailQuantity: 1, baseProductionRate: 15,
+                inputs: [
+                    { material: 'Cotton Fabric', quantity: 0.15 },
+                    { material: 'Steel', quantity: 0.3 },
+                    { material: 'Plywood', quantity: 0.2 }
+                ],
+                technologyRequired: 3,
+                purchaseFrequency: 0.05, publicDemand: 0.5, publicNecessity: 0.7,
+                publicLuxury: 0.2, priceConcern: 0.4, qualityConcern: 0.8, reputationConcern: 0.6,
+                mainCategory: 'Clothing & Baby', subcategory: 'Baby Equipment'
+            },
+            {
+                id: 233, name: 'Strollers', category: 'BABY', icon: '🛒',
+                basePrice: 300, weight: 10.0, unit: 'unit', necessityIndex: 0.65,
+                minB2BQuantity: 10, minRetailQuantity: 1, baseProductionRate: 12,
+                inputs: [
+                    { material: 'Steel', quantity: 0.4 },
+                    { material: 'Aluminum Sheets', quantity: 0.15 },
+                    { material: 'Cotton Fabric', quantity: 0.1 }
+                ],
+                technologyRequired: 3,
+                purchaseFrequency: 0.03, publicDemand: 0.45, publicNecessity: 0.6,
+                publicLuxury: 0.3, priceConcern: 0.4, qualityConcern: 0.7, reputationConcern: 0.6,
+                mainCategory: 'Clothing & Baby', subcategory: 'Baby Equipment'
+            },
+
+            // ========== HEALTH & WELLNESS PRODUCTS (10) ==========
+            {
+                id: 234, name: 'Cold Medicine', category: 'HEALTH', icon: '💊',
+                basePrice: 12, weight: 0.2, unit: 'box', necessityIndex: 0.85,
+                minB2BQuantity: 50, minRetailQuantity: 1, baseProductionRate: 60,
+                inputs: [
+                    { material: 'Sugar', quantity: 0.05 },
+                    { material: 'Corn', quantity: 0.02 }
+                ],
+                technologyRequired: 4,
+                purchaseFrequency: 2, publicDemand: 0.6, publicNecessity: 0.85,
+                publicLuxury: 0.05, priceConcern: 0.5, qualityConcern: 0.7, reputationConcern: 0.5,
+                mainCategory: 'Health & Wellness', subcategory: 'Medicine'
+            },
+            {
+                id: 235, name: 'Pain Killers', category: 'HEALTH', icon: '💉',
+                basePrice: 10, weight: 0.15, unit: 'bottle', necessityIndex: 0.9,
+                minB2BQuantity: 60, minRetailQuantity: 1, baseProductionRate: 70,
+                inputs: [
+                    { material: 'Sugar', quantity: 0.03 },
+                    { material: 'Coal', quantity: 0.01 }
+                ],
+                technologyRequired: 4,
+                purchaseFrequency: 3, publicDemand: 0.7, publicNecessity: 0.9,
+                publicLuxury: 0.05, priceConcern: 0.5, qualityConcern: 0.7, reputationConcern: 0.5,
+                mainCategory: 'Health & Wellness', subcategory: 'Medicine'
+            },
+            {
+                id: 236, name: 'Vitamins', category: 'HEALTH', icon: '💪',
+                basePrice: 20, weight: 0.3, unit: 'bottle', necessityIndex: 0.5,
+                minB2BQuantity: 40, minRetailQuantity: 1, baseProductionRate: 50,
+                inputs: [
+                    { material: 'Sugar', quantity: 0.08 },
+                    { material: 'Salt', quantity: 0.02 }
+                ],
+                technologyRequired: 3,
+                purchaseFrequency: 1, publicDemand: 0.5, publicNecessity: 0.4,
+                publicLuxury: 0.3, priceConcern: 0.4, qualityConcern: 0.6, reputationConcern: 0.6,
+                mainCategory: 'Health & Wellness', subcategory: 'Supplements'
+            },
+            {
+                id: 237, name: 'Shampoo', category: 'BEAUTY', icon: '🧴',
+                basePrice: 8, weight: 0.5, unit: 'bottle', necessityIndex: 0.85,
+                minB2BQuantity: 50, minRetailQuantity: 1, baseProductionRate: 70,
+                inputs: [
+                    { material: 'Crude Oil', quantity: 0.02 },
+                    { material: 'Salt', quantity: 0.01 }
+                ],
+                technologyRequired: 2,
+                purchaseFrequency: 2, publicDemand: 0.75, publicNecessity: 0.8,
+                publicLuxury: 0.15, priceConcern: 0.5, qualityConcern: 0.5, reputationConcern: 0.5,
+                mainCategory: 'Health & Wellness', subcategory: 'Personal Care'
+            },
+            {
+                id: 238, name: 'Deodorant', category: 'BEAUTY', icon: '🧊',
+                basePrice: 6, weight: 0.15, unit: 'unit', necessityIndex: 0.8,
+                minB2BQuantity: 60, minRetailQuantity: 1, baseProductionRate: 80,
+                inputs: [
+                    { material: 'Aluminum Sheets', quantity: 0.01 },
+                    { material: 'Salt', quantity: 0.02 }
+                ],
+                technologyRequired: 2,
+                purchaseFrequency: 2, publicDemand: 0.7, publicNecessity: 0.75,
+                publicLuxury: 0.1, priceConcern: 0.5, qualityConcern: 0.5, reputationConcern: 0.5,
+                mainCategory: 'Health & Wellness', subcategory: 'Personal Care'
+            },
+            {
+                id: 239, name: 'Soap', category: 'BEAUTY', icon: '🧼',
+                basePrice: 4, weight: 0.2, unit: 'bar', necessityIndex: 0.9,
+                minB2BQuantity: 100, minRetailQuantity: 1, baseProductionRate: 100,
+                inputs: [
+                    { material: 'Crude Oil', quantity: 0.03 },
+                    { material: 'Salt', quantity: 0.02 }
+                ],
+                technologyRequired: 1,
+                purchaseFrequency: 4, publicDemand: 0.8, publicNecessity: 0.9,
+                publicLuxury: 0.05, priceConcern: 0.6, qualityConcern: 0.4, reputationConcern: 0.3,
+                mainCategory: 'Health & Wellness', subcategory: 'Personal Care'
+            },
+            {
+                id: 240, name: 'Toothpaste', category: 'BEAUTY', icon: '🦷',
+                basePrice: 5, weight: 0.2, unit: 'tube', necessityIndex: 0.95,
+                minB2BQuantity: 80, minRetailQuantity: 1, baseProductionRate: 90,
+                inputs: [
+                    { material: 'Limestone', quantity: 0.02 },
+                    { material: 'Sugar', quantity: 0.01 }
+                ],
+                technologyRequired: 2,
+                purchaseFrequency: 2, publicDemand: 0.85, publicNecessity: 0.95,
+                publicLuxury: 0.05, priceConcern: 0.5, qualityConcern: 0.5, reputationConcern: 0.5,
+                mainCategory: 'Health & Wellness', subcategory: 'Personal Care'
+            },
+            {
+                id: 241, name: 'Makeup', category: 'BEAUTY', icon: '💄',
+                basePrice: 25, weight: 0.1, unit: 'kit', necessityIndex: 0.3,
+                minB2BQuantity: 30, minRetailQuantity: 1, baseProductionRate: 40,
+                inputs: [
+                    { material: 'Crude Oil', quantity: 0.02 },
+                    { material: 'Aluminum Sheets', quantity: 0.01 }
+                ],
+                technologyRequired: 3,
+                purchaseFrequency: 0.5, publicDemand: 0.45, publicNecessity: 0.2,
+                publicLuxury: 0.6, priceConcern: 0.4, qualityConcern: 0.6, reputationConcern: 0.7,
+                mainCategory: 'Health & Wellness', subcategory: 'Beauty'
+            },
+            {
+                id: 242, name: 'Perfume', category: 'BEAUTY', icon: '🌸',
+                basePrice: 80, weight: 0.2, unit: 'bottle', necessityIndex: 0.2,
+                minB2BQuantity: 20, minRetailQuantity: 1, baseProductionRate: 30,
+                inputs: [
+                    { material: 'Sugar', quantity: 0.05 },
+                    { material: 'Crude Oil', quantity: 0.01 }
+                ],
+                technologyRequired: 3,
+                purchaseFrequency: 0.2, publicDemand: 0.35, publicNecessity: 0.1,
+                publicLuxury: 0.8, priceConcern: 0.3, qualityConcern: 0.7, reputationConcern: 0.8,
+                mainCategory: 'Health & Wellness', subcategory: 'Beauty'
+            },
+            {
+                id: 243, name: 'Glasses', category: 'HEALTH', icon: '👓',
+                basePrice: 150, weight: 0.1, unit: 'pair', necessityIndex: 0.7,
+                minB2BQuantity: 20, minRetailQuantity: 1, baseProductionRate: 25,
+                inputs: [
+                    { material: 'Steel', quantity: 0.03 },
+                    { material: 'Limestone', quantity: 0.02 }
+                ],
+                technologyRequired: 3,
+                purchaseFrequency: 0.1, publicDemand: 0.5, publicNecessity: 0.7,
+                publicLuxury: 0.3, priceConcern: 0.4, qualityConcern: 0.7, reputationConcern: 0.5,
+                mainCategory: 'Health & Wellness', subcategory: 'Vision'
+            },
+
+            // ========== AUTO & HOME GOODS (18) ==========
+            {
+                id: 244, name: 'Tools', category: 'HARDWARE', icon: '🔧',
+                basePrice: 50, weight: 2.0, unit: 'set', necessityIndex: 0.6,
+                minB2BQuantity: 30, minRetailQuantity: 1, baseProductionRate: 35,
+                inputs: [
+                    { material: 'Steel', quantity: 0.5 },
+                    { material: 'Plywood', quantity: 0.1 }
+                ],
+                technologyRequired: 2,
+                purchaseFrequency: 0.3, publicDemand: 0.5, publicNecessity: 0.5,
+                publicLuxury: 0.2, priceConcern: 0.5, qualityConcern: 0.6, reputationConcern: 0.4,
+                mainCategory: 'Auto & Home', subcategory: 'Hardware'
+            },
+            {
+                id: 245, name: 'Tires', category: 'AUTOMOTIVE', icon: '🛞',
+                basePrice: 120, weight: 10.0, unit: 'unit', necessityIndex: 0.7,
+                minB2BQuantity: 20, minRetailQuantity: 1, baseProductionRate: 25,
+                inputs: [
+                    { material: 'Crude Oil', quantity: 0.8 },
+                    { material: 'Steel', quantity: 0.1 }
+                ],
+                technologyRequired: 3,
+                purchaseFrequency: 0.15, publicDemand: 0.5, publicNecessity: 0.7,
+                publicLuxury: 0.1, priceConcern: 0.5, qualityConcern: 0.7, reputationConcern: 0.5,
+                mainCategory: 'Auto & Home', subcategory: 'Automotive'
+            },
+            {
+                id: 246, name: 'Auto Parts', category: 'AUTOMOTIVE', icon: '⚙️',
+                basePrice: 80, weight: 3.0, unit: 'unit', necessityIndex: 0.65,
+                minB2BQuantity: 30, minRetailQuantity: 1, baseProductionRate: 30,
+                inputs: [
+                    { material: 'Steel', quantity: 0.6 },
+                    { material: 'Aluminum Sheets', quantity: 0.2 }
+                ],
+                technologyRequired: 3,
+                purchaseFrequency: 0.2, publicDemand: 0.45, publicNecessity: 0.6,
+                publicLuxury: 0.1, priceConcern: 0.5, qualityConcern: 0.6, reputationConcern: 0.4,
+                mainCategory: 'Auto & Home', subcategory: 'Automotive'
+            },
+            {
+                id: 247, name: 'Oil & Fluids', category: 'AUTOMOTIVE', icon: '🛢️',
+                basePrice: 30, weight: 4.0, unit: 'gallon', necessityIndex: 0.75,
+                minB2BQuantity: 50, minRetailQuantity: 1, baseProductionRate: 60,
+                inputs: [{ material: 'Crude Oil', quantity: 0.5 }],
+                technologyRequired: 2,
+                purchaseFrequency: 0.5, publicDemand: 0.55, publicNecessity: 0.7,
+                publicLuxury: 0.05, priceConcern: 0.6, qualityConcern: 0.5, reputationConcern: 0.4,
+                mainCategory: 'Auto & Home', subcategory: 'Automotive'
+            },
+            {
+                id: 248, name: 'Car Battery', category: 'AUTOMOTIVE', icon: '🔋',
+                basePrice: 150, weight: 15.0, unit: 'unit', necessityIndex: 0.7,
+                minB2BQuantity: 15, minRetailQuantity: 1, baseProductionRate: 20,
+                inputs: [
+                    { material: 'Steel', quantity: 0.3 },
+                    { material: 'Copper Wire', quantity: 0.4 }
+                ],
+                technologyRequired: 3,
+                purchaseFrequency: 0.08, publicDemand: 0.4, publicNecessity: 0.7,
+                publicLuxury: 0.1, priceConcern: 0.5, qualityConcern: 0.6, reputationConcern: 0.5,
+                mainCategory: 'Auto & Home', subcategory: 'Automotive'
+            },
+            {
+                id: 249, name: 'Cleaning Supplies', category: 'CLEANING', icon: '🧹',
+                basePrice: 10, weight: 1.0, unit: 'unit', necessityIndex: 0.85,
+                minB2BQuantity: 50, minRetailQuantity: 1, baseProductionRate: 70,
+                inputs: [
+                    { material: 'Crude Oil', quantity: 0.05 },
+                    { material: 'Salt', quantity: 0.02 }
+                ],
+                technologyRequired: 1,
+                purchaseFrequency: 3, publicDemand: 0.7, publicNecessity: 0.8,
+                publicLuxury: 0.05, priceConcern: 0.6, qualityConcern: 0.4, reputationConcern: 0.3,
+                mainCategory: 'Auto & Home', subcategory: 'Cleaning'
+            },
+            {
+                id: 250, name: 'Vacuums', category: 'APPLIANCES', icon: '🧹',
+                basePrice: 200, weight: 8.0, unit: 'unit', necessityIndex: 0.6,
+                minB2BQuantity: 15, minRetailQuantity: 1, baseProductionRate: 18,
+                inputs: [
+                    { material: 'Steel', quantity: 0.3 },
+                    { material: 'Copper Wire', quantity: 0.2 },
+                    { material: 'Aluminum Sheets', quantity: 0.1 }
+                ],
+                technologyRequired: 3,
+                purchaseFrequency: 0.05, publicDemand: 0.45, publicNecessity: 0.5,
+                publicLuxury: 0.3, priceConcern: 0.45, qualityConcern: 0.6, reputationConcern: 0.5,
+                mainCategory: 'Auto & Home', subcategory: 'Appliances'
+            },
+            {
+                id: 251, name: 'Paper Towels', category: 'CLEANING', icon: '🧻',
+                basePrice: 8, weight: 0.5, unit: 'pack', necessityIndex: 0.85,
+                minB2BQuantity: 80, minRetailQuantity: 1, baseProductionRate: 90,
+                inputs: [{ material: 'Wood Pulp', quantity: 0.3 }],
+                technologyRequired: 1,
+                purchaseFrequency: 4, publicDemand: 0.75, publicNecessity: 0.8,
+                publicLuxury: 0.05, priceConcern: 0.6, qualityConcern: 0.4, reputationConcern: 0.3,
+                mainCategory: 'Auto & Home', subcategory: 'Cleaning'
+            },
+            {
+                id: 252, name: 'Trash Bags', category: 'CLEANING', icon: '🗑️',
+                basePrice: 12, weight: 0.8, unit: 'box', necessityIndex: 0.9,
+                minB2BQuantity: 60, minRetailQuantity: 1, baseProductionRate: 80,
+                inputs: [{ material: 'Crude Oil', quantity: 0.1 }],
+                technologyRequired: 1,
+                purchaseFrequency: 3, publicDemand: 0.7, publicNecessity: 0.85,
+                publicLuxury: 0.05, priceConcern: 0.6, qualityConcern: 0.3, reputationConcern: 0.2,
+                mainCategory: 'Auto & Home', subcategory: 'Cleaning'
+            },
+            {
+                id: 253, name: 'Sofa', category: 'FURNITURE', icon: '🛋️',
+                basePrice: 800, weight: 50.0, unit: 'unit', necessityIndex: 0.55,
+                minB2BQuantity: 5, minRetailQuantity: 1, baseProductionRate: 6,
+                inputs: [
+                    { material: 'Cotton Fabric', quantity: 0.8 },
+                    { material: 'Plywood', quantity: 0.5 },
+                    { material: 'Steel', quantity: 0.2 }
+                ],
+                technologyRequired: 2,
+                purchaseFrequency: 0.02, publicDemand: 0.4, publicNecessity: 0.5,
+                publicLuxury: 0.45, priceConcern: 0.4, qualityConcern: 0.6, reputationConcern: 0.5,
+                mainCategory: 'Auto & Home', subcategory: 'Furniture'
+            },
+            {
+                id: 254, name: 'Dresser', category: 'FURNITURE', icon: '🗄️',
+                basePrice: 400, weight: 40.0, unit: 'unit', necessityIndex: 0.5,
+                minB2BQuantity: 8, minRetailQuantity: 1, baseProductionRate: 10,
+                inputs: [
+                    { material: 'Plywood', quantity: 0.8 },
+                    { material: 'Steel', quantity: 0.1 }
+                ],
+                technologyRequired: 2,
+                purchaseFrequency: 0.03, publicDemand: 0.4, publicNecessity: 0.45,
+                publicLuxury: 0.35, priceConcern: 0.45, qualityConcern: 0.55, reputationConcern: 0.5,
+                mainCategory: 'Auto & Home', subcategory: 'Furniture'
+            },
+            {
+                id: 206, name: 'Beds', category: 'FURNITURE', icon: '🛏️',
+                basePrice: 600, weight: 50, unit: 'unit', necessityIndex: 0.7,
+                minB2BQuantity: 5, minRetailQuantity: 1, baseProductionRate: 8,
+                inputs: [
+                    { material: 'Plywood', quantity: 1.2 },
+                    { material: 'Cotton Fabric', quantity: 0.5 },
+                    { material: 'Steel', quantity: 0.3 }
+                ],
+                technologyRequired: 2,
+                purchaseFrequency: 0.02, publicDemand: 0.45, publicNecessity: 0.65,
+                publicLuxury: 0.3, priceConcern: 0.4, qualityConcern: 0.6, reputationConcern: 0.5,
+                mainCategory: 'Auto & Home', subcategory: 'Furniture'
+            },
+            {
+                id: 205, name: 'Tables', category: 'FURNITURE', icon: '🪑',
+                basePrice: 300, weight: 25, unit: 'unit', necessityIndex: 0.5,
+                minB2BQuantity: 10, minRetailQuantity: 1, baseProductionRate: 12,
+                inputs: [
+                    { material: 'Plywood', quantity: 0.5 },
+                    { material: 'Steel', quantity: 0.15 }
+                ],
+                technologyRequired: 2,
+                purchaseFrequency: 0.03, publicDemand: 0.4, publicNecessity: 0.45,
+                publicLuxury: 0.35, priceConcern: 0.45, qualityConcern: 0.55, reputationConcern: 0.5,
+                mainCategory: 'Auto & Home', subcategory: 'Furniture'
+            },
+            {
+                id: 255, name: 'Microwave', category: 'APPLIANCES', icon: '📻',
+                basePrice: 150, weight: 15.0, unit: 'unit', necessityIndex: 0.65,
+                minB2BQuantity: 15, minRetailQuantity: 1, baseProductionRate: 20,
+                inputs: [
+                    { material: 'Steel', quantity: 0.4 },
+                    { material: 'Copper Wire', quantity: 0.3 },
+                    { material: 'Aluminum Sheets', quantity: 0.2 }
+                ],
+                technologyRequired: 4,
+                purchaseFrequency: 0.04, publicDemand: 0.5, publicNecessity: 0.6,
+                publicLuxury: 0.25, priceConcern: 0.5, qualityConcern: 0.55, reputationConcern: 0.5,
+                mainCategory: 'Auto & Home', subcategory: 'Appliances'
+            },
+            {
+                id: 256, name: 'Air Conditioner', category: 'APPLIANCES', icon: '❄️',
+                basePrice: 500, weight: 30.0, unit: 'unit', necessityIndex: 0.5,
+                minB2BQuantity: 10, minRetailQuantity: 1, baseProductionRate: 12,
+                inputs: [
+                    { material: 'Steel', quantity: 0.6 },
+                    { material: 'Copper Wire', quantity: 0.5 },
+                    { material: 'Aluminum Sheets', quantity: 0.4 }
+                ],
+                technologyRequired: 4,
+                purchaseFrequency: 0.02, publicDemand: 0.4, publicNecessity: 0.4,
+                publicLuxury: 0.5, priceConcern: 0.45, qualityConcern: 0.6, reputationConcern: 0.5,
+                mainCategory: 'Auto & Home', subcategory: 'Appliances'
+            },
+            {
+                id: 257, name: 'Washing Machine', category: 'APPLIANCES', icon: '🧺',
+                basePrice: 600, weight: 60.0, unit: 'unit', necessityIndex: 0.7,
+                minB2BQuantity: 8, minRetailQuantity: 1, baseProductionRate: 10,
+                inputs: [
+                    { material: 'Steel', quantity: 0.8 },
+                    { material: 'Copper Wire', quantity: 0.4 }
+                ],
+                technologyRequired: 4,
+                purchaseFrequency: 0.02, publicDemand: 0.45, publicNecessity: 0.65,
+                publicLuxury: 0.3, priceConcern: 0.45, qualityConcern: 0.6, reputationConcern: 0.5,
+                mainCategory: 'Auto & Home', subcategory: 'Appliances'
+            },
+            {
+                id: 258, name: 'Dryer', category: 'APPLIANCES', icon: '🌀',
+                basePrice: 550, weight: 55.0, unit: 'unit', necessityIndex: 0.55,
+                minB2BQuantity: 8, minRetailQuantity: 1, baseProductionRate: 10,
+                inputs: [
+                    { material: 'Steel', quantity: 0.7 },
+                    { material: 'Copper Wire', quantity: 0.3 }
+                ],
+                technologyRequired: 4,
+                purchaseFrequency: 0.02, publicDemand: 0.4, publicNecessity: 0.5,
+                publicLuxury: 0.35, priceConcern: 0.45, qualityConcern: 0.6, reputationConcern: 0.5,
+                mainCategory: 'Auto & Home', subcategory: 'Appliances'
+            },
+            {
+                id: 259, name: 'Bikes', category: 'RECREATION', icon: '🚲',
+                basePrice: 300, weight: 12.0, unit: 'unit', necessityIndex: 0.35,
+                minB2BQuantity: 15, minRetailQuantity: 1, baseProductionRate: 15,
+                inputs: [
+                    { material: 'Steel', quantity: 0.6 },
+                    { material: 'Aluminum Sheets', quantity: 0.3 }
+                ],
+                technologyRequired: 2,
+                purchaseFrequency: 0.05, publicDemand: 0.4, publicNecessity: 0.25,
+                publicLuxury: 0.45, priceConcern: 0.45, qualityConcern: 0.55, reputationConcern: 0.5,
+                mainCategory: 'Auto & Home', subcategory: 'Recreation'
+            },
+
+            // ========== ELECTRONICS (13) ==========
+            {
+                id: 202, name: 'Laptops', category: 'ELECTRONICS', icon: '💻',
+                basePrice: 1200, weight: 1.5, unit: 'unit', necessityIndex: 0.4,
+                minB2BQuantity: 20, minRetailQuantity: 1, baseProductionRate: 10,
+                inputs: [
+                    { material: 'Aluminum Sheets', quantity: 3.5 },
+                    { material: 'Copper Wire', quantity: 2.0 },
+                    { material: 'Gold Ore', quantity: 1 },
+                    { material: 'Steel', quantity: 0.6 }
+                ],
+                technologyRequired: 8,
+                purchaseFrequency: 0.05, publicDemand: 0.45, publicNecessity: 0.35,
+                publicLuxury: 0.55, priceConcern: 0.4, qualityConcern: 0.7, reputationConcern: 0.6,
+                mainCategory: 'Electronics', subcategory: 'Computing'
+            },
+            {
+                id: 260, name: 'Personal Computer', category: 'ELECTRONICS', icon: '🖥️',
+                basePrice: 1000, weight: 10.0, unit: 'unit', necessityIndex: 0.45,
+                minB2BQuantity: 15, minRetailQuantity: 1, baseProductionRate: 12,
+                inputs: [
+                    { material: 'Steel', quantity: 1.0 },
+                    { material: 'Copper Wire', quantity: 1.5 },
+                    { material: 'Aluminum Sheets', quantity: 0.8 },
+                    { material: 'Gold Ore', quantity: 0.5 }
+                ],
+                technologyRequired: 7,
+                purchaseFrequency: 0.04, publicDemand: 0.4, publicNecessity: 0.4,
+                publicLuxury: 0.5, priceConcern: 0.45, qualityConcern: 0.65, reputationConcern: 0.55,
+                mainCategory: 'Electronics', subcategory: 'Computing'
+            },
+            {
+                id: 261, name: 'Tablets', category: 'ELECTRONICS', icon: '📱',
+                basePrice: 500, weight: 0.5, unit: 'unit', necessityIndex: 0.35,
+                minB2BQuantity: 25, minRetailQuantity: 1, baseProductionRate: 18,
+                inputs: [
+                    { material: 'Aluminum Sheets', quantity: 2.0 },
+                    { material: 'Copper Wire', quantity: 1.0 },
+                    { material: 'Gold Ore', quantity: 0.3 }
+                ],
+                technologyRequired: 7,
+                purchaseFrequency: 0.06, publicDemand: 0.4, publicNecessity: 0.25,
+                publicLuxury: 0.6, priceConcern: 0.4, qualityConcern: 0.65, reputationConcern: 0.6,
+                mainCategory: 'Electronics', subcategory: 'Computing'
+            },
+            {
+                id: 262, name: 'Monitors', category: 'ELECTRONICS', icon: '🖥️',
+                basePrice: 300, weight: 5.0, unit: 'unit', necessityIndex: 0.45,
+                minB2BQuantity: 20, minRetailQuantity: 1, baseProductionRate: 20,
+                inputs: [
+                    { material: 'Aluminum Sheets', quantity: 1.5 },
+                    { material: 'Copper Wire', quantity: 0.8 },
+                    { material: 'Steel', quantity: 0.5 }
+                ],
+                technologyRequired: 5,
+                purchaseFrequency: 0.04, publicDemand: 0.4, publicNecessity: 0.4,
+                publicLuxury: 0.4, priceConcern: 0.5, qualityConcern: 0.6, reputationConcern: 0.5,
+                mainCategory: 'Electronics', subcategory: 'Computing'
+            },
+            {
+                id: 201, name: 'Cellphone', category: 'ELECTRONICS', icon: '📱',
+                basePrice: 800, weight: 0.2, unit: 'unit', necessityIndex: 0.7,
+                minB2BQuantity: 20, minRetailQuantity: 1, baseProductionRate: 15,
+                inputs: [
+                    { material: 'Aluminum Sheets', quantity: 2.5 },
+                    { material: 'Copper Wire', quantity: 1.2 },
+                    { material: 'Gold Ore', quantity: 0.06 }
+                ],
+                technologyRequired: 8,
+                purchaseFrequency: 0.1, publicDemand: 0.65, publicNecessity: 0.65,
+                publicLuxury: 0.4, priceConcern: 0.4, qualityConcern: 0.65, reputationConcern: 0.7,
+                mainCategory: 'Electronics', subcategory: 'Mobile'
+            },
+            {
+                id: 263, name: 'TV', category: 'ELECTRONICS', icon: '📺',
+                basePrice: 600, weight: 15.0, unit: 'unit', necessityIndex: 0.5,
+                minB2BQuantity: 15, minRetailQuantity: 1, baseProductionRate: 15,
+                inputs: [
+                    { material: 'Aluminum Sheets', quantity: 2.0 },
+                    { material: 'Copper Wire', quantity: 1.0 },
+                    { material: 'Steel', quantity: 0.8 }
+                ],
+                technologyRequired: 5,
+                purchaseFrequency: 0.03, publicDemand: 0.45, publicNecessity: 0.4,
+                publicLuxury: 0.5, priceConcern: 0.45, qualityConcern: 0.6, reputationConcern: 0.55,
+                mainCategory: 'Electronics', subcategory: 'Entertainment'
+            },
+            {
+                id: 264, name: 'Console', category: 'ELECTRONICS', icon: '🎮',
+                basePrice: 500, weight: 3.0, unit: 'unit', necessityIndex: 0.2,
+                minB2BQuantity: 20, minRetailQuantity: 1, baseProductionRate: 18,
+                inputs: [
+                    { material: 'Aluminum Sheets', quantity: 1.0 },
+                    { material: 'Copper Wire', quantity: 0.8 },
+                    { material: 'Steel', quantity: 0.3 }
+                ],
+                technologyRequired: 6,
+                purchaseFrequency: 0.02, publicDemand: 0.35, publicNecessity: 0.1,
+                publicLuxury: 0.7, priceConcern: 0.4, qualityConcern: 0.6, reputationConcern: 0.7,
+                mainCategory: 'Electronics', subcategory: 'Gaming'
+            },
+            {
+                id: 265, name: 'Headphones', category: 'ELECTRONICS', icon: '🎧',
+                basePrice: 100, weight: 0.3, unit: 'unit', necessityIndex: 0.35,
+                minB2BQuantity: 40, minRetailQuantity: 1, baseProductionRate: 35,
+                inputs: [
+                    { material: 'Copper Wire', quantity: 0.5 },
+                    { material: 'Aluminum Sheets', quantity: 0.2 }
+                ],
+                technologyRequired: 4,
+                purchaseFrequency: 0.15, publicDemand: 0.5, publicNecessity: 0.25,
+                publicLuxury: 0.5, priceConcern: 0.45, qualityConcern: 0.6, reputationConcern: 0.6,
+                mainCategory: 'Electronics', subcategory: 'Audio'
+            },
+            {
+                id: 266, name: 'Printers', category: 'ELECTRONICS', icon: '🖨️',
+                basePrice: 200, weight: 8.0, unit: 'unit', necessityIndex: 0.4,
+                minB2BQuantity: 15, minRetailQuantity: 1, baseProductionRate: 18,
+                inputs: [
+                    { material: 'Steel', quantity: 0.5 },
+                    { material: 'Copper Wire', quantity: 0.4 },
+                    { material: 'Aluminum Sheets', quantity: 0.3 }
+                ],
+                technologyRequired: 5,
+                purchaseFrequency: 0.03, publicDemand: 0.35, publicNecessity: 0.35,
+                publicLuxury: 0.35, priceConcern: 0.5, qualityConcern: 0.55, reputationConcern: 0.5,
+                mainCategory: 'Electronics', subcategory: 'Office'
+            },
+            {
+                id: 267, name: 'Cameras', category: 'ELECTRONICS', icon: '📷',
+                basePrice: 400, weight: 0.5, unit: 'unit', necessityIndex: 0.25,
+                minB2BQuantity: 20, minRetailQuantity: 1, baseProductionRate: 20,
+                inputs: [
+                    { material: 'Aluminum Sheets', quantity: 0.8 },
+                    { material: 'Copper Wire', quantity: 0.4 },
+                    { material: 'Gold Ore', quantity: 0.05 }
+                ],
+                technologyRequired: 6,
+                purchaseFrequency: 0.02, publicDemand: 0.3, publicNecessity: 0.15,
+                publicLuxury: 0.65, priceConcern: 0.4, qualityConcern: 0.7, reputationConcern: 0.65,
+                mainCategory: 'Electronics', subcategory: 'Imaging'
+            },
+            {
+                id: 268, name: 'Batteries', category: 'ELECTRONICS', icon: '🔋',
+                basePrice: 8, weight: 0.1, unit: 'pack', necessityIndex: 0.75,
+                minB2BQuantity: 100, minRetailQuantity: 1, baseProductionRate: 100,
+                inputs: [
+                    { material: 'Steel', quantity: 0.1 },
+                    { material: 'Copper Wire', quantity: 0.2 }
+                ],
+                technologyRequired: 3,
+                purchaseFrequency: 4, publicDemand: 0.65, publicNecessity: 0.7,
+                publicLuxury: 0.1, priceConcern: 0.5, qualityConcern: 0.5, reputationConcern: 0.5,
+                mainCategory: 'Electronics', subcategory: 'Power'
+            },
+            {
+                id: 269, name: 'Drones', category: 'ELECTRONICS', icon: '🚁',
+                basePrice: 800, weight: 1.0, unit: 'unit', necessityIndex: 0.1,
+                minB2BQuantity: 10, minRetailQuantity: 1, baseProductionRate: 12,
+                inputs: [
+                    { material: 'Aluminum Sheets', quantity: 1.2 },
+                    { material: 'Copper Wire', quantity: 0.8 }
+                ],
+                technologyRequired: 7,
+                purchaseFrequency: 0.01, publicDemand: 0.2, publicNecessity: 0.05,
+                publicLuxury: 0.85, priceConcern: 0.35, qualityConcern: 0.7, reputationConcern: 0.6,
+                mainCategory: 'Electronics', subcategory: 'Tech'
+            },
+            {
+                id: 270, name: 'Toys', category: 'TOYS', icon: '🧸',
+                basePrice: 25, weight: 0.5, unit: 'unit', necessityIndex: 0.3,
+                minB2BQuantity: 50, minRetailQuantity: 1, baseProductionRate: 50,
+                inputs: [
+                    { material: 'Cotton Fabric', quantity: 0.1 },
+                    { material: 'Plywood', quantity: 0.15 }
+                ],
+                technologyRequired: 1,
+                purchaseFrequency: 0.5, publicDemand: 0.45, publicNecessity: 0.2,
+                publicLuxury: 0.4, priceConcern: 0.5, qualityConcern: 0.5, reputationConcern: 0.6,
+                mainCategory: 'Electronics', subcategory: 'Toys'
+            },
+
+            // ========== VEHICLES (kept as before but with retail attributes) ==========
+            {
+                id: 203, name: 'Cars', category: 'VEHICLES', icon: '🚗',
+                basePrice: 25000, weight: 1200, unit: 'unit', necessityIndex: 0.3,
+                minB2BQuantity: 50, minRetailQuantity: 1, baseProductionRate: 2,
+                inputs: [
+                    { material: 'Steel', quantity: 70 },
+                    { material: 'Aluminum Sheets', quantity: 35 },
+                    { material: 'Copper Wire', quantity: 12 }
+                ],
+                technologyRequired: 5,
+                purchaseFrequency: 0.005, publicDemand: 0.35, publicNecessity: 0.25,
+                publicLuxury: 0.6, priceConcern: 0.35, qualityConcern: 0.7, reputationConcern: 0.7,
+                mainCategory: 'Auto & Home', subcategory: 'Vehicles'
+            },
+            {
+                id: 204, name: 'Motorcycles', category: 'VEHICLES', icon: '🏍️',
+                basePrice: 8000, weight: 180, unit: 'unit', necessityIndex: 0.2,
+                minB2BQuantity: 10, minRetailQuantity: 1, baseProductionRate: 5,
+                inputs: [
+                    { material: 'Steel', quantity: 25 },
+                    { material: 'Aluminum Sheets', quantity: 12.2 }
+                ],
+                technologyRequired: 4,
+                purchaseFrequency: 0.01, publicDemand: 0.25, publicNecessity: 0.15,
+                publicLuxury: 0.65, priceConcern: 0.4, qualityConcern: 0.65, reputationConcern: 0.6,
+                mainCategory: 'Auto & Home', subcategory: 'Vehicles'
+            },
+
+            // ========== CONSTRUCTION (kept as before) ==========
             {
                 id: 211, name: 'Cement', category: 'CONSTRUCTION', icon: '🏗️',
                 basePrice: 80, weight: 50, unit: 'bag', necessityIndex: 0.4,
@@ -402,7 +1191,10 @@ export class ProductRegistry {
                     { material: 'Limestone', quantity: 1.0 },
                     { material: 'Coal', quantity: 0.2 }
                 ],
-                technologyRequired: 2
+                technologyRequired: 2,
+                purchaseFrequency: 0.1, publicDemand: 0.3, publicNecessity: 0.35,
+                publicLuxury: 0.1, priceConcern: 0.6, qualityConcern: 0.5, reputationConcern: 0.3,
+                mainCategory: 'Auto & Home', subcategory: 'Construction'
             }
         ];
         
