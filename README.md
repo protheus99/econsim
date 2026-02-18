@@ -14,6 +14,7 @@ A comprehensive web-based economic simulation featuring autonomous cities, corpo
 - [Supply Chain](#supply-chain)
 - [Global Market](#global-market)
 - [Inventory Management](#inventory-management)
+- [Lot-Based Inventory System](#lot-based-inventory-system)
 - [Transportation Network](#transportation-network)
 - [Configuration](#configuration)
 - [User Interface](#user-interface)
@@ -145,6 +146,8 @@ economic-simulation/
 │   │   ├── CityManager.js          # Multi-city management and statistics
 │   │   ├── Country.js              # Country definitions and trade agreements
 │   │   ├── Product.js              # Product registry and definitions
+│   │   ├── Lot.js                  # Lot, LotInventory, LotRegistry classes
+│   │   ├── LotSizings.js           # Lot size configuration by product
 │   │   ├── TransportationNetwork.js# Transportation cost calculations
 │   │   ├── Dashboard.js            # Dashboard UI state management
 │   │   └── firms/
@@ -529,6 +532,193 @@ debug.getInventoryReport()
 ]
 ```
 
+## Lot-Based Inventory System
+
+### Overview
+
+RAW and SEMI_RAW products use a lot-based inventory system where production accumulates into discrete bulk lots that are sold as indivisible units. This models real-world commodity trading where materials are sold in standardized quantities.
+
+### What is a Lot?
+
+A **Lot** is a bulk unit of inventory with:
+- **Unique ID** (e.g., `LOT_IRON_1706123456_a1b2c3`)
+- **Fixed quantity** based on product type
+- **Quality rating** (0-100) inherited from production
+- **Creation timestamp** for FIFO ordering
+- **Status tracking**: `AVAILABLE` → `RESERVED` → `IN_TRANSIT` → `DELIVERED`
+- **Expiration date** for perishable goods
+
+### Lot Sizes by Product Type
+
+#### RAW Materials - Mining
+
+| Product | Lot Size | Unit |
+|---------|----------|------|
+| Iron Ore | 500 | ton |
+| Coal | 1,000 | ton |
+| Crude Oil | 1,000 | barrel |
+| Gold Ore | 250 | oz |
+| Copper Ore | 500 | ton |
+
+#### RAW Materials - Logging
+
+| Product | Lot Size | Unit |
+|---------|----------|------|
+| Softwood Logs | 50 | cord |
+| Hardwood Logs | 25 | cord |
+
+#### RAW Materials - Agriculture
+
+| Product | Lot Size | Unit | Perishable |
+|---------|----------|------|------------|
+| Wheat | 1,000 | bushel | No |
+| Cattle | 20 | head | No |
+| Raw Milk | 500 | gallon | Yes (7 days) |
+| Eggs | 100 | dozen | Yes (14 days) |
+
+#### SEMI_RAW Products
+
+| Product | Lot Size | Unit | Perishable |
+|---------|----------|------|------------|
+| Steel | 25 | ton | No |
+| Gasoline | 100 | barrel | No |
+| Flour | 100 | bag | No |
+| Beef | 10 | cwt | Yes (5 days) |
+| Chicken | 100 | lb | Yes (4 days) |
+
+### How Lot Production Works
+
+Production accumulates in a buffer until the lot size threshold is reached:
+
+```
+Hour 1-8: Mine produces ~480 tons iron ore
+          accumulatedProduction = 480
+
+Hour 9:   Mine produces 60 more tons
+          Total = 540 tons
+          Creates LOT (500 tons)
+          accumulatedProduction = 40
+
+Hour 17:  Another lot created when threshold reached again
+```
+
+### Sale Strategies
+
+Each firm can configure how lots are selected for sale:
+
+| Strategy | Description | Best For |
+|----------|-------------|----------|
+| `FIFO` | First-In-First-Out (oldest lots first) | Most products |
+| `HIGHEST_QUALITY` | Best quality lots first | Premium goods |
+| `LOWEST_QUALITY` | Lower quality lots first | Clearance |
+| `EXPIRING_SOON` | Soonest expiration first | Perishables |
+
+Perishable products default to `EXPIRING_SOON` strategy.
+
+### Sales Rules
+
+- **Full lots only** — no partial lot sales; lots are indivisible
+- **Multi-lot trades** — single trade can include multiple lots
+- **Quality averaging** — price based on average quality across all lots in trade
+- **Automatic selection** — system selects optimal lots based on firm's strategy
+
+### Perishable Goods
+
+Products with shelf life have expiration tracking:
+
+| Product | Shelf Life |
+|---------|------------|
+| Raw Milk | 7 days |
+| Eggs | 14 days |
+| Beef | 5 days |
+| Pork | 5 days |
+| Chicken | 4 days |
+| Pasteurized Milk | 14 days |
+
+Expired lots are automatically removed from inventory (counted as loss).
+
+### UI Display
+
+The lot system is displayed in the firm detail view:
+
+- **Production Stats**: Shows lot count and buffer progress
+- **Lot Inventory Section**: Shows available lots, total quantity, lot size, buffer, and sale strategy
+- **Products Page**: Producer listings show lot availability
+
+### Core Classes
+
+```javascript
+// Lot.js exports three main classes:
+
+class Lot {
+    id              // Unique identifier
+    productName     // Product type
+    quantity        // Fixed lot size
+    quality         // 0-100 quality rating
+    status          // AVAILABLE, RESERVED, IN_TRANSIT, DELIVERED, EXPIRED
+    createdAt       // Creation game hour
+    expiresDay      // Expiration day (null if non-perishable)
+}
+
+class LotInventory {
+    lots            // Map of lot ID → Lot
+    saleStrategy    // FIFO, HIGHEST_QUALITY, LOWEST_QUALITY, EXPIRING_SOON
+    // Methods: addLot(), selectLotsForSale(), processExpiration()
+}
+
+class LotRegistry {
+    allLots         // Global registry of all lots
+    // Methods: createLot(), transferLot(), processAllExpirations()
+}
+```
+
+### Integration with Trade System
+
+The lot system integrates with existing B2B trade execution:
+
+1. Buyer requests quantity (e.g., 1,200 tons iron ore)
+2. System calculates lots needed: `Math.round(1200 / 500) = 2 lots`
+3. Seller's lots selected based on strategy (e.g., FIFO)
+4. Full lots sold (1,000 tons total)
+5. Remaining need filled by next trade or global market
+
+### Transportation Integration
+
+Lots integrate with the delivery system:
+- Pending deliveries track lot IDs
+- Lots marked `IN_TRANSIT` during delivery
+- On completion, lots transferred to buyer and marked `DELIVERED`
+
+### Global Market Integration
+
+The Global Market fully supports lot-based trading:
+
+**Order Generation:**
+- Orders for RAW and SEMI_RAW products automatically use lot sizing
+- Quantities are rounded to match lot sizes
+- Orders include `lotsRequired`, `lotSize`, and `lotUnit` fields
+
+**Bidding:**
+- Firms must have sufficient lots to place bids
+- Bid validation checks lot availability before accepting
+- Bids include lot IDs, count, and average quality
+- Higher quality lots receive a scoring bonus
+
+**Bid Evaluation:**
+- Quality bonus: bids with higher average quality score better
+- Winning bids reserve the committed lots
+
+**Delivery:**
+- Reserved lots are transferred from seller to fulfill order
+- Delivered lots are tracked in `order.deliveredLots`
+- Fallback to new lot selection if reserved lots expired
+
+**Market Activity Display:**
+- Orders show "LOT" badge for lot-based products
+- Quantity displays include lot count (e.g., "1000 (2 lots)")
+- Awarded orders show lot count and average quality
+- Completed orders show delivered lots count
+
 ## Transportation Network
 
 ### Transport Types
@@ -792,6 +982,14 @@ Products have a `necessityIndex` (0.0-1.0) that affects consumer behavior:
 
 ### Recently Completed
 
+- [x] Lot-based inventory system for RAW and SEMI_RAW products
+- [x] Lot classes (Lot, LotInventory, LotRegistry) with full lifecycle management
+- [x] Configurable lot sizes by product type (LotSizings.js)
+- [x] Perishable goods with expiration tracking and automatic removal
+- [x] Sale strategies (FIFO, HIGHEST_QUALITY, LOWEST_QUALITY, EXPIRING_SOON)
+- [x] Lot integration with B2B trade execution
+- [x] Lot tracking through transportation/delivery system
+- [x] UI display for lot information in firm details and product pages
 - [x] Distance-based transportation costs for all inventory orders
 - [x] Transit time delays for cross-city deliveries
 - [x] Global Market Hubs positioned at each country's center
@@ -828,6 +1026,6 @@ Products have a `necessityIndex` (0.0-1.0) that affects consumer behavior:
 
 ---
 
-**Version:** 1.0.3
-**Last Updated:** 2026-02-07
+**Version:** 1.1.0
+**Last Updated:** 2026-02-17
 **Status:** Production Ready
