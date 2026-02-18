@@ -225,13 +225,19 @@ function renderBiddingOrders() {
         return;
     }
 
-    container.innerHTML = orders.slice(0, 20).map(order => `
+    container.innerHTML = orders.slice(0, 20).map(order => {
+        const lotInfo = order.usesLots
+            ? `<div class="order-stat lot-stat"><span class="label">Lots</span><span class="value">${order.lotsRequired} × ${order.lotSize} ${order.lotUnit}</span></div>`
+            : '';
+
+        return `
         <div class="order-card ${order.isCompanyOrder ? 'company-order' : 'market-order'}">
             <div class="order-card-header">
                 <span class="order-product">${order.productName}</span>
                 <span class="order-type-badge ${order.isCompanyOrder ? 'company' : 'market'}">
                     ${order.isCompanyOrder ? 'Company' : 'Market'}
                 </span>
+                ${order.usesLots ? '<span class="lot-badge">LOT</span>' : ''}
             </div>
             <div class="order-card-body">
                 <div class="order-stat">
@@ -250,13 +256,14 @@ function renderBiddingOrders() {
                     <span class="label">Bids</span>
                     <span class="value">${order.bids?.length || 0}</span>
                 </div>
+                ${lotInfo}
             </div>
             <div class="order-card-footer">
                 <span class="order-location">${order.deliveryLocation}</span>
                 <span class="order-deadline">Due: Day ${order.deliveryDeadlineDay}</span>
             </div>
         </div>
-    `).join('');
+    `}).join('');
 }
 
 function renderAvailableOrders() {
@@ -286,11 +293,16 @@ function renderAvailableOrders() {
         return;
     }
 
-    tbody.innerHTML = orders.slice(0, 50).map(order => `
+    tbody.innerHTML = orders.slice(0, 50).map(order => {
+        const lotDisplay = order.usesLots
+            ? `<span class="lot-info">${order.lotsRequired} lots</span>`
+            : '-';
+
+        return `
         <tr class="${order.isCompanyOrder ? 'company-order-row' : ''}">
-            <td>${order.productName}</td>
+            <td>${order.productName} ${order.usesLots ? '<span class="lot-badge-sm">LOT</span>' : ''}</td>
             <td><span class="tier-badge tier-${order.productTier?.toLowerCase()}">${order.productTier}</span></td>
-            <td>${order.quantity}</td>
+            <td>${order.quantity}${order.usesLots ? ` (${lotDisplay})` : ''}</td>
             <td>${formatCurrency(order.offerPrice)}</td>
             <td>${formatCurrency(order.totalValue)}</td>
             <td>${formatCurrency(order.deliveryFee)}</td>
@@ -298,7 +310,7 @@ function renderAvailableOrders() {
             <td><span class="order-type-badge ${order.isCompanyOrder ? 'company' : 'market'}">${order.isCompanyOrder ? 'Company' : 'Market'}</span></td>
             <td>${order.deliveryLocation}</td>
         </tr>
-    `).join('');
+    `}).join('');
 }
 
 function renderAwardedOrders() {
@@ -322,11 +334,16 @@ function renderAwardedOrders() {
         const firm = firmId ? simulation.firms.get(firmId) : null;
         const corp = firm ? simulation.corporations.find(c => c.id === firm.corporationId) : null;
 
+        // Lot info for awarded orders
+        const lotInfo = order.usesLots
+            ? `<span class="lot-info-awarded">${order.winningBid?.lotsOffered || order.lotsRequired} lots${order.winningBid?.avgQuality ? ` (Q: ${order.winningBid.avgQuality.toFixed(0)})` : ''}</span>`
+            : '';
+
         return `
             <tr>
-                <td>${order.productName}</td>
+                <td>${order.productName} ${order.usesLots ? '<span class="lot-badge-sm">LOT</span>' : ''}</td>
                 <td><span class="tier-badge tier-${order.productTier?.toLowerCase()}">${order.productTier || '-'}</span></td>
-                <td>${order.quantity}</td>
+                <td>${order.quantity}${lotInfo ? `<br>${lotInfo}` : ''}</td>
                 <td>
                     <div class="firm-link-cell">
                         <a href="#" class="firm-link" data-firm-id="${firmId || ''}">${getShortFirmName(firmId)}</a>
@@ -374,11 +391,16 @@ function renderCompletedOrders() {
         const firm = firmId ? simulation.firms.get(firmId) : null;
         const corp = firm ? simulation.corporations.find(c => c.id === firm.corporationId) : null;
 
+        // Delivered lots info
+        const deliveredLotsInfo = order.deliveredLots && order.deliveredLots.length > 0
+            ? `<span class="lots-delivered">${order.deliveredLots.length} lots delivered</span>`
+            : (order.usesLots ? `<span class="lots-delivered">${order.lotsRequired} lots</span>` : '');
+
         return `
             <tr>
-                <td>${order.productName}</td>
+                <td>${order.productName} ${order.usesLots ? '<span class="lot-badge-sm">LOT</span>' : ''}</td>
                 <td><span class="tier-badge tier-${order.productTier?.toLowerCase()}">${order.productTier || '-'}</span></td>
-                <td>${order.quantity}</td>
+                <td>${order.quantity}${deliveredLotsInfo ? `<br>${deliveredLotsInfo}` : ''}</td>
                 <td>
                     <div class="firm-link-cell">
                         <a href="#" class="firm-link" data-firm-id="${firmId || ''}">${getShortFirmName(firmId)}</a>

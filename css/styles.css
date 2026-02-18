@@ -3842,6 +3842,61 @@ body {
     color: var(--accent-orange);
 }
 
+/* Lot badges for orders */
+.lot-badge {
+    display: inline-block;
+    padding: 2px 6px;
+    font-size: 0.65rem;
+    font-weight: 600;
+    background: rgba(76, 175, 80, 0.2);
+    color: var(--accent-green);
+    border-radius: 3px;
+    margin-left: 6px;
+    vertical-align: middle;
+}
+
+.lot-badge-sm {
+    display: inline-block;
+    padding: 1px 4px;
+    font-size: 0.6rem;
+    font-weight: 600;
+    background: rgba(76, 175, 80, 0.15);
+    color: var(--accent-green);
+    border-radius: 2px;
+    margin-left: 4px;
+    vertical-align: middle;
+}
+
+.lot-info {
+    font-size: 0.8rem;
+    color: var(--accent-green);
+}
+
+.lot-info-awarded {
+    font-size: 0.75rem;
+    color: var(--accent-green);
+    display: block;
+    margin-top: 2px;
+}
+
+.lots-delivered {
+    font-size: 0.75rem;
+    color: var(--accent-green);
+    display: block;
+    margin-top: 2px;
+}
+
+.order-stat.lot-stat {
+    background: rgba(76, 175, 80, 0.1);
+    padding: 6px 8px;
+    border-radius: 4px;
+    grid-column: span 2;
+}
+
+.order-stat.lot-stat .value {
+    color: var(--accent-green);
+}
+
 .order-card-body {
     display: grid;
     grid-template-columns: repeat(2, 1fr);

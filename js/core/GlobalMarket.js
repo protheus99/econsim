@@ -1,4 +1,6 @@
 // js/core/GlobalMarket.js
+import { getLotConfigForProduct, calculateLotsNeeded, usesLotSystem } from './LotSizings.js';
+
 export class GlobalMarket {
     constructor(productRegistry, config = {}) {
         this.productRegistry = productRegistry;
@@ -207,6 +209,22 @@ export class GlobalMarket {
             deliveryFee = quantity * 0.5 * (Math.random() * 2 + 1);
         }
 
+        // Get lot configuration for this product
+        const lotConfig = getLotConfigForProduct(product.name, this.productRegistry);
+        const usesLots = usesLotSystem(product.name, this.productRegistry);
+        let lotsRequired = 0;
+        let lotSize = 0;
+        let lotUnit = 'units';
+
+        if (usesLots && lotConfig) {
+            lotSize = lotConfig.lotSize;
+            lotUnit = lotConfig.unit || 'units';
+            // Round quantity to nearest lot size for lot-based products
+            lotsRequired = calculateLotsNeeded(product.name, quantity);
+            // Adjust quantity to match lot-based ordering
+            quantity = lotsRequired * lotSize;
+        }
+
         const order = {
             id: `MKT_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
             productId: product.id,
@@ -231,7 +249,13 @@ export class GlobalMarket {
             winningBid: null,
             createdAt: Date.now(),
             createdDay: this.currentDay,
-            createdHour: this.currentHour
+            createdHour: this.currentHour,
+            // Lot information
+            usesLots: usesLots,
+            lotsRequired: lotsRequired,
+            lotSize: lotSize,
+            lotUnit: lotUnit,
+            reservedLots: [] // Lot IDs reserved by winning bid
         };
 
         this.stats.totalOrdersPlaced++;
@@ -273,6 +297,46 @@ export class GlobalMarket {
             return { success: false, reason: 'ORDER_NOT_IN_BIDDING' };
         }
 
+        // Validate inventory availability
+        let availableLots = [];
+        let availableQuantity = 0;
+
+        if (order.usesLots && firm.lotInventory && firm.selectLotsForSale) {
+            // Lot-based validation
+            const selection = firm.selectLotsForSale(order.quantity, this.currentDay);
+            availableLots = selection.lots || [];
+            availableQuantity = selection.totalQuantity || 0;
+
+            if (availableLots.length < order.lotsRequired) {
+                return {
+                    success: false,
+                    reason: 'INSUFFICIENT_LOTS',
+                    required: order.lotsRequired,
+                    available: availableLots.length,
+                    requiredQuantity: order.quantity,
+                    availableQuantity: availableQuantity
+                };
+            }
+        } else {
+            // Legacy quantity-based validation
+            let inventorySource = null;
+            if (firm.type === 'MANUFACTURING') {
+                inventorySource = firm.finishedGoodsInventory;
+            } else if (firm.type === 'MINING' || firm.type === 'LOGGING' || firm.type === 'FARM') {
+                inventorySource = firm.inventory;
+            }
+
+            availableQuantity = inventorySource?.quantity || 0;
+            if (availableQuantity < order.quantity) {
+                return {
+                    success: false,
+                    reason: 'INSUFFICIENT_INVENTORY',
+                    required: order.quantity,
+                    available: availableQuantity
+                };
+            }
+        }
+
         // Calculate total bid (price per unit + delivery)
         const totalBidValue = (bidPrice * order.quantity) + deliveryFee;
 
@@ -287,13 +351,20 @@ export class GlobalMarket {
             totalBidValue: totalBidValue,
             placedAt: Date.now(),
             placedDay: this.currentDay,
-            placedHour: this.currentHour
+            placedHour: this.currentHour,
+            // Lot information for lot-based orders
+            lotIds: order.usesLots ? availableLots.map(lot => lot.id) : [],
+            lotsOffered: order.usesLots ? availableLots.length : 0,
+            avgQuality: order.usesLots && availableLots.length > 0
+                ? availableLots.reduce((sum, lot) => sum + (lot.quality || 50), 0) / availableLots.length
+                : null
         };
 
         order.bids.push(bid);
         this.stats.totalBidsReceived++;
 
-        console.log(`💰 Bid placed: ${firm.name || firm.id} bid ${bidPrice}/unit + ${deliveryFee} delivery on order ${orderId}`);
+        const lotInfo = order.usesLots ? ` (${availableLots.length} lots)` : '';
+        console.log(`💰 Bid placed: ${firm.name || firm.id} bid ${bidPrice}/unit + ${deliveryFee} delivery on order ${orderId}${lotInfo}`);
 
         return { success: true, bid: bid };
     }
@@ -318,13 +389,33 @@ export class GlobalMarket {
             } else {
                 // Select winner - highest total bid value wins
                 // Company orders get 10% priority bonus in scoring
-                const scoredBids = order.bids.map(bid => ({
-                    ...bid,
-                    score: bid.totalBidValue * (order.isCompanyOrder ? 1.1 : 1.0)
-                }));
+                // Quality bonus for lot-based orders (higher quality = higher score)
+                const scoredBids = order.bids.map(bid => {
+                    let score = bid.totalBidValue * (order.isCompanyOrder ? 1.1 : 1.0);
+                    // Add quality bonus for lot-based bids (up to 10% bonus for quality 100)
+                    if (bid.avgQuality !== null) {
+                        score *= (1 + (bid.avgQuality - 50) / 500);
+                    }
+                    return { ...bid, score };
+                });
 
                 scoredBids.sort((a, b) => b.score - a.score);
                 const winningBid = scoredBids[0];
+
+                // Reserve lots for the winning bid
+                if (order.usesLots && winningBid.lotIds && winningBid.lotIds.length > 0 && this.firms) {
+                    const seller = this.firms.get(winningBid.firmId);
+                    if (seller && seller.lotInventory) {
+                        // Reserve the lots
+                        winningBid.lotIds.forEach(lotId => {
+                            const lot = seller.lotInventory.getLot(lotId);
+                            if (lot) {
+                                lot.reserve(order.id);
+                            }
+                        });
+                        order.reservedLots = winningBid.lotIds;
+                    }
+                }
 
                 order.winningBid = winningBid;
                 order.status = 'AWARDED';
@@ -337,7 +428,8 @@ export class GlobalMarket {
                 awardedOrders.push(order);
                 this.stats.totalOrdersAwarded++;
 
-                console.log(`🏆 Order ${order.id} awarded to ${winningBid.firmName} for ${winningBid.totalBidValue.toFixed(2)}`);
+                const lotInfo = order.usesLots ? ` (${winningBid.lotsOffered} lots, avg quality: ${winningBid.avgQuality?.toFixed(0) || 'N/A'})` : '';
+                console.log(`🏆 Order ${order.id} awarded to ${winningBid.firmName} for ${winningBid.totalBidValue.toFixed(2)}${lotInfo}`);
             }
         });
 
@@ -531,18 +623,53 @@ export class GlobalMarket {
             const seller = this.firms.get(order.winningBid.firmId);
 
             if (seller) {
-                // Check if seller uses lot-based inventory
-                if (seller.lotInventory && seller.selectLotsForSale) {
-                    // Lot-based inventory deduction
-                    const selection = seller.selectLotsForSale(order.quantity, this.currentDay);
-                    if (selection.lots.length > 0) {
+                // Check if order uses lot-based inventory
+                if (order.usesLots && seller.lotInventory) {
+                    // Use reserved lots if available, otherwise select new ones
+                    let lotsToTransfer = [];
+
+                    if (order.reservedLots && order.reservedLots.length > 0) {
+                        // Get the reserved lots
+                        lotsToTransfer = order.reservedLots
+                            .map(lotId => seller.lotInventory.getLot(lotId))
+                            .filter(lot => lot !== null);
+                    }
+
+                    // If reserved lots not found (expired or already transferred), select new ones
+                    if (lotsToTransfer.length === 0 && seller.selectLotsForSale) {
+                        const selection = seller.selectLotsForSale(order.quantity, this.currentDay);
+                        lotsToTransfer = selection.lots || [];
+                    }
+
+                    if (lotsToTransfer.length > 0) {
                         // Transfer lots from seller
-                        seller.transferLots(selection.lots, null);
+                        const transferredLots = seller.transferLots(lotsToTransfer, order.id);
 
                         // Mark lots as delivered
-                        selection.lots.forEach(lot => lot.markDelivered?.());
+                        transferredLots.forEach(lot => lot.markDelivered?.());
+
+                        // Track delivered lots in order
+                        order.deliveredLots = transferredLots.map(lot => ({
+                            id: lot.id,
+                            quantity: lot.quantity,
+                            quality: lot.quality
+                        }));
+
+                        console.log(`📦 Order ${order.id}: ${transferredLots.length} lots delivered from ${seller.id}`);
                     } else {
                         console.warn(`⚠️ Firm ${seller.id} has no available lots for order ${order.id}`);
+                    }
+                } else if (seller.lotInventory && seller.selectLotsForSale) {
+                    // Seller uses lots but order doesn't specify - use lot-based deduction
+                    const selection = seller.selectLotsForSale(order.quantity, this.currentDay);
+                    if (selection.lots.length > 0) {
+                        const transferredLots = seller.transferLots(selection.lots, order.id);
+                        transferredLots.forEach(lot => lot.markDelivered?.());
+                        order.deliveredLots = transferredLots.map(lot => ({
+                            id: lot.id,
+                            quantity: lot.quantity,
+                            quality: lot.quality
+                        }));
                     }
                 } else {
                     // Legacy quantity-based inventory deduction
@@ -832,6 +959,11 @@ export class GlobalMarket {
     }
 
     getStats() {
+        // Calculate lot-based order statistics
+        const lotBasedOrders = this.completedOrders.filter(o => o.usesLots);
+        const totalLotsDelivered = lotBasedOrders.reduce((sum, o) => sum + (o.deliveredLots?.length || 0), 0);
+        const avgLotsPerOrder = lotBasedOrders.length > 0 ? totalLotsDelivered / lotBasedOrders.length : 0;
+
         return {
             ...this.stats,
             availableOrders: this.availableOrders.length,
@@ -840,6 +972,10 @@ export class GlobalMarket {
             completedOrders: this.completedOrders.length,
             totalSoldToMarket: this.stats.totalSoldToMarket || 0,
             totalSalesRevenue: this.stats.totalSalesRevenue || 0,
+            // Lot statistics
+            lotBasedOrdersCompleted: lotBasedOrders.length,
+            totalLotsDelivered: totalLotsDelivered,
+            avgLotsPerOrder: avgLotsPerOrder.toFixed(1),
             config: this.config
         };
     }
