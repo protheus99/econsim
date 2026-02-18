@@ -287,6 +287,476 @@ export const LOT_SIZING_CONFIG = {
         perishable: true,
         shelfLifeDays: 4,
         hoursToForm: 2  // ~50 units/hr * 2 = 100
+    },
+
+    // ==================
+    // MANUFACTURED Products - Grocery
+    // ==================
+    'Bread': {
+        lotSize: 100,
+        unit: 'loaf',
+        perishable: true,
+        shelfLifeDays: 5,
+        hoursToForm: 1
+    },
+    'Meat': {
+        lotSize: 60,
+        unit: 'lb',
+        perishable: true,
+        shelfLifeDays: 5,
+        hoursToForm: 1
+    },
+    'Seafood': {
+        lotSize: 40,
+        unit: 'lb',
+        perishable: true,
+        shelfLifeDays: 3,
+        hoursToForm: 1
+    },
+    'Fruits': {
+        lotSize: 80,
+        unit: 'lb',
+        perishable: true,
+        shelfLifeDays: 7,
+        hoursToForm: 1
+    },
+    'Breakfast Cereal': {
+        lotSize: 70,
+        unit: 'box',
+        perishable: false,
+        hoursToForm: 1
+    },
+    'Cake': {
+        lotSize: 30,
+        unit: 'unit',
+        perishable: true,
+        shelfLifeDays: 4,
+        hoursToForm: 1
+    },
+    'Candy': {
+        lotSize: 100,
+        unit: 'bag',
+        perishable: false,
+        hoursToForm: 1
+    },
+    'Ice Cream': {
+        lotSize: 60,
+        unit: 'pint',
+        perishable: true,
+        shelfLifeDays: 30,
+        hoursToForm: 1
+    },
+    'Soda': {
+        lotSize: 150,
+        unit: 'can',
+        perishable: false,
+        hoursToForm: 1
+    },
+    'Alcohol': {
+        lotSize: 50,
+        unit: 'bottle',
+        perishable: false,
+        hoursToForm: 1
+    },
+    'Canned Goods': {
+        lotSize: 80,
+        unit: 'can',
+        perishable: false,
+        hoursToForm: 1
+    },
+    'Cooking Oil': {
+        lotSize: 70,
+        unit: 'bottle',
+        perishable: false,
+        hoursToForm: 1
+    },
+
+    // ==================
+    // MANUFACTURED Products - Clothing & Accessories
+    // ==================
+    'Shirts': {
+        lotSize: 40,
+        unit: 'unit',
+        perishable: false,
+        hoursToForm: 1
+    },
+    'Jackets': {
+        lotSize: 20,
+        unit: 'unit',
+        perishable: false,
+        hoursToForm: 1
+    },
+    'Jeans': {
+        lotSize: 30,
+        unit: 'pair',
+        perishable: false,
+        hoursToForm: 1
+    },
+    'Sweaters': {
+        lotSize: 25,
+        unit: 'unit',
+        perishable: false,
+        hoursToForm: 1
+    },
+    'Shoes': {
+        lotSize: 25,
+        unit: 'pair',
+        perishable: false,
+        hoursToForm: 1
+    },
+    'Socks': {
+        lotSize: 80,
+        unit: 'pair',
+        perishable: false,
+        hoursToForm: 1
+    },
+    'Watches': {
+        lotSize: 15,
+        unit: 'unit',
+        perishable: false,
+        hoursToForm: 1
+    },
+    'Jewelry': {
+        lotSize: 10,
+        unit: 'piece',
+        perishable: false,
+        hoursToForm: 1
+    },
+    'Belts': {
+        lotSize: 40,
+        unit: 'unit',
+        perishable: false,
+        hoursToForm: 1
+    },
+    'Bags': {
+        lotSize: 30,
+        unit: 'unit',
+        perishable: false,
+        hoursToForm: 1
+    },
+
+    // ==================
+    // MANUFACTURED Products - Baby
+    // ==================
+    'Diapers': {
+        lotSize: 60,
+        unit: 'pack',
+        perishable: false,
+        hoursToForm: 1
+    },
+    'Formula': {
+        lotSize: 50,
+        unit: 'can',
+        perishable: false,
+        hoursToForm: 1
+    },
+    'Car Seats': {
+        lotSize: 15,
+        unit: 'unit',
+        perishable: false,
+        hoursToForm: 1
+    },
+    'Strollers': {
+        lotSize: 12,
+        unit: 'unit',
+        perishable: false,
+        hoursToForm: 1
+    },
+
+    // ==================
+    // MANUFACTURED Products - Health & Beauty
+    // ==================
+    'Cold Medicine': {
+        lotSize: 60,
+        unit: 'box',
+        perishable: false,
+        hoursToForm: 1
+    },
+    'Pain Killers': {
+        lotSize: 70,
+        unit: 'bottle',
+        perishable: false,
+        hoursToForm: 1
+    },
+    'Vitamins': {
+        lotSize: 50,
+        unit: 'bottle',
+        perishable: false,
+        hoursToForm: 1
+    },
+    'Shampoo': {
+        lotSize: 70,
+        unit: 'bottle',
+        perishable: false,
+        hoursToForm: 1
+    },
+    'Deodorant': {
+        lotSize: 80,
+        unit: 'unit',
+        perishable: false,
+        hoursToForm: 1
+    },
+    'Soap': {
+        lotSize: 100,
+        unit: 'bar',
+        perishable: false,
+        hoursToForm: 1
+    },
+    'Toothpaste': {
+        lotSize: 90,
+        unit: 'tube',
+        perishable: false,
+        hoursToForm: 1
+    },
+    'Makeup': {
+        lotSize: 40,
+        unit: 'kit',
+        perishable: false,
+        hoursToForm: 1
+    },
+    'Perfume': {
+        lotSize: 30,
+        unit: 'bottle',
+        perishable: false,
+        hoursToForm: 1
+    },
+    'Glasses': {
+        lotSize: 25,
+        unit: 'pair',
+        perishable: false,
+        hoursToForm: 1
+    },
+
+    // ==================
+    // MANUFACTURED Products - Auto & Hardware
+    // ==================
+    'Tools': {
+        lotSize: 35,
+        unit: 'set',
+        perishable: false,
+        hoursToForm: 1
+    },
+    'Tires': {
+        lotSize: 25,
+        unit: 'unit',
+        perishable: false,
+        hoursToForm: 1
+    },
+    'Auto Parts': {
+        lotSize: 30,
+        unit: 'unit',
+        perishable: false,
+        hoursToForm: 1
+    },
+    'Oil & Fluids': {
+        lotSize: 60,
+        unit: 'gallon',
+        perishable: false,
+        hoursToForm: 1
+    },
+    'Car Battery': {
+        lotSize: 20,
+        unit: 'unit',
+        perishable: false,
+        hoursToForm: 1
+    },
+
+    // ==================
+    // MANUFACTURED Products - Cleaning
+    // ==================
+    'Cleaning Supplies': {
+        lotSize: 70,
+        unit: 'unit',
+        perishable: false,
+        hoursToForm: 1
+    },
+    'Vacuums': {
+        lotSize: 18,
+        unit: 'unit',
+        perishable: false,
+        hoursToForm: 1
+    },
+    'Paper Towels': {
+        lotSize: 90,
+        unit: 'pack',
+        perishable: false,
+        hoursToForm: 1
+    },
+    'Trash Bags': {
+        lotSize: 80,
+        unit: 'box',
+        perishable: false,
+        hoursToForm: 1
+    },
+
+    // ==================
+    // MANUFACTURED Products - Furniture
+    // ==================
+    'Sofa': {
+        lotSize: 6,
+        unit: 'unit',
+        perishable: false,
+        hoursToForm: 1
+    },
+    'Dresser': {
+        lotSize: 10,
+        unit: 'unit',
+        perishable: false,
+        hoursToForm: 1
+    },
+    'Beds': {
+        lotSize: 8,
+        unit: 'unit',
+        perishable: false,
+        hoursToForm: 1
+    },
+    'Tables': {
+        lotSize: 12,
+        unit: 'unit',
+        perishable: false,
+        hoursToForm: 1
+    },
+
+    // ==================
+    // MANUFACTURED Products - Appliances
+    // ==================
+    'Microwave': {
+        lotSize: 20,
+        unit: 'unit',
+        perishable: false,
+        hoursToForm: 1
+    },
+    'Air Conditioner': {
+        lotSize: 12,
+        unit: 'unit',
+        perishable: false,
+        hoursToForm: 1
+    },
+    'Washing Machine': {
+        lotSize: 10,
+        unit: 'unit',
+        perishable: false,
+        hoursToForm: 1
+    },
+    'Dryer': {
+        lotSize: 10,
+        unit: 'unit',
+        perishable: false,
+        hoursToForm: 1
+    },
+    'Bikes': {
+        lotSize: 15,
+        unit: 'unit',
+        perishable: false,
+        hoursToForm: 1
+    },
+
+    // ==================
+    // MANUFACTURED Products - Electronics
+    // ==================
+    'Laptops': {
+        lotSize: 10,
+        unit: 'unit',
+        perishable: false,
+        hoursToForm: 1
+    },
+    'Personal Computer': {
+        lotSize: 12,
+        unit: 'unit',
+        perishable: false,
+        hoursToForm: 1
+    },
+    'Tablets': {
+        lotSize: 18,
+        unit: 'unit',
+        perishable: false,
+        hoursToForm: 1
+    },
+    'Monitors': {
+        lotSize: 20,
+        unit: 'unit',
+        perishable: false,
+        hoursToForm: 1
+    },
+    'Cellphone': {
+        lotSize: 15,
+        unit: 'unit',
+        perishable: false,
+        hoursToForm: 1
+    },
+    'TV': {
+        lotSize: 15,
+        unit: 'unit',
+        perishable: false,
+        hoursToForm: 1
+    },
+    'Console': {
+        lotSize: 18,
+        unit: 'unit',
+        perishable: false,
+        hoursToForm: 1
+    },
+    'Headphones': {
+        lotSize: 35,
+        unit: 'unit',
+        perishable: false,
+        hoursToForm: 1
+    },
+    'Printers': {
+        lotSize: 18,
+        unit: 'unit',
+        perishable: false,
+        hoursToForm: 1
+    },
+    'Cameras': {
+        lotSize: 20,
+        unit: 'unit',
+        perishable: false,
+        hoursToForm: 1
+    },
+    'Batteries': {
+        lotSize: 100,
+        unit: 'pack',
+        perishable: false,
+        hoursToForm: 1
+    },
+    'Drones': {
+        lotSize: 12,
+        unit: 'unit',
+        perishable: false,
+        hoursToForm: 1
+    },
+    'Toys': {
+        lotSize: 50,
+        unit: 'unit',
+        perishable: false,
+        hoursToForm: 1
+    },
+
+    // ==================
+    // MANUFACTURED Products - Vehicles
+    // ==================
+    'Cars': {
+        lotSize: 2,
+        unit: 'unit',
+        perishable: false,
+        hoursToForm: 1
+    },
+    'Motorcycles': {
+        lotSize: 5,
+        unit: 'unit',
+        perishable: false,
+        hoursToForm: 1
+    },
+
+    // ==================
+    // MANUFACTURED Products - Construction
+    // ==================
+    'Cement': {
+        lotSize: 50,
+        unit: 'bag',
+        perishable: false,
+        hoursToForm: 1
     }
 };
 
@@ -302,12 +772,12 @@ export function getLotConfigForProduct(productName, productRegistry = null) {
         return LOT_SIZING_CONFIG[productName];
     }
 
-    // If product registry provided, check if it's a RAW or SEMI_RAW product
+    // If product registry provided, check if it's a product that uses lots
     if (productRegistry) {
         const product = productRegistry.getProductByName(productName);
         if (product) {
-            // Only RAW and SEMI_RAW products use lot system
-            if (product.tier === 'RAW' || product.tier === 'SEMI_RAW') {
+            // All tiers now use lot system
+            if (product.tier === 'RAW' || product.tier === 'SEMI_RAW' || product.tier === 'MANUFACTURED') {
                 // Return default lot config based on tier
                 return getDefaultLotConfig(product.tier, product.unit);
             }
@@ -373,7 +843,7 @@ export function getHoursToFormLot(productName) {
 
 /**
  * Get default lot configuration for products not explicitly configured
- * @param {string} tier - Product tier (RAW or SEMI_RAW)
+ * @param {string} tier - Product tier (RAW, SEMI_RAW, or MANUFACTURED)
  * @param {string} unit - Product unit
  * @returns {Object} Default lot configuration
  */
@@ -392,6 +862,13 @@ export function getDefaultLotConfig(tier, unit) {
             perishable: false,
             hoursToForm: 1
         };
+    } else if (tier === 'MANUFACTURED') {
+        return {
+            lotSize: 25,
+            unit: unit || 'unit',
+            perishable: false,
+            hoursToForm: 1
+        };
     }
     return null;
 }
@@ -403,15 +880,15 @@ export function getDefaultLotConfig(tier, unit) {
  * @returns {boolean}
  */
 export function usesLotSystem(productName, productRegistry) {
-    // Check if explicitly configured
+    // Check if explicitly configured (includes RAW, SEMI_RAW, and MANUFACTURED)
     if (LOT_SIZING_CONFIG[productName]) {
         return true;
     }
 
-    // Check product tier from registry
+    // Check product tier from registry - all tiers now use lots
     if (productRegistry) {
         const product = productRegistry.getProductByName(productName);
-        if (product && (product.tier === 'RAW' || product.tier === 'SEMI_RAW')) {
+        if (product && (product.tier === 'RAW' || product.tier === 'SEMI_RAW' || product.tier === 'MANUFACTURED')) {
             return true;
         }
     }

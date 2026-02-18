@@ -472,6 +472,8 @@ export class SimulationEngine {
                 firm.corporationId = corp.id;
                 firm.corporationAbbreviation = corp.abbreviation;
                 firm.retailConfig = this.config.retail || { maxRetailQuantity: 3, purchaseChance: 0.3 };
+                firm.lotRegistry = this.lotRegistry; // Connect to global lot registry
+                firm.initializeLotSystem(); // Initialize lot-based inventory
 
                 // Initialize inventory
                 const weeklyHours = 24 * 7 * (this.config.inventory?.initialStockWeeks ?? 1);
@@ -504,6 +506,8 @@ export class SimulationEngine {
                 firm.corporationId = corp.id;
                 firm.corporationAbbreviation = corp.abbreviation;
                 firm.retailConfig = this.config.retail || { maxRetailQuantity: 3, purchaseChance: 0.3 };
+                firm.lotRegistry = this.lotRegistry; // Connect to global lot registry
+                firm.initializeLotSystem(); // Initialize lot-based inventory
 
                 // Initialize inventory
                 const weeklyHours = 24 * 7 * (this.config.inventory?.initialStockWeeks ?? 1);
@@ -572,6 +576,8 @@ export class SimulationEngine {
                         const product = semiRawProducts[Math.floor(this.random() * semiRawProducts.length)];
                         firm = new ManufacturingPlant({ city: city }, country, product.id, this.productRegistry, firmId);
                         firm.isSemiRawProducer = true; // Mark as semi-raw producer
+                        firm.lotRegistry = this.lotRegistry; // Connect to global lot registry
+                        firm.initializeLotSystem(); // Initialize lot-based inventory
 
                         // Initialize with 1 week worth of raw materials (168 hours)
                         const weeklyHours = 24 * 7 * this.config.inventory.initialStockWeeks;
@@ -595,6 +601,8 @@ export class SimulationEngine {
                         const product = manufacturedProducts[Math.floor(this.random() * manufacturedProducts.length)];
                         firm = new ManufacturingPlant({ city: city }, country, product.id, this.productRegistry, firmId);
                         firm.isSemiRawProducer = false;
+                        firm.lotRegistry = this.lotRegistry; // Connect to global lot registry
+                        firm.initializeLotSystem(); // Initialize lot-based inventory
 
                         // Initialize with 1 week worth of semi-raw materials (168 hours)
                         const weeklyHoursFinal = 24 * 7 * this.config.inventory.initialStockWeeks;
@@ -1907,8 +1915,6 @@ export class SimulationEngine {
             actualProductName = null;
         }
 
-        if (!manufacturer.finishedGoodsInventory || manufacturer.finishedGoodsInventory.quantity <= 0) return 0;
-
         // Get product info
         const product = manufacturer.product;
         const productId = actualProductId || product?.id || manufacturer.productType || 'generic';
@@ -1920,22 +1926,46 @@ export class SimulationEngine {
             return 0; // Retailer doesn't sell this category of product
         }
 
-        const availableQuantity = manufacturer.finishedGoodsInventory.quantity;
+        // Calculate current game day for lot selection
+        const gameTime = this.clock.getGameTime();
+        const currentDay = gameTime.day + (gameTime.month - 1) * 30 + (gameTime.year - 2025) * 365;
 
-        // Enforce minimum B2B quantity
-        if (availableQuantity < minB2BQuantity) return 0;
+        // Check if manufacturer uses lot-based inventory
+        let tradeQuantity = 0;
+        let selectedLots = [];
+        let avgQuality = 50;
 
-        // Trade quantity must be at least minB2BQuantity
-        const tradeQuantity = Math.floor(Math.min(
-            Math.max(actualQuantity, minB2BQuantity),
-            availableQuantity
-        ));
+        if (manufacturer.lotInventory && manufacturer.selectLotsForSale) {
+            // Lot-based trade
+            const selection = manufacturer.selectLotsForSale(actualQuantity, currentDay);
 
-        if (tradeQuantity < minB2BQuantity) return 0;
+            if (selection.lots.length === 0) return 0;
 
-        // Calculate price based on production cost + markup
+            selectedLots = selection.lots;
+            tradeQuantity = selection.totalQuantity;
+            avgQuality = selection.avgQuality;
+
+            // Enforce minimum B2B quantity
+            if (tradeQuantity < minB2BQuantity) return 0;
+        } else {
+            // Legacy quantity-based trade (backward compatibility)
+            if (!manufacturer.finishedGoodsInventory || manufacturer.finishedGoodsInventory.quantity <= 0) return 0;
+
+            const availableQuantity = manufacturer.finishedGoodsInventory.quantity;
+            if (availableQuantity < minB2BQuantity) return 0;
+
+            tradeQuantity = Math.floor(Math.min(
+                Math.max(actualQuantity, minB2BQuantity),
+                availableQuantity
+            ));
+
+            if (tradeQuantity < minB2BQuantity) return 0;
+        }
+
+        // Calculate price based on production cost + markup (quality adjusted)
         const costPerUnit = manufacturer.calculateProductionCost ? manufacturer.calculateProductionCost() : 100;
-        const wholesalePrice = costPerUnit * 1.2; // 20% markup
+        const qualityMultiplier = avgQuality / 50;
+        const wholesalePrice = costPerUnit * 1.2 * Math.sqrt(qualityMultiplier); // 20% markup, quality adjusted
         const productCost = tradeQuantity * wholesalePrice;
 
         // Calculate transportation cost and time
@@ -1966,16 +1996,38 @@ export class SimulationEngine {
         // Check if retailer can afford (including transport)
         if (retailer.cash < totalCost) return 0;
 
-        // For immediate delivery, use the standard purchaseInventory method
+        // Transfer lots from manufacturer
+        if (selectedLots.length > 0) {
+            const transferredLots = manufacturer.transferLots(selectedLots, transitHours > 0 ? `DEL_${Date.now()}` : null);
+
+            // Update manufacturer financials
+            manufacturer.cash += totalCost;
+            manufacturer.revenue += totalCost;
+            manufacturer.monthlyRevenue += totalCost;
+        } else {
+            // Legacy quantity-based transfer
+            manufacturer.finishedGoodsInventory.quantity -= tradeQuantity;
+            manufacturer.cash += totalCost;
+            manufacturer.revenue += totalCost;
+            manufacturer.monthlyRevenue += totalCost;
+        }
+
+        // For immediate delivery
         if (transitHours <= 0) {
-            // Add to retailer inventory (purchaseInventory handles cash deduction and expenses)
-            const purchaseSuccess = retailer.purchaseInventory(productId, tradeQuantity, wholesalePrice, productName);
-            if (!purchaseSuccess) {
-                return 0; // Retailer couldn't complete purchase (max inventory, etc.)
+            if (selectedLots.length > 0 && retailer.receiveLots) {
+                // Lot-based transfer to retailer
+                selectedLots.forEach(lot => lot.markDelivered?.());
+                retailer.receiveLots(productId, productName, selectedLots, wholesalePrice);
+            } else {
+                // Legacy: Add to retailer inventory
+                const purchaseSuccess = retailer.purchaseInventory(productId, tradeQuantity, wholesalePrice, productName);
+                if (!purchaseSuccess) {
+                    return 0; // Retailer couldn't complete purchase
+                }
             }
-            // Deduct transport cost separately (purchaseInventory only handles product cost)
-            retailer.cash -= transportCost;
-            retailer.expenses += transportCost;
+            // Handle cash for retailer
+            retailer.cash -= totalCost;
+            retailer.expenses += totalCost;
         } else {
             // Deferred delivery - handle cash manually, inventory added later
             retailer.cash -= totalCost;
@@ -1993,15 +2045,12 @@ export class SimulationEngine {
                 transportCost: transportCost,
                 transitHours: transitHours,
                 deliveryHour: this.clock.totalHours + transitHours,
-                transportDetails: transportDetails
+                transportDetails: transportDetails,
+                lots: selectedLots.map(lot => lot.id),
+                lotObjects: selectedLots, // Store actual lot objects for transfer
+                avgQuality: avgQuality
             });
         }
-
-        // Execute manufacturer side of transaction
-        manufacturer.finishedGoodsInventory.quantity -= tradeQuantity;
-        manufacturer.cash += totalCost;
-        manufacturer.revenue += totalCost;
-        manufacturer.monthlyRevenue += totalCost;
 
         // Track last B2B sale for excess inventory check
         manufacturer.lastB2BSaleHour = this.clock.totalHours;
@@ -2086,9 +2135,28 @@ export class SimulationEngine {
                 }
             }
         } else if (type === 'RETAIL_PURCHASE') {
-            // Retail purchase - add to retailer's inventory via their method
+            // Retail purchase - add to retailer's inventory
             // Note: Cash was already deducted at order time, so we just add inventory
-            if (buyer.inventory) {
+
+            // Mark lots as delivered
+            if (lots && lots.length > 0) {
+                lots.forEach(lotId => {
+                    const lot = this.lotRegistry.getLot(lotId);
+                    if (lot) {
+                        lot.markDelivered();
+                    }
+                });
+            }
+
+            // Transfer using lot-based system if buyer supports it
+            if (lotObjects && lotObjects.length > 0 && buyer.receiveLots) {
+                // Lot-based transfer to retailer
+                buyer.receiveLots(productId, productName, lotObjects, wholesalePrice);
+            } else if (buyer.productInventory) {
+                // Fallback: use productInventory Map (RetailStore)
+                buyer.receiveDelivery(productId, quantity, wholesalePrice, productName);
+            } else if (buyer.inventory) {
+                // Legacy fallback: use inventory array
                 const existingItem = buyer.inventory.find(item => item.productId === productId);
                 if (existingItem) {
                     existingItem.quantity += quantity;

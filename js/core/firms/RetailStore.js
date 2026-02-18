@@ -14,6 +14,7 @@ export class RetailStore extends Firm {
         
         // Inventory management
         this.productInventory = new Map(); // productId -> inventory data
+        this.productLots = new Map(); // productId -> array of lots
         this.maxInventoryValue = 500000;
         this.currentInventoryValue = 0;
         
@@ -306,6 +307,165 @@ export class RetailStore extends Firm {
 
         this.currentInventoryValue += totalValue;
         return true;
+    }
+
+    /**
+     * Receive lots from a manufacturer (lot-based inventory)
+     * @param {string|number} productId - Product ID
+     * @param {string} productName - Product name
+     * @param {Array} lots - Array of lot objects
+     * @param {number} wholesalePrice - Price per unit paid
+     * @param {string} productCategory - Product category (optional)
+     * @returns {boolean} Success status
+     */
+    receiveLots(productId, productName, lots, wholesalePrice, productCategory = null) {
+        if (!lots || lots.length === 0) return false;
+
+        // Calculate total quantity and average quality from lots
+        let totalQuantity = 0;
+        let qualitySum = 0;
+
+        lots.forEach(lot => {
+            const qty = lot.remainingQuantity ?? lot.quantity;
+            totalQuantity += qty;
+            qualitySum += (lot.quality || 50) * qty;
+        });
+
+        const avgQuality = totalQuantity > 0 ? qualitySum / totalQuantity : 50;
+        const totalValue = totalQuantity * wholesalePrice;
+
+        // Check inventory capacity
+        if (this.currentInventoryValue + totalValue > this.maxInventoryValue) {
+            return false;
+        }
+
+        // Initialize lot storage for this product if needed
+        if (!this.productLots.has(productId)) {
+            this.productLots.set(productId, []);
+        }
+
+        // Add lots to storage
+        const lotStorage = this.productLots.get(productId);
+        lots.forEach(lot => {
+            // Initialize remainingQuantity if not set
+            if (lot.remainingQuantity === undefined) {
+                lot.remainingQuantity = lot.quantity;
+            }
+            lot.receivedAt = Date.now();
+            lotStorage.push(lot);
+        });
+
+        // Update product inventory (quantity tracking for compatibility)
+        if (!this.productInventory.has(productId)) {
+            this.productInventory.set(productId, {
+                productName: productName || productId,
+                productCategory: productCategory,
+                quantity: 0,
+                wholesalePrice: wholesalePrice,
+                retailPrice: wholesalePrice * (1 + this.markupPercentage),
+                turnoverRate: 0,
+                avgQuality: avgQuality
+            });
+        }
+
+        const inventory = this.productInventory.get(productId);
+        // Use weighted average costing
+        const oldValue = inventory.quantity * inventory.wholesalePrice;
+        const newValue = totalQuantity * wholesalePrice;
+        const newTotalQty = inventory.quantity + totalQuantity;
+        inventory.wholesalePrice = newTotalQty > 0 ? (oldValue + newValue) / newTotalQty : wholesalePrice;
+        inventory.quantity = newTotalQty;
+        inventory.retailPrice = inventory.wholesalePrice * (1 + this.markupPercentage);
+
+        // Update quality tracking
+        const oldQuality = (inventory.avgQuality || 50) * (inventory.quantity - totalQuantity);
+        const newQuality = avgQuality * totalQuantity;
+        inventory.avgQuality = newTotalQty > 0 ? (oldQuality + newQuality) / newTotalQty : avgQuality;
+
+        if (productName && (!inventory.productName || inventory.productName === productId)) {
+            inventory.productName = productName;
+        }
+
+        this.currentInventoryValue += totalValue;
+        return true;
+    }
+
+    /**
+     * Get total lot count for a product
+     * @param {string|number} productId - Product ID
+     * @returns {number} Number of lots
+     */
+    getLotCount(productId) {
+        const lotStorage = this.productLots.get(productId);
+        return lotStorage ? lotStorage.length : 0;
+    }
+
+    /**
+     * Get total quantity available in lots for a product
+     * @param {string|number} productId - Product ID
+     * @returns {number} Total quantity
+     */
+    getLotQuantity(productId) {
+        const lotStorage = this.productLots.get(productId);
+        if (!lotStorage || lotStorage.length === 0) return 0;
+
+        return lotStorage.reduce((sum, lot) => {
+            return sum + (lot.remainingQuantity ?? lot.quantity);
+        }, 0);
+    }
+
+    /**
+     * Consume from lots when making a sale (FIFO by default)
+     * @param {string|number} productId - Product ID
+     * @param {number} quantity - Quantity to consume
+     * @returns {{ consumed: number, avgQuality: number }}
+     */
+    consumeFromLots(productId, quantity) {
+        const lotStorage = this.productLots.get(productId);
+        if (!lotStorage || lotStorage.length === 0) {
+            return { consumed: 0, avgQuality: 50 };
+        }
+
+        // Sort by received time (FIFO)
+        lotStorage.sort((a, b) => (a.receivedAt || 0) - (b.receivedAt || 0));
+
+        let remaining = quantity;
+        let consumed = 0;
+        let qualitySum = 0;
+        const lotsToRemove = [];
+
+        for (const lot of lotStorage) {
+            if (remaining <= 0) break;
+
+            const availableInLot = lot.remainingQuantity ?? lot.quantity;
+            const consumeFromLot = Math.min(availableInLot, remaining);
+
+            qualitySum += consumeFromLot * (lot.quality || 50);
+            consumed += consumeFromLot;
+            remaining -= consumeFromLot;
+
+            if (lot.remainingQuantity === undefined) {
+                lot.remainingQuantity = lot.quantity;
+            }
+            lot.remainingQuantity -= consumeFromLot;
+
+            if (lot.remainingQuantity <= 0) {
+                lotsToRemove.push(lot);
+            }
+        }
+
+        // Remove fully consumed lots
+        lotsToRemove.forEach(lot => {
+            const index = lotStorage.indexOf(lot);
+            if (index > -1) {
+                lotStorage.splice(index, 1);
+            }
+        });
+
+        return {
+            consumed,
+            avgQuality: consumed > 0 ? qualitySum / consumed : 50
+        };
     }
 
     produceHourly() {
