@@ -256,6 +256,87 @@ export const LOT_SIZING_CONFIG = {
         perishable: false,
         hoursToForm: 1.7  // ~30 units/hr * 1.7 = 51
     },
+    'Leather': {
+        lotSize: 20,
+        unit: 'hide',
+        perishable: false,
+        hoursToForm: 1  // ~20 units/hr * 1 = 20
+    },
+
+    // ==================
+    // SEMI_RAW Products - Polymers
+    // ==================
+    'Plastic Pellets': {
+        lotSize: 40,
+        unit: 'ton',
+        perishable: false,
+        hoursToForm: 1  // ~40 units/hr * 1 = 40
+    },
+    'Rubber': {
+        lotSize: 30,
+        unit: 'ton',
+        perishable: false,
+        hoursToForm: 1  // ~30 units/hr * 1 = 30
+    },
+
+    // ==================
+    // SEMI_RAW Products - Materials
+    // ==================
+    'Glass': {
+        lotSize: 35,
+        unit: 'ton',
+        perishable: false,
+        hoursToForm: 1  // ~35 units/hr * 1 = 35
+    },
+
+    // ==================
+    // SEMI_RAW Products - Chemicals
+    // ==================
+    'Industrial Chemicals': {
+        lotSize: 45,
+        unit: 'ton',
+        perishable: false,
+        hoursToForm: 1  // ~45 units/hr * 1 = 45
+    },
+
+    // ==================
+    // SEMI_RAW Products - Paper
+    // ==================
+    'Paper': {
+        lotSize: 60,
+        unit: 'ream',
+        perishable: false,
+        hoursToForm: 1  // ~60 units/hr * 1 = 60
+    },
+    'Cardboard': {
+        lotSize: 70,
+        unit: 'sheet',
+        perishable: false,
+        hoursToForm: 1  // ~70 units/hr * 1 = 70
+    },
+
+    // ==================
+    // SEMI_RAW Products - Food Processing
+    // ==================
+    'Processed Fish': {
+        lotSize: 20,
+        unit: 'ton',
+        perishable: true,
+        shelfLifeDays: 7,
+        hoursToForm: 1  // ~20 units/hr * 1 = 20
+    },
+    'Vegetable Oil': {
+        lotSize: 50,
+        unit: 'gallon',
+        perishable: false,
+        hoursToForm: 1  // ~50 units/hr * 1 = 50
+    },
+    'Fruit Concentrate': {
+        lotSize: 40,
+        unit: 'gallon',
+        perishable: false,
+        hoursToForm: 1  // ~40 units/hr * 1 = 40
+    },
 
     // ==================
     // SEMI_RAW Products - Dairy & Meat (Perishable)

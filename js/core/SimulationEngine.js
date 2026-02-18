@@ -1627,8 +1627,8 @@ export class SimulationEngine {
         let selectedLots = [];
         let avgQuality = 50;
 
-        if (seller.isSemiRawProducer && seller.lotInventory && seller.selectLotsForSale) {
-            // Lot-based trade
+        if (seller.lotInventory && seller.selectLotsForSale) {
+            // Lot-based trade (all tiers: RAW, SEMI_RAW, MANUFACTURED)
             const selection = seller.selectLotsForSale(requestedQuantity, currentDay);
 
             if (selection.lots.length === 0) return 0;
@@ -1640,7 +1640,7 @@ export class SimulationEngine {
             // Enforce minimum B2B quantity
             if (tradeQuantity < minB2BQuantity) return 0;
         } else {
-            // Legacy quantity-based trade (backward compatibility)
+            // Legacy quantity-based trade (backward compatibility for firms without lot system)
             if (!seller.finishedGoodsInventory || seller.finishedGoodsInventory.quantity <= 0) return 0;
 
             const availableQuantity = seller.finishedGoodsInventory.quantity;
