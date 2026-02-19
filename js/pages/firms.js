@@ -493,7 +493,7 @@ function renderProductionStats(firm) {
             }
             break;
         case 'MANUFACTURING':
-            const mfgLots = firm.isSemiRawProducer ? getLotInfo(firm) : null;
+            const mfgLots = getLotInfo(firm); // All manufacturers use lots now
             html += `
                 <div class="production-stat">
                     <div class="production-stat-value">${firm.actualProductionRate?.toFixed(2) || 0}</div>
@@ -598,21 +598,107 @@ function renderProductsInfo(firm) {
         html += '</div>';
         container.innerHTML = html;
     } else if (firm.type === 'MANUFACTURING') {
+        // Helper to find suppliers for a material, categorized by location
+        const findSuppliers = (materialName, buyerCity, buyerCountry) => {
+            const local = [];      // Same city
+            const domestic = [];   // Same country, different city
+            const international = []; // Different country
+
+            simulation.firms.forEach(f => {
+                let isSupplier = false;
+
+                // Check primary producers
+                if (f.type === 'MINING' && f.resourceType === materialName) {
+                    isSupplier = true;
+                } else if (f.type === 'LOGGING' && f.timberType === materialName) {
+                    isSupplier = true;
+                } else if (f.type === 'FARM' && (f.cropType === materialName || f.livestockType === materialName)) {
+                    isSupplier = true;
+                } else if (f.type === 'MANUFACTURING' && f.product?.name === materialName) {
+                    isSupplier = true;
+                }
+
+                if (isSupplier) {
+                    const supplierCity = f.city?.name;
+                    const supplierCountry = f.city?.country?.name || f.country?.name;
+
+                    if (supplierCity === buyerCity) {
+                        local.push(f);
+                    } else if (supplierCountry === buyerCountry) {
+                        domestic.push(f);
+                    } else {
+                        international.push(f);
+                    }
+                }
+            });
+
+            return { local, domestic, international };
+        };
+
+        // Helper to render supplier links
+        const renderSupplierLinks = (suppliers, maxShow = 3) => {
+            if (suppliers.length === 0) return '';
+
+            const links = suppliers.slice(0, maxShow).map(s => {
+                const sName = getFirmDisplayName(s);
+                const sCity = s.city?.name || 'Unknown';
+                const sCountry = s.city?.country?.name || s.country?.name || '';
+                const hasStock = s.type === 'MANUFACTURING'
+                    ? (s.finishedGoodsInventory?.quantity || 0) > 0
+                    : (s.inventory?.quantity || 0) > 0;
+                const stockClass = hasStock ? 'has-stock' : 'no-stock';
+                return `<a href="firms.html?id=${s.id}" class="supplier-link ${stockClass}" title="${sCity}, ${sCountry}">${sName}</a>`;
+            }).join(', ');
+
+            const moreCount = suppliers.length > maxShow ? ` <span class="more-suppliers">+${suppliers.length - maxShow}</span>` : '';
+            return links + moreCount;
+        };
+
+        const buyerCity = firm.city?.name;
+        const buyerCountry = firm.city?.country?.name || firm.country?.name;
+
         let inputInventoryHtml = '';
         if (firm.rawMaterialInventory && firm.rawMaterialInventory.size > 0) {
-            inputInventoryHtml = '<div class="input-inventory"><div class="input-inventory-header">Input Materials</div>';
+            inputInventoryHtml = '<div class="input-inventory"><div class="input-inventory-header">Input Materials & Suppliers</div>';
             firm.rawMaterialInventory.forEach((inv, materialName) => {
                 const pct = inv.capacity > 0 ? ((inv.quantity / inv.capacity) * 100).toFixed(2) : 0;
                 const lowStock = inv.quantity < inv.minRequired;
                 const inputProduct = simulation.productRegistry?.getProductByName(materialName);
                 const inputNecessity = inputProduct?.necessityIndex ?? 0.5;
                 const inputNecessityLabel = getNecessityLabel(inputNecessity);
+
+                // Find suppliers for this material categorized by location
+                const suppliers = findSuppliers(materialName, buyerCity, buyerCountry);
+                const totalSuppliers = suppliers.local.length + suppliers.domestic.length + suppliers.international.length;
+
+                let suppliersHtml = '';
+                if (totalSuppliers > 0) {
+                    let supplierSections = [];
+
+                    if (suppliers.local.length > 0) {
+                        supplierSections.push(`<span class="supplier-group"><span class="supplier-label local">Local:</span> ${renderSupplierLinks(suppliers.local, 3)}</span>`);
+                    }
+                    if (suppliers.domestic.length > 0) {
+                        supplierSections.push(`<span class="supplier-group"><span class="supplier-label domestic">Domestic:</span> ${renderSupplierLinks(suppliers.domestic, 3)}</span>`);
+                    }
+                    if (suppliers.international.length > 0) {
+                        supplierSections.push(`<span class="supplier-group"><span class="supplier-label international">International:</span> ${renderSupplierLinks(suppliers.international, 3)}</span>`);
+                    }
+
+                    suppliersHtml = `<div class="inv-suppliers">${supplierSections.join(' ')}</div>`;
+                } else {
+                    suppliersHtml = `<div class="inv-suppliers no-suppliers">No suppliers found (Global Market only)</div>`;
+                }
+
                 inputInventoryHtml += `
-                    <div class="inventory-item ${lowStock ? 'low-stock' : ''}">
-                        <span class="inv-name">${materialName}</span>
-                        <span class="inv-qty">${inv.quantity?.toFixed(2) || 0} / ${inv.capacity?.toFixed(2) || 0}</span>
-                        <span class="inv-pct">${pct}%</span>
-                        <span class="inv-necessity ${inputNecessityLabel.class}">${inputNecessityLabel.text}</span>
+                    <div class="inventory-item-expanded ${lowStock ? 'low-stock' : ''}">
+                        <div class="inventory-item-main">
+                            <span class="inv-name">${materialName}</span>
+                            <span class="inv-qty">${inv.quantity?.toFixed(2) || 0} / ${inv.capacity?.toFixed(2) || 0}</span>
+                            <span class="inv-pct">${pct}%</span>
+                            <span class="inv-necessity ${inputNecessityLabel.class}">${inputNecessityLabel.text}</span>
+                        </div>
+                        ${suppliersHtml}
                     </div>
                 `;
             });
@@ -625,15 +711,16 @@ function renderProductsInfo(firm) {
         const productNecessity = firm.product?.necessityIndex ?? 0.5;
         const productNecessityLabel = getNecessityLabel(productNecessity);
 
-        // Get lot info for semi-raw producers
+        // Get lot info for all manufacturers (both SEMI_RAW and MANUFACTURED use lots now)
         let lotInfoHtml = '';
-        if (firm.isSemiRawProducer && firm.lotInventory) {
+        if (firm.lotInventory) {
             const lotStatus = firm.lotInventory.getStatus ? firm.lotInventory.getStatus() : null;
             const lotCount = lotStatus?.availableLots || firm.lotInventory.lots?.size || 0;
             const totalQty = lotStatus?.totalQuantity || 0;
             const strategy = lotStatus?.saleStrategy || firm.lotInventory.saleStrategy || 'FIFO';
             const buffer = firm.accumulatedProduction || 0;
             const lotSize = firm.lotSize || 0;
+            const tierLabel = firm.isSemiRawProducer ? 'Semi-Raw' : 'Manufactured';
 
             const strategyLabels = {
                 'FIFO': 'First In, First Out',
@@ -644,7 +731,7 @@ function renderProductsInfo(firm) {
 
             lotInfoHtml = `
                 <div class="lot-inventory-section">
-                    <div class="lot-inventory-header">Lot Inventory (Semi-Raw)</div>
+                    <div class="lot-inventory-header">Lot Inventory (${tierLabel})</div>
                     <div class="lot-inventory-grid">
                         <div class="lot-info-item">
                             <span class="lot-label">Available Lots:</span>

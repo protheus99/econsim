@@ -3276,6 +3276,106 @@ body {
     background: rgba(255, 152, 0, 0.1);
 }
 
+/* Expanded inventory item with supplier links */
+.inventory-item-expanded {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px 12px;
+    background: var(--bg-tertiary);
+    border-radius: 8px;
+    border-left: 3px solid var(--accent-green);
+    margin-bottom: 8px;
+}
+
+.inventory-item-expanded.low-stock {
+    border-left-color: var(--accent-orange);
+    background: rgba(255, 152, 0, 0.1);
+}
+
+.inventory-item-main {
+    display: grid;
+    grid-template-columns: 1fr auto auto auto;
+    gap: 10px;
+    align-items: center;
+}
+
+.inv-suppliers {
+    font-size: 0.85em;
+    color: var(--text-secondary);
+    padding-left: 4px;
+}
+
+.inv-suppliers.no-suppliers {
+    color: var(--text-tertiary);
+    font-style: italic;
+}
+
+.supplier-link {
+    color: var(--accent-blue);
+    text-decoration: none;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(33, 150, 243, 0.1);
+    transition: all 0.2s ease;
+}
+
+.supplier-link:hover {
+    background: rgba(33, 150, 243, 0.2);
+    text-decoration: underline;
+}
+
+.supplier-link.has-stock {
+    color: var(--accent-green);
+    background: rgba(76, 175, 80, 0.1);
+}
+
+.supplier-link.has-stock:hover {
+    background: rgba(76, 175, 80, 0.2);
+}
+
+.supplier-link.no-stock {
+    color: var(--accent-orange);
+    background: rgba(255, 152, 0, 0.1);
+}
+
+.supplier-link.no-stock:hover {
+    background: rgba(255, 152, 0, 0.2);
+}
+
+.more-suppliers {
+    color: var(--text-tertiary);
+    font-size: 0.9em;
+}
+
+.supplier-group {
+    display: inline-block;
+    margin-right: 12px;
+}
+
+.supplier-label {
+    font-weight: 600;
+    font-size: 0.85em;
+    padding: 1px 4px;
+    border-radius: 3px;
+    margin-right: 4px;
+}
+
+.supplier-label.local {
+    color: var(--accent-green);
+    background: rgba(76, 175, 80, 0.15);
+}
+
+.supplier-label.domestic {
+    color: var(--accent-blue);
+    background: rgba(33, 150, 243, 0.15);
+}
+
+.supplier-label.international {
+    color: var(--accent-purple, #9c27b0);
+    background: rgba(156, 39, 176, 0.15);
+}
+
 /* ========== Additional Page Styles ========== */
 
 /* Country GDP List */

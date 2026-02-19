@@ -185,7 +185,7 @@ export class ProductRegistry {
             {
                 id: 101, name: 'Steel', category: 'REFINED_METALS', icon: '🔩',
                 basePrice: 200, weight: 2.0, unit: 'ton', necessityIndex: 0.5,
-                minB2BQuantity: 25, minRetailQuantity: 1, baseProductionRate: 30,
+                minB2BQuantity: 250, minRetailQuantity: 1, baseProductionRate: 30,
                 inputs: [
                     { material: 'Iron Ore', quantity: 1.2 },
                     { material: 'Coal', quantity: 0.24 }
@@ -195,14 +195,14 @@ export class ProductRegistry {
             {
                 id: 102, name: 'Copper Wire', category: 'REFINED_METALS', icon: '📡',
                 basePrice: 180, weight: 1.0, unit: 'spool', necessityIndex: 0.4,
-                minB2BQuantity: 50, minRetailQuantity: 1, baseProductionRate: 35,
+                minB2BQuantity: 500, minRetailQuantity: 1, baseProductionRate: 35,
                 inputs: [{ material: 'Copper Ore', quantity: 0.78 }],
                 technologyRequired: 2
             },
             {
                 id: 103, name: 'Aluminum Sheets', category: 'REFINED_METALS', icon: '📄',
                 basePrice: 160, weight: 0.8, unit: 'sheet', necessityIndex: 0.4,
-                minB2BQuantity: 100, minRetailQuantity: 1, baseProductionRate: 40,
+                minB2BQuantity: 1000, minRetailQuantity: 1, baseProductionRate: 40,
                 inputs: [{ material: 'Aluminum Ore', quantity: 0.79 }],
                 technologyRequired: 2
             },
@@ -211,14 +211,14 @@ export class ProductRegistry {
             {
                 id: 104, name: 'Gasoline', category: 'FUELS', icon: '⛽',
                 basePrice: 150, weight: 0.75, unit: 'barrel', necessityIndex: 0.8,
-                minB2BQuantity: 100, minRetailQuantity: 1, baseProductionRate: 80,
+                minB2BQuantity: 1000, minRetailQuantity: 1, baseProductionRate: 80,
                 inputs: [{ material: 'Crude Oil', quantity: 0.52 }],
                 technologyRequired: 3
             },
             {
                 id: 105, name: 'Diesel', category: 'FUELS', icon: '🚛',
                 basePrice: 140, weight: 0.8, unit: 'barrel', necessityIndex: 0.7,
-                minB2BQuantity: 100, minRetailQuantity: 1, baseProductionRate: 70,
+                minB2BQuantity: 1000, minRetailQuantity: 1, baseProductionRate: 70,
                 inputs: [{ material: 'Crude Oil', quantity: 0.49 }],
                 technologyRequired: 3
             },
@@ -227,14 +227,14 @@ export class ProductRegistry {
             {
                 id: 106, name: 'Plywood', category: 'LUMBER', icon: '🪚',
                 basePrice: 80, weight: 1.2, unit: 'sheet', necessityIndex: 0.4,
-                minB2BQuantity: 50, minRetailQuantity: 1, baseProductionRate: 25,
+                minB2BQuantity: 500, minRetailQuantity: 1, baseProductionRate: 25,
                 inputs: [{ material: 'Softwood Logs', quantity: 0.79 }],
                 technologyRequired: 1
             },
             {
                 id: 107, name: 'Wood Pulp', category: 'LUMBER', icon: '📃',
                 basePrice: 60, weight: 0.9, unit: 'ton', necessityIndex: 0.3,
-                minB2BQuantity: 25, minRetailQuantity: 0, baseProductionRate: 20,
+                minB2BQuantity: 250, minRetailQuantity: 0, baseProductionRate: 20,
                 inputs: [{ material: 'Softwood Logs', quantity: 0.60 }],
                 technologyRequired: 2
             },
@@ -243,14 +243,14 @@ export class ProductRegistry {
             {
                 id: 108, name: 'Flour', category: 'FOOD_INGREDIENTS', icon: '🍞',
                 basePrice: 25, weight: 1.0, unit: 'bag', necessityIndex: 0.9,
-                minB2BQuantity: 100, minRetailQuantity: 1, baseProductionRate: 60,
+                minB2BQuantity: 1000, minRetailQuantity: 1, baseProductionRate: 60,
                 inputs: [{ material: 'Wheat', quantity: 0.87 }],
                 technologyRequired: 1
             },
             {
                 id: 109, name: 'Sugar', category: 'FOOD_INGREDIENTS', icon: '🍬',
                 basePrice: 30, weight: 1.0, unit: 'bag', necessityIndex: 0.7,
-                minB2BQuantity: 100, minRetailQuantity: 1, baseProductionRate: 50,
+                minB2BQuantity: 1000, minRetailQuantity: 1, baseProductionRate: 50,
                 inputs: [{ material: 'Sugarcane', quantity: 0.70 }],
                 technologyRequired: 1
             },
@@ -259,7 +259,7 @@ export class ProductRegistry {
             {
                 id: 110, name: 'Cotton Fabric', category: 'TEXTILES', icon: '🧶',
                 basePrice: 20, weight: 0.4, unit: 'bolt', necessityIndex: 0.6,
-                minB2BQuantity: 50, minRetailQuantity: 1, baseProductionRate: 30,
+                minB2BQuantity: 500, minRetailQuantity: 1, baseProductionRate: 30,
                 inputs: [{ material: 'Cotton', quantity: 0.65 }],
                 technologyRequired: 2
             },
@@ -268,28 +268,28 @@ export class ProductRegistry {
             {
                 id: 111, name: 'Pasteurized Milk', category: 'DAIRY', icon: '🥛',
                 basePrice: 8, weight: 1.0, unit: 'gallon', necessityIndex: 0.85,
-                minB2BQuantity: 100, minRetailQuantity: 1, baseProductionRate: 80,
+                minB2BQuantity: 1000, minRetailQuantity: 1, baseProductionRate: 80,
                 inputs: [{ material: 'Raw Milk', quantity: 0.56 }],
                 technologyRequired: 1
             },
             {
                 id: 112, name: 'Beef', category: 'MEAT', icon: '🥩',
                 basePrice: 800, weight: 50, unit: 'cwt', necessityIndex: 0.75,
-                minB2BQuantity: 10, minRetailQuantity: 1, baseProductionRate: 8,
+                minB2BQuantity: 250, minRetailQuantity: 1, baseProductionRate: 8,
                 inputs: [{ material: 'Cattle', quantity: 0.23 }],
                 technologyRequired: 1
             },
             {
                 id: 113, name: 'Pork', category: 'MEAT', icon: '🍖',
                 basePrice: 300, weight: 25, unit: 'cwt', necessityIndex: 0.7,
-                minB2BQuantity: 20, minRetailQuantity: 1, baseProductionRate: 15,
+                minB2BQuantity: 250, minRetailQuantity: 1, baseProductionRate: 15,
                 inputs: [{ material: 'Pigs', quantity: 0.26 }],
                 technologyRequired: 1
             },
             {
                 id: 114, name: 'Chicken', category: 'MEAT', icon: '🍗',
                 basePrice: 12, weight: 1.5, unit: 'lb', necessityIndex: 0.8,
-                minB2BQuantity: 100, minRetailQuantity: 1, baseProductionRate: 50,
+                minB2BQuantity: 1000, minRetailQuantity: 1, baseProductionRate: 50,
                 inputs: [{ material: 'Chickens', quantity: 0.28 }],
                 technologyRequired: 1
             },
@@ -298,7 +298,7 @@ export class ProductRegistry {
             {
                 id: 115, name: 'Plastic Pellets', category: 'POLYMERS', icon: '🔘',
                 basePrice: 120, weight: 1.0, unit: 'ton', necessityIndex: 0.5,
-                minB2BQuantity: 50, minRetailQuantity: 0, baseProductionRate: 40,
+                minB2BQuantity: 500, minRetailQuantity: 0, baseProductionRate: 40,
                 inputs: [{ material: 'Crude Oil', quantity: 0.42 }],
                 technologyRequired: 3
             },
@@ -307,7 +307,7 @@ export class ProductRegistry {
             {
                 id: 116, name: 'Rubber', category: 'POLYMERS', icon: '⚫',
                 basePrice: 150, weight: 1.0, unit: 'ton', necessityIndex: 0.5,
-                minB2BQuantity: 50, minRetailQuantity: 0, baseProductionRate: 30,
+                minB2BQuantity: 500, minRetailQuantity: 0, baseProductionRate: 30,
                 inputs: [{ material: 'Rubber Latex', quantity: 0.65 }],
                 technologyRequired: 2
             },
@@ -316,7 +316,7 @@ export class ProductRegistry {
             {
                 id: 117, name: 'Glass', category: 'MATERIALS', icon: '🪟',
                 basePrice: 80, weight: 1.5, unit: 'ton', necessityIndex: 0.4,
-                minB2BQuantity: 50, minRetailQuantity: 0, baseProductionRate: 35,
+                minB2BQuantity: 500, minRetailQuantity: 0, baseProductionRate: 35,
                 inputs: [
                     { material: 'Silica Sand', quantity: 0.70 },
                     { material: 'Limestone', quantity: 0.15 }
@@ -328,7 +328,7 @@ export class ProductRegistry {
             {
                 id: 118, name: 'Leather', category: 'TEXTILES', icon: '🧥',
                 basePrice: 250, weight: 0.5, unit: 'hide', necessityIndex: 0.4,
-                minB2BQuantity: 25, minRetailQuantity: 0, baseProductionRate: 20,
+                minB2BQuantity: 250, minRetailQuantity: 0, baseProductionRate: 20,
                 inputs: [
                     { material: 'Raw Hides', quantity: 0.58 },
                     { material: 'Salt', quantity: 0.05 }
@@ -340,7 +340,7 @@ export class ProductRegistry {
             {
                 id: 119, name: 'Industrial Chemicals', category: 'CHEMICALS', icon: '🧪',
                 basePrice: 100, weight: 1.0, unit: 'ton', necessityIndex: 0.4,
-                minB2BQuantity: 50, minRetailQuantity: 0, baseProductionRate: 45,
+                minB2BQuantity: 500, minRetailQuantity: 0, baseProductionRate: 45,
                 inputs: [
                     { material: 'Crude Oil', quantity: 0.30 },
                     { material: 'Salt', quantity: 0.15 }
@@ -352,7 +352,7 @@ export class ProductRegistry {
             {
                 id: 120, name: 'Paper', category: 'PAPER', icon: '📄',
                 basePrice: 50, weight: 0.5, unit: 'ream', necessityIndex: 0.5,
-                minB2BQuantity: 100, minRetailQuantity: 1, baseProductionRate: 60,
+                minB2BQuantity: 1000, minRetailQuantity: 1, baseProductionRate: 60,
                 inputs: [{ material: 'Wood Pulp', quantity: 0.35 }],
                 technologyRequired: 2
             },
@@ -361,7 +361,7 @@ export class ProductRegistry {
             {
                 id: 121, name: 'Processed Fish', category: 'SEAFOOD', icon: '🐠',
                 basePrice: 350, weight: 1.0, unit: 'ton', necessityIndex: 0.5,
-                minB2BQuantity: 25, minRetailQuantity: 1, baseProductionRate: 20,
+                minB2BQuantity: 250, minRetailQuantity: 1, baseProductionRate: 20,
                 inputs: [
                     { material: 'Fish', quantity: 0.60 },
                     { material: 'Salt', quantity: 0.05 }
@@ -373,7 +373,7 @@ export class ProductRegistry {
             {
                 id: 122, name: 'Vegetable Oil', category: 'FOOD_INGREDIENTS', icon: '🫒',
                 basePrice: 40, weight: 1.0, unit: 'gallon', necessityIndex: 0.7,
-                minB2BQuantity: 100, minRetailQuantity: 1, baseProductionRate: 50,
+                minB2BQuantity: 1000, minRetailQuantity: 1, baseProductionRate: 50,
                 inputs: [{ material: 'Soybeans', quantity: 0.75 }],
                 technologyRequired: 1
             },
@@ -382,7 +382,7 @@ export class ProductRegistry {
             {
                 id: 123, name: 'Fruit Concentrate', category: 'FOOD_INGREDIENTS', icon: '🍊',
                 basePrice: 45, weight: 1.0, unit: 'gallon', necessityIndex: 0.6,
-                minB2BQuantity: 100, minRetailQuantity: 0, baseProductionRate: 40,
+                minB2BQuantity: 1000, minRetailQuantity: 0, baseProductionRate: 40,
                 inputs: [{ material: 'Fresh Fruits', quantity: 0.80 }],
                 technologyRequired: 1
             },
@@ -391,7 +391,7 @@ export class ProductRegistry {
             {
                 id: 124, name: 'Cardboard', category: 'PAPER', icon: '📦',
                 basePrice: 35, weight: 0.8, unit: 'sheet', necessityIndex: 0.4,
-                minB2BQuantity: 200, minRetailQuantity: 0, baseProductionRate: 70,
+                minB2BQuantity: 2000, minRetailQuantity: 0, baseProductionRate: 70,
                 inputs: [{ material: 'Wood Pulp', quantity: 0.25 }],
                 technologyRequired: 1
             }
@@ -413,7 +413,7 @@ export class ProductRegistry {
             {
                 id: 209, name: 'Bread', category: 'PACKAGED_FOOD', icon: '🍞',
                 basePrice: 3, weight: 0.5, unit: 'loaf', necessityIndex: 0.95,
-                minB2BQuantity: 100, minRetailQuantity: 1, baseProductionRate: 100,
+                minB2BQuantity: 1000, minRetailQuantity: 1, baseProductionRate: 100,
                 inputs: [
                     { material: 'Flour', quantity: 0.08 },
                     { material: 'Sugar', quantity: 0.02 }
@@ -427,7 +427,7 @@ export class ProductRegistry {
             {
                 id: 212, name: 'Meat', category: 'PACKAGED_FOOD', icon: '🥩',
                 basePrice: 12, weight: 1.0, unit: 'lb', necessityIndex: 0.85,
-                minB2BQuantity: 50, minRetailQuantity: 1, baseProductionRate: 60,
+                minB2BQuantity: 500, minRetailQuantity: 1, baseProductionRate: 60,
                 inputs: [{ material: 'Beef', quantity: 0.8 }],
                 technologyRequired: 1,
                 purchaseFrequency: 8, publicDemand: 0.85, publicNecessity: 0.8,
@@ -437,7 +437,7 @@ export class ProductRegistry {
             {
                 id: 213, name: 'Seafood', category: 'PACKAGED_FOOD', icon: '🐟',
                 basePrice: 18, weight: 1.0, unit: 'lb', necessityIndex: 0.6,
-                minB2BQuantity: 30, minRetailQuantity: 1, baseProductionRate: 40,
+                minB2BQuantity: 300, minRetailQuantity: 1, baseProductionRate: 40,
                 inputs: [
                     { material: 'Processed Fish', quantity: 0.5 },
                     { material: 'Salt', quantity: 0.02 }
@@ -450,7 +450,7 @@ export class ProductRegistry {
             {
                 id: 214, name: 'Fruits', category: 'PACKAGED_FOOD', icon: '🍎',
                 basePrice: 5, weight: 1.0, unit: 'lb', necessityIndex: 0.8,
-                minB2BQuantity: 100, minRetailQuantity: 1, baseProductionRate: 80,
+                minB2BQuantity: 1000, minRetailQuantity: 1, baseProductionRate: 80,
                 inputs: [
                     { material: 'Fruit Concentrate', quantity: 0.3 },
                     { material: 'Sugar', quantity: 0.02 }
@@ -463,7 +463,7 @@ export class ProductRegistry {
             {
                 id: 215, name: 'Breakfast Cereal', category: 'PACKAGED_FOOD', icon: '🥣',
                 basePrice: 6, weight: 0.5, unit: 'box', necessityIndex: 0.7,
-                minB2BQuantity: 50, minRetailQuantity: 1, baseProductionRate: 70,
+                minB2BQuantity: 500, minRetailQuantity: 1, baseProductionRate: 70,
                 inputs: [
                     { material: 'Corn', quantity: 0.15 },
                     { material: 'Sugar', quantity: 0.1 }
@@ -476,7 +476,7 @@ export class ProductRegistry {
             {
                 id: 216, name: 'Cake', category: 'PACKAGED_FOOD', icon: '🎂',
                 basePrice: 25, weight: 2.0, unit: 'unit', necessityIndex: 0.3,
-                minB2BQuantity: 20, minRetailQuantity: 1, baseProductionRate: 30,
+                minB2BQuantity: 200, minRetailQuantity: 1, baseProductionRate: 30,
                 inputs: [
                     { material: 'Flour', quantity: 0.2 },
                     { material: 'Sugar', quantity: 0.15 },
@@ -490,7 +490,7 @@ export class ProductRegistry {
             {
                 id: 217, name: 'Candy', category: 'PACKAGED_FOOD', icon: '🍬',
                 basePrice: 4, weight: 0.25, unit: 'bag', necessityIndex: 0.2,
-                minB2BQuantity: 100, minRetailQuantity: 1, baseProductionRate: 100,
+                minB2BQuantity: 1000, minRetailQuantity: 1, baseProductionRate: 100,
                 inputs: [{ material: 'Sugar', quantity: 0.3 }],
                 technologyRequired: 1,
                 purchaseFrequency: 4, publicDemand: 0.5, publicNecessity: 0.1,
@@ -500,7 +500,7 @@ export class ProductRegistry {
             {
                 id: 218, name: 'Ice Cream', category: 'PACKAGED_FOOD', icon: '🍦',
                 basePrice: 7, weight: 1.0, unit: 'pint', necessityIndex: 0.25,
-                minB2BQuantity: 50, minRetailQuantity: 1, baseProductionRate: 60,
+                minB2BQuantity: 500, minRetailQuantity: 1, baseProductionRate: 60,
                 inputs: [
                     { material: 'Pasteurized Milk', quantity: 0.3 },
                     { material: 'Sugar', quantity: 0.15 }
@@ -513,7 +513,7 @@ export class ProductRegistry {
             {
                 id: 219, name: 'Soda', category: 'BEVERAGES', icon: '🥤',
                 basePrice: 2, weight: 0.5, unit: 'can', necessityIndex: 0.3,
-                minB2BQuantity: 100, minRetailQuantity: 1, baseProductionRate: 150,
+                minB2BQuantity: 1000, minRetailQuantity: 1, baseProductionRate: 150,
                 inputs: [
                     { material: 'Sugar', quantity: 0.08 },
                     { material: 'Plastic Pellets', quantity: 0.02 },
@@ -527,7 +527,7 @@ export class ProductRegistry {
             {
                 id: 220, name: 'Alcohol', category: 'BEVERAGES', icon: '🍺',
                 basePrice: 15, weight: 0.75, unit: 'bottle', necessityIndex: 0.2,
-                minB2BQuantity: 50, minRetailQuantity: 1, baseProductionRate: 50,
+                minB2BQuantity: 500, minRetailQuantity: 1, baseProductionRate: 50,
                 inputs: [
                     { material: 'Corn', quantity: 0.15 },
                     { material: 'Sugar', quantity: 0.08 },
@@ -541,7 +541,7 @@ export class ProductRegistry {
             {
                 id: 210, name: 'Canned Goods', category: 'PACKAGED_FOOD', icon: '🥫',
                 basePrice: 5, weight: 0.4, unit: 'can', necessityIndex: 0.8,
-                minB2BQuantity: 24, minRetailQuantity: 1, baseProductionRate: 80,
+                minB2BQuantity: 500, minRetailQuantity: 1, baseProductionRate: 80,
                 inputs: [
                     { material: 'Steel', quantity: 0.01 },
                     { material: 'Corn', quantity: 0.12 }
@@ -554,7 +554,7 @@ export class ProductRegistry {
             {
                 id: 221, name: 'Cooking Oil', category: 'PACKAGED_FOOD', icon: '🫒',
                 basePrice: 8, weight: 1.0, unit: 'bottle', necessityIndex: 0.85,
-                minB2BQuantity: 50, minRetailQuantity: 1, baseProductionRate: 70,
+                minB2BQuantity: 500, minRetailQuantity: 1, baseProductionRate: 70,
                 inputs: [
                     { material: 'Vegetable Oil', quantity: 0.5 },
                     { material: 'Plastic Pellets', quantity: 0.02 }
@@ -569,7 +569,7 @@ export class ProductRegistry {
             {
                 id: 207, name: 'Shirts', category: 'CLOTHING', icon: '👕',
                 basePrice: 25, weight: 0.2, unit: 'unit', necessityIndex: 0.8,
-                minB2BQuantity: 50, minRetailQuantity: 1, baseProductionRate: 40,
+                minB2BQuantity: 500, minRetailQuantity: 1, baseProductionRate: 40,
                 inputs: [{ material: 'Cotton Fabric', quantity: 0.1 }],
                 technologyRequired: 2,
                 purchaseFrequency: 2, publicDemand: 0.7, publicNecessity: 0.75,
@@ -579,7 +579,7 @@ export class ProductRegistry {
             {
                 id: 222, name: 'Jackets', category: 'CLOTHING', icon: '🧥',
                 basePrice: 80, weight: 0.8, unit: 'unit', necessityIndex: 0.6,
-                minB2BQuantity: 30, minRetailQuantity: 1, baseProductionRate: 20,
+                minB2BQuantity: 300, minRetailQuantity: 1, baseProductionRate: 20,
                 inputs: [
                     { material: 'Cotton Fabric', quantity: 0.25 },
                     { material: 'Steel', quantity: 0.05 }
@@ -592,7 +592,7 @@ export class ProductRegistry {
             {
                 id: 208, name: 'Jeans', category: 'CLOTHING', icon: '👖',
                 basePrice: 45, weight: 0.5, unit: 'pair', necessityIndex: 0.75,
-                minB2BQuantity: 50, minRetailQuantity: 1, baseProductionRate: 30,
+                minB2BQuantity: 500, minRetailQuantity: 1, baseProductionRate: 30,
                 inputs: [{ material: 'Cotton Fabric', quantity: 0.15 }],
                 technologyRequired: 2,
                 purchaseFrequency: 1.5, publicDemand: 0.65, publicNecessity: 0.7,
@@ -602,7 +602,7 @@ export class ProductRegistry {
             {
                 id: 223, name: 'Sweaters', category: 'CLOTHING', icon: '🧶',
                 basePrice: 50, weight: 0.4, unit: 'unit', necessityIndex: 0.55,
-                minB2BQuantity: 40, minRetailQuantity: 1, baseProductionRate: 25,
+                minB2BQuantity: 400, minRetailQuantity: 1, baseProductionRate: 25,
                 inputs: [{ material: 'Cotton Fabric', quantity: 0.2 }],
                 technologyRequired: 2,
                 purchaseFrequency: 0.8, publicDemand: 0.5, publicNecessity: 0.5,
@@ -612,7 +612,7 @@ export class ProductRegistry {
             {
                 id: 224, name: 'Shoes', category: 'CLOTHING', icon: '👟',
                 basePrice: 70, weight: 0.8, unit: 'pair', necessityIndex: 0.8,
-                minB2BQuantity: 30, minRetailQuantity: 1, baseProductionRate: 25,
+                minB2BQuantity: 300, minRetailQuantity: 1, baseProductionRate: 25,
                 inputs: [
                     { material: 'Leather', quantity: 0.15 },
                     { material: 'Rubber', quantity: 0.08 },
@@ -626,7 +626,7 @@ export class ProductRegistry {
             {
                 id: 225, name: 'Socks', category: 'CLOTHING', icon: '🧦',
                 basePrice: 8, weight: 0.1, unit: 'pair', necessityIndex: 0.85,
-                minB2BQuantity: 100, minRetailQuantity: 1, baseProductionRate: 80,
+                minB2BQuantity: 1000, minRetailQuantity: 1, baseProductionRate: 80,
                 inputs: [{ material: 'Cotton Fabric', quantity: 0.03 }],
                 technologyRequired: 1,
                 purchaseFrequency: 3, publicDemand: 0.7, publicNecessity: 0.8,
@@ -636,7 +636,7 @@ export class ProductRegistry {
             {
                 id: 226, name: 'Watches', category: 'ACCESSORIES', icon: '⌚',
                 basePrice: 200, weight: 0.15, unit: 'unit', necessityIndex: 0.2,
-                minB2BQuantity: 20, minRetailQuantity: 1, baseProductionRate: 15,
+                minB2BQuantity: 200, minRetailQuantity: 1, baseProductionRate: 15,
                 inputs: [
                     { material: 'Steel', quantity: 0.05 },
                     { material: 'Gold Ore', quantity: 0.01 },
@@ -650,7 +650,7 @@ export class ProductRegistry {
             {
                 id: 227, name: 'Jewelry', category: 'ACCESSORIES', icon: '💎',
                 basePrice: 500, weight: 0.05, unit: 'piece', necessityIndex: 0.1,
-                minB2BQuantity: 10, minRetailQuantity: 1, baseProductionRate: 10,
+                minB2BQuantity: 100, minRetailQuantity: 1, baseProductionRate: 10,
                 inputs: [
                     { material: 'Gold Ore', quantity: 0.1 },
                     { material: 'Silver Ore', quantity: 0.05 }
@@ -663,7 +663,7 @@ export class ProductRegistry {
             {
                 id: 228, name: 'Belts', category: 'ACCESSORIES', icon: '🩹',
                 basePrice: 30, weight: 0.2, unit: 'unit', necessityIndex: 0.5,
-                minB2BQuantity: 50, minRetailQuantity: 1, baseProductionRate: 40,
+                minB2BQuantity: 500, minRetailQuantity: 1, baseProductionRate: 40,
                 inputs: [
                     { material: 'Leather', quantity: 0.08 },
                     { material: 'Steel', quantity: 0.01 }
@@ -676,7 +676,7 @@ export class ProductRegistry {
             {
                 id: 229, name: 'Bags', category: 'ACCESSORIES', icon: '👜',
                 basePrice: 60, weight: 0.5, unit: 'unit', necessityIndex: 0.5,
-                minB2BQuantity: 30, minRetailQuantity: 1, baseProductionRate: 30,
+                minB2BQuantity: 300, minRetailQuantity: 1, baseProductionRate: 30,
                 inputs: [
                     { material: 'Leather', quantity: 0.12 },
                     { material: 'Cotton Fabric', quantity: 0.08 },
@@ -690,7 +690,7 @@ export class ProductRegistry {
             {
                 id: 230, name: 'Diapers', category: 'BABY', icon: '👶',
                 basePrice: 25, weight: 1.0, unit: 'pack', necessityIndex: 0.95,
-                minB2BQuantity: 50, minRetailQuantity: 1, baseProductionRate: 60,
+                minB2BQuantity: 500, minRetailQuantity: 1, baseProductionRate: 60,
                 inputs: [
                     { material: 'Cotton Fabric', quantity: 0.08 },
                     { material: 'Wood Pulp', quantity: 0.1 }
@@ -703,7 +703,7 @@ export class ProductRegistry {
             {
                 id: 231, name: 'Formula', category: 'BABY', icon: '🍼',
                 basePrice: 30, weight: 0.8, unit: 'can', necessityIndex: 0.95,
-                minB2BQuantity: 40, minRetailQuantity: 1, baseProductionRate: 50,
+                minB2BQuantity: 400, minRetailQuantity: 1, baseProductionRate: 50,
                 inputs: [
                     { material: 'Pasteurized Milk', quantity: 0.4 },
                     { material: 'Sugar', quantity: 0.1 }
@@ -716,7 +716,7 @@ export class ProductRegistry {
             {
                 id: 232, name: 'Car Seats', category: 'BABY', icon: '🚗',
                 basePrice: 200, weight: 8.0, unit: 'unit', necessityIndex: 0.7,
-                minB2BQuantity: 15, minRetailQuantity: 1, baseProductionRate: 15,
+                minB2BQuantity: 150, minRetailQuantity: 1, baseProductionRate: 15,
                 inputs: [
                     { material: 'Cotton Fabric', quantity: 0.15 },
                     { material: 'Steel', quantity: 0.3 },
@@ -730,7 +730,7 @@ export class ProductRegistry {
             {
                 id: 233, name: 'Strollers', category: 'BABY', icon: '🛒',
                 basePrice: 300, weight: 10.0, unit: 'unit', necessityIndex: 0.65,
-                minB2BQuantity: 10, minRetailQuantity: 1, baseProductionRate: 12,
+                minB2BQuantity: 100, minRetailQuantity: 1, baseProductionRate: 12,
                 inputs: [
                     { material: 'Steel', quantity: 0.4 },
                     { material: 'Aluminum Sheets', quantity: 0.15 },
@@ -746,7 +746,7 @@ export class ProductRegistry {
             {
                 id: 234, name: 'Cold Medicine', category: 'HEALTH', icon: '💊',
                 basePrice: 12, weight: 0.2, unit: 'box', necessityIndex: 0.85,
-                minB2BQuantity: 50, minRetailQuantity: 1, baseProductionRate: 60,
+                minB2BQuantity: 1000, minRetailQuantity: 1, baseProductionRate: 60,
                 inputs: [
                     { material: 'Industrial Chemicals', quantity: 0.08 },
                     { material: 'Sugar', quantity: 0.02 },
@@ -760,7 +760,7 @@ export class ProductRegistry {
             {
                 id: 235, name: 'Pain Killers', category: 'HEALTH', icon: '💉',
                 basePrice: 10, weight: 0.15, unit: 'bottle', necessityIndex: 0.9,
-                minB2BQuantity: 60, minRetailQuantity: 1, baseProductionRate: 70,
+                minB2BQuantity: 600, minRetailQuantity: 1, baseProductionRate: 70,
                 inputs: [
                     { material: 'Industrial Chemicals', quantity: 0.06 },
                     { material: 'Plastic Pellets', quantity: 0.01 }
@@ -773,7 +773,7 @@ export class ProductRegistry {
             {
                 id: 236, name: 'Vitamins', category: 'HEALTH', icon: '💪',
                 basePrice: 20, weight: 0.3, unit: 'bottle', necessityIndex: 0.5,
-                minB2BQuantity: 40, minRetailQuantity: 1, baseProductionRate: 50,
+                minB2BQuantity: 500, minRetailQuantity: 1, baseProductionRate: 50,
                 inputs: [
                     { material: 'Industrial Chemicals', quantity: 0.1 },
                     { material: 'Plastic Pellets', quantity: 0.02 }
@@ -786,7 +786,7 @@ export class ProductRegistry {
             {
                 id: 237, name: 'Shampoo', category: 'BEAUTY', icon: '🧴',
                 basePrice: 8, weight: 0.5, unit: 'bottle', necessityIndex: 0.85,
-                minB2BQuantity: 50, minRetailQuantity: 1, baseProductionRate: 70,
+                minB2BQuantity: 500, minRetailQuantity: 1, baseProductionRate: 70,
                 inputs: [
                     { material: 'Industrial Chemicals', quantity: 0.05 },
                     { material: 'Plastic Pellets', quantity: 0.02 }
@@ -799,7 +799,7 @@ export class ProductRegistry {
             {
                 id: 238, name: 'Deodorant', category: 'BEAUTY', icon: '🧊',
                 basePrice: 6, weight: 0.15, unit: 'unit', necessityIndex: 0.8,
-                minB2BQuantity: 60, minRetailQuantity: 1, baseProductionRate: 80,
+                minB2BQuantity: 600, minRetailQuantity: 1, baseProductionRate: 80,
                 inputs: [
                     { material: 'Industrial Chemicals', quantity: 0.04 },
                     { material: 'Plastic Pellets', quantity: 0.02 }
@@ -812,7 +812,7 @@ export class ProductRegistry {
             {
                 id: 239, name: 'Soap', category: 'BEAUTY', icon: '🧼',
                 basePrice: 4, weight: 0.2, unit: 'bar', necessityIndex: 0.9,
-                minB2BQuantity: 100, minRetailQuantity: 1, baseProductionRate: 100,
+                minB2BQuantity: 1000, minRetailQuantity: 1, baseProductionRate: 100,
                 inputs: [
                     { material: 'Industrial Chemicals', quantity: 0.03 },
                     { material: 'Vegetable Oil', quantity: 0.02 }
@@ -825,7 +825,7 @@ export class ProductRegistry {
             {
                 id: 240, name: 'Toothpaste', category: 'BEAUTY', icon: '🦷',
                 basePrice: 5, weight: 0.2, unit: 'tube', necessityIndex: 0.95,
-                minB2BQuantity: 80, minRetailQuantity: 1, baseProductionRate: 90,
+                minB2BQuantity: 800, minRetailQuantity: 1, baseProductionRate: 90,
                 inputs: [
                     { material: 'Industrial Chemicals', quantity: 0.04 },
                     { material: 'Plastic Pellets', quantity: 0.01 }
@@ -838,7 +838,7 @@ export class ProductRegistry {
             {
                 id: 241, name: 'Makeup', category: 'BEAUTY', icon: '💄',
                 basePrice: 25, weight: 0.1, unit: 'kit', necessityIndex: 0.3,
-                minB2BQuantity: 30, minRetailQuantity: 1, baseProductionRate: 40,
+                minB2BQuantity: 300, minRetailQuantity: 1, baseProductionRate: 40,
                 inputs: [
                     { material: 'Industrial Chemicals', quantity: 0.06 },
                     { material: 'Plastic Pellets', quantity: 0.02 }
@@ -851,7 +851,7 @@ export class ProductRegistry {
             {
                 id: 242, name: 'Perfume', category: 'BEAUTY', icon: '🌸',
                 basePrice: 80, weight: 0.2, unit: 'bottle', necessityIndex: 0.2,
-                minB2BQuantity: 20, minRetailQuantity: 1, baseProductionRate: 30,
+                minB2BQuantity: 200, minRetailQuantity: 1, baseProductionRate: 30,
                 inputs: [
                     { material: 'Industrial Chemicals', quantity: 0.08 },
                     { material: 'Glass', quantity: 0.03 }
@@ -864,7 +864,7 @@ export class ProductRegistry {
             {
                 id: 243, name: 'Glasses', category: 'HEALTH', icon: '👓',
                 basePrice: 150, weight: 0.1, unit: 'pair', necessityIndex: 0.7,
-                minB2BQuantity: 20, minRetailQuantity: 1, baseProductionRate: 25,
+                minB2BQuantity: 200, minRetailQuantity: 1, baseProductionRate: 25,
                 inputs: [
                     { material: 'Glass', quantity: 0.05 },
                     { material: 'Steel', quantity: 0.02 },
@@ -880,7 +880,7 @@ export class ProductRegistry {
             {
                 id: 244, name: 'Tools', category: 'HARDWARE', icon: '🔧',
                 basePrice: 50, weight: 2.0, unit: 'set', necessityIndex: 0.6,
-                minB2BQuantity: 30, minRetailQuantity: 1, baseProductionRate: 35,
+                minB2BQuantity: 300, minRetailQuantity: 1, baseProductionRate: 35,
                 inputs: [
                     { material: 'Steel', quantity: 0.5 },
                     { material: 'Plywood', quantity: 0.1 }
@@ -893,7 +893,7 @@ export class ProductRegistry {
             {
                 id: 245, name: 'Tires', category: 'AUTOMOTIVE', icon: '🛞',
                 basePrice: 120, weight: 10.0, unit: 'unit', necessityIndex: 0.7,
-                minB2BQuantity: 20, minRetailQuantity: 1, baseProductionRate: 25,
+                minB2BQuantity: 200, minRetailQuantity: 1, baseProductionRate: 25,
                 inputs: [
                     { material: 'Rubber', quantity: 0.4 },
                     { material: 'Steel', quantity: 0.08 }
@@ -906,7 +906,7 @@ export class ProductRegistry {
             {
                 id: 246, name: 'Auto Parts', category: 'AUTOMOTIVE', icon: '⚙️',
                 basePrice: 80, weight: 3.0, unit: 'unit', necessityIndex: 0.65,
-                minB2BQuantity: 30, minRetailQuantity: 1, baseProductionRate: 30,
+                minB2BQuantity: 1000, minRetailQuantity: 1, baseProductionRate: 30,
                 inputs: [
                     { material: 'Steel', quantity: 0.6 },
                     { material: 'Aluminum Sheets', quantity: 0.2 }
@@ -919,7 +919,7 @@ export class ProductRegistry {
             {
                 id: 247, name: 'Oil & Fluids', category: 'AUTOMOTIVE', icon: '🛢️',
                 basePrice: 30, weight: 4.0, unit: 'gallon', necessityIndex: 0.75,
-                minB2BQuantity: 50, minRetailQuantity: 1, baseProductionRate: 60,
+                minB2BQuantity: 500, minRetailQuantity: 1, baseProductionRate: 60,
                 inputs: [{ material: 'Crude Oil', quantity: 0.5 }],
                 technologyRequired: 2,
                 purchaseFrequency: 0.5, publicDemand: 0.55, publicNecessity: 0.7,
@@ -929,7 +929,7 @@ export class ProductRegistry {
             {
                 id: 248, name: 'Car Battery', category: 'AUTOMOTIVE', icon: '🔋',
                 basePrice: 150, weight: 15.0, unit: 'unit', necessityIndex: 0.7,
-                minB2BQuantity: 15, minRetailQuantity: 1, baseProductionRate: 20,
+                minB2BQuantity: 150, minRetailQuantity: 1, baseProductionRate: 20,
                 inputs: [
                     { material: 'Steel', quantity: 0.3 },
                     { material: 'Copper Wire', quantity: 0.4 }
@@ -942,7 +942,7 @@ export class ProductRegistry {
             {
                 id: 249, name: 'Cleaning Supplies', category: 'CLEANING', icon: '🧹',
                 basePrice: 10, weight: 1.0, unit: 'unit', necessityIndex: 0.85,
-                minB2BQuantity: 50, minRetailQuantity: 1, baseProductionRate: 70,
+                minB2BQuantity: 1000, minRetailQuantity: 1, baseProductionRate: 70,
                 inputs: [
                     { material: 'Industrial Chemicals', quantity: 0.06 },
                     { material: 'Plastic Pellets', quantity: 0.03 }
@@ -955,7 +955,7 @@ export class ProductRegistry {
             {
                 id: 250, name: 'Vacuums', category: 'APPLIANCES', icon: '🧹',
                 basePrice: 200, weight: 8.0, unit: 'unit', necessityIndex: 0.6,
-                minB2BQuantity: 15, minRetailQuantity: 1, baseProductionRate: 18,
+                minB2BQuantity: 300, minRetailQuantity: 1, baseProductionRate: 18,
                 inputs: [
                     { material: 'Steel', quantity: 0.3 },
                     { material: 'Copper Wire', quantity: 0.2 },
@@ -969,7 +969,7 @@ export class ProductRegistry {
             {
                 id: 251, name: 'Paper Towels', category: 'CLEANING', icon: '🧻',
                 basePrice: 8, weight: 0.5, unit: 'pack', necessityIndex: 0.85,
-                minB2BQuantity: 80, minRetailQuantity: 1, baseProductionRate: 90,
+                minB2BQuantity: 2000, minRetailQuantity: 1, baseProductionRate: 90,
                 inputs: [
                     { material: 'Paper', quantity: 0.4 },
                     { material: 'Cardboard', quantity: 0.05 }
@@ -982,7 +982,7 @@ export class ProductRegistry {
             {
                 id: 252, name: 'Trash Bags', category: 'CLEANING', icon: '🗑️',
                 basePrice: 12, weight: 0.8, unit: 'box', necessityIndex: 0.9,
-                minB2BQuantity: 60, minRetailQuantity: 1, baseProductionRate: 80,
+                minB2BQuantity: 600, minRetailQuantity: 1, baseProductionRate: 80,
                 inputs: [
                     { material: 'Plastic Pellets', quantity: 0.15 },
                     { material: 'Cardboard', quantity: 0.02 }
@@ -995,7 +995,7 @@ export class ProductRegistry {
             {
                 id: 253, name: 'Sofa', category: 'FURNITURE', icon: '🛋️',
                 basePrice: 800, weight: 50.0, unit: 'unit', necessityIndex: 0.55,
-                minB2BQuantity: 5, minRetailQuantity: 1, baseProductionRate: 6,
+                minB2BQuantity: 100, minRetailQuantity: 1, baseProductionRate: 6,
                 inputs: [
                     { material: 'Cotton Fabric', quantity: 0.8 },
                     { material: 'Plywood', quantity: 0.5 },
@@ -1009,7 +1009,7 @@ export class ProductRegistry {
             {
                 id: 254, name: 'Dresser', category: 'FURNITURE', icon: '🗄️',
                 basePrice: 400, weight: 40.0, unit: 'unit', necessityIndex: 0.5,
-                minB2BQuantity: 8, minRetailQuantity: 1, baseProductionRate: 10,
+                minB2BQuantity: 800, minRetailQuantity: 1, baseProductionRate: 10,
                 inputs: [
                     { material: 'Plywood', quantity: 0.8 },
                     { material: 'Steel', quantity: 0.1 }
@@ -1022,7 +1022,7 @@ export class ProductRegistry {
             {
                 id: 206, name: 'Beds', category: 'FURNITURE', icon: '🛏️',
                 basePrice: 600, weight: 50, unit: 'unit', necessityIndex: 0.7,
-                minB2BQuantity: 5, minRetailQuantity: 1, baseProductionRate: 8,
+                minB2BQuantity: 100, minRetailQuantity: 1, baseProductionRate: 8,
                 inputs: [
                     { material: 'Plywood', quantity: 1.2 },
                     { material: 'Cotton Fabric', quantity: 0.5 },
@@ -1036,7 +1036,7 @@ export class ProductRegistry {
             {
                 id: 205, name: 'Tables', category: 'FURNITURE', icon: '🪑',
                 basePrice: 300, weight: 25, unit: 'unit', necessityIndex: 0.5,
-                minB2BQuantity: 10, minRetailQuantity: 1, baseProductionRate: 12,
+                minB2BQuantity: 250, minRetailQuantity: 1, baseProductionRate: 12,
                 inputs: [
                     { material: 'Plywood', quantity: 0.5 },
                     { material: 'Steel', quantity: 0.15 }
@@ -1049,7 +1049,7 @@ export class ProductRegistry {
             {
                 id: 255, name: 'Microwave', category: 'APPLIANCES', icon: '📻',
                 basePrice: 150, weight: 15.0, unit: 'unit', necessityIndex: 0.65,
-                minB2BQuantity: 15, minRetailQuantity: 1, baseProductionRate: 20,
+                minB2BQuantity: 350, minRetailQuantity: 1, baseProductionRate: 20,
                 inputs: [
                     { material: 'Steel', quantity: 0.4 },
                     { material: 'Copper Wire', quantity: 0.3 },
@@ -1063,7 +1063,7 @@ export class ProductRegistry {
             {
                 id: 256, name: 'Air Conditioner', category: 'APPLIANCES', icon: '❄️',
                 basePrice: 500, weight: 30.0, unit: 'unit', necessityIndex: 0.5,
-                minB2BQuantity: 10, minRetailQuantity: 1, baseProductionRate: 12,
+                minB2BQuantity: 350, minRetailQuantity: 1, baseProductionRate: 12,
                 inputs: [
                     { material: 'Steel', quantity: 0.6 },
                     { material: 'Copper Wire', quantity: 0.5 },
@@ -1077,7 +1077,7 @@ export class ProductRegistry {
             {
                 id: 257, name: 'Washing Machine', category: 'APPLIANCES', icon: '🧺',
                 basePrice: 600, weight: 60.0, unit: 'unit', necessityIndex: 0.7,
-                minB2BQuantity: 8, minRetailQuantity: 1, baseProductionRate: 10,
+                minB2BQuantity: 100, minRetailQuantity: 1, baseProductionRate: 10,
                 inputs: [
                     { material: 'Steel', quantity: 0.8 },
                     { material: 'Copper Wire', quantity: 0.4 }
@@ -1090,7 +1090,7 @@ export class ProductRegistry {
             {
                 id: 258, name: 'Dryer', category: 'APPLIANCES', icon: '🌀',
                 basePrice: 550, weight: 55.0, unit: 'unit', necessityIndex: 0.55,
-                minB2BQuantity: 8, minRetailQuantity: 1, baseProductionRate: 10,
+                minB2BQuantity: 100, minRetailQuantity: 1, baseProductionRate: 10,
                 inputs: [
                     { material: 'Steel', quantity: 0.7 },
                     { material: 'Copper Wire', quantity: 0.3 }
@@ -1103,7 +1103,7 @@ export class ProductRegistry {
             {
                 id: 259, name: 'Bikes', category: 'RECREATION', icon: '🚲',
                 basePrice: 300, weight: 12.0, unit: 'unit', necessityIndex: 0.35,
-                minB2BQuantity: 15, minRetailQuantity: 1, baseProductionRate: 15,
+                minB2BQuantity: 150, minRetailQuantity: 1, baseProductionRate: 15,
                 inputs: [
                     { material: 'Steel', quantity: 0.6 },
                     { material: 'Aluminum Sheets', quantity: 0.3 }
@@ -1118,7 +1118,7 @@ export class ProductRegistry {
             {
                 id: 202, name: 'Laptops', category: 'ELECTRONICS', icon: '💻',
                 basePrice: 1200, weight: 1.5, unit: 'unit', necessityIndex: 0.4,
-                minB2BQuantity: 20, minRetailQuantity: 1, baseProductionRate: 10,
+                minB2BQuantity: 150, minRetailQuantity: 1, baseProductionRate: 10,
                 inputs: [
                     { material: 'Aluminum Sheets', quantity: 3.5 },
                     { material: 'Copper Wire', quantity: 2.0 },
@@ -1133,7 +1133,7 @@ export class ProductRegistry {
             {
                 id: 260, name: 'Personal Computer', category: 'ELECTRONICS', icon: '🖥️',
                 basePrice: 1000, weight: 10.0, unit: 'unit', necessityIndex: 0.45,
-                minB2BQuantity: 15, minRetailQuantity: 1, baseProductionRate: 12,
+                minB2BQuantity: 150, minRetailQuantity: 1, baseProductionRate: 12,
                 inputs: [
                     { material: 'Steel', quantity: 1.0 },
                     { material: 'Copper Wire', quantity: 1.5 },
@@ -1148,7 +1148,7 @@ export class ProductRegistry {
             {
                 id: 261, name: 'Tablets', category: 'ELECTRONICS', icon: '📱',
                 basePrice: 500, weight: 0.5, unit: 'unit', necessityIndex: 0.35,
-                minB2BQuantity: 25, minRetailQuantity: 1, baseProductionRate: 18,
+                minB2BQuantity: 250, minRetailQuantity: 1, baseProductionRate: 18,
                 inputs: [
                     { material: 'Aluminum Sheets', quantity: 2.0 },
                     { material: 'Copper Wire', quantity: 1.0 },
@@ -1162,7 +1162,7 @@ export class ProductRegistry {
             {
                 id: 262, name: 'Monitors', category: 'ELECTRONICS', icon: '🖥️',
                 basePrice: 300, weight: 5.0, unit: 'unit', necessityIndex: 0.45,
-                minB2BQuantity: 20, minRetailQuantity: 1, baseProductionRate: 20,
+                minB2BQuantity: 200, minRetailQuantity: 1, baseProductionRate: 20,
                 inputs: [
                     { material: 'Aluminum Sheets', quantity: 1.5 },
                     { material: 'Copper Wire', quantity: 0.8 },
@@ -1176,7 +1176,7 @@ export class ProductRegistry {
             {
                 id: 201, name: 'Cellphone', category: 'ELECTRONICS', icon: '📱',
                 basePrice: 800, weight: 0.2, unit: 'unit', necessityIndex: 0.7,
-                minB2BQuantity: 20, minRetailQuantity: 1, baseProductionRate: 15,
+                minB2BQuantity: 200, minRetailQuantity: 1, baseProductionRate: 15,
                 inputs: [
                     { material: 'Aluminum Sheets', quantity: 2.5 },
                     { material: 'Copper Wire', quantity: 1.2 },
@@ -1190,7 +1190,7 @@ export class ProductRegistry {
             {
                 id: 263, name: 'TV', category: 'ELECTRONICS', icon: '📺',
                 basePrice: 600, weight: 15.0, unit: 'unit', necessityIndex: 0.5,
-                minB2BQuantity: 15, minRetailQuantity: 1, baseProductionRate: 15,
+                minB2BQuantity: 150, minRetailQuantity: 1, baseProductionRate: 15,
                 inputs: [
                     { material: 'Aluminum Sheets', quantity: 2.0 },
                     { material: 'Copper Wire', quantity: 1.0 },
@@ -1204,7 +1204,7 @@ export class ProductRegistry {
             {
                 id: 264, name: 'Console', category: 'ELECTRONICS', icon: '🎮',
                 basePrice: 500, weight: 3.0, unit: 'unit', necessityIndex: 0.2,
-                minB2BQuantity: 20, minRetailQuantity: 1, baseProductionRate: 18,
+                minB2BQuantity: 200, minRetailQuantity: 1, baseProductionRate: 18,
                 inputs: [
                     { material: 'Aluminum Sheets', quantity: 1.0 },
                     { material: 'Copper Wire', quantity: 0.8 },
@@ -1218,7 +1218,7 @@ export class ProductRegistry {
             {
                 id: 265, name: 'Headphones', category: 'ELECTRONICS', icon: '🎧',
                 basePrice: 100, weight: 0.3, unit: 'unit', necessityIndex: 0.35,
-                minB2BQuantity: 40, minRetailQuantity: 1, baseProductionRate: 35,
+                minB2BQuantity: 500, minRetailQuantity: 1, baseProductionRate: 35,
                 inputs: [
                     { material: 'Copper Wire', quantity: 0.5 },
                     { material: 'Aluminum Sheets', quantity: 0.2 }
@@ -1231,7 +1231,7 @@ export class ProductRegistry {
             {
                 id: 266, name: 'Printers', category: 'ELECTRONICS', icon: '🖨️',
                 basePrice: 200, weight: 8.0, unit: 'unit', necessityIndex: 0.4,
-                minB2BQuantity: 15, minRetailQuantity: 1, baseProductionRate: 18,
+                minB2BQuantity: 250, minRetailQuantity: 1, baseProductionRate: 18,
                 inputs: [
                     { material: 'Steel', quantity: 0.5 },
                     { material: 'Copper Wire', quantity: 0.4 },
@@ -1245,7 +1245,7 @@ export class ProductRegistry {
             {
                 id: 267, name: 'Cameras', category: 'ELECTRONICS', icon: '📷',
                 basePrice: 400, weight: 0.5, unit: 'unit', necessityIndex: 0.25,
-                minB2BQuantity: 20, minRetailQuantity: 1, baseProductionRate: 20,
+                minB2BQuantity: 350, minRetailQuantity: 1, baseProductionRate: 20,
                 inputs: [
                     { material: 'Aluminum Sheets', quantity: 0.8 },
                     { material: 'Copper Wire', quantity: 0.4 },
@@ -1259,7 +1259,7 @@ export class ProductRegistry {
             {
                 id: 268, name: 'Batteries', category: 'ELECTRONICS', icon: '🔋',
                 basePrice: 8, weight: 0.1, unit: 'pack', necessityIndex: 0.75,
-                minB2BQuantity: 100, minRetailQuantity: 1, baseProductionRate: 100,
+                minB2BQuantity: 2000, minRetailQuantity: 1, baseProductionRate: 100,
                 inputs: [
                     { material: 'Steel', quantity: 0.1 },
                     { material: 'Copper Wire', quantity: 0.2 }
@@ -1272,7 +1272,7 @@ export class ProductRegistry {
             {
                 id: 269, name: 'Drones', category: 'ELECTRONICS', icon: '🚁',
                 basePrice: 800, weight: 1.0, unit: 'unit', necessityIndex: 0.1,
-                minB2BQuantity: 10, minRetailQuantity: 1, baseProductionRate: 12,
+                minB2BQuantity: 100, minRetailQuantity: 1, baseProductionRate: 12,
                 inputs: [
                     { material: 'Aluminum Sheets', quantity: 1.2 },
                     { material: 'Copper Wire', quantity: 0.8 }
@@ -1285,7 +1285,7 @@ export class ProductRegistry {
             {
                 id: 270, name: 'Toys', category: 'TOYS', icon: '🧸',
                 basePrice: 25, weight: 0.5, unit: 'unit', necessityIndex: 0.3,
-                minB2BQuantity: 50, minRetailQuantity: 1, baseProductionRate: 50,
+                minB2BQuantity: 500, minRetailQuantity: 1, baseProductionRate: 50,
                 inputs: [
                     { material: 'Plastic Pellets', quantity: 0.12 },
                     { material: 'Cotton Fabric', quantity: 0.05 }
@@ -1314,7 +1314,7 @@ export class ProductRegistry {
             {
                 id: 204, name: 'Motorcycles', category: 'VEHICLES', icon: '🏍️',
                 basePrice: 8000, weight: 180, unit: 'unit', necessityIndex: 0.2,
-                minB2BQuantity: 10, minRetailQuantity: 1, baseProductionRate: 5,
+                minB2BQuantity: 100, minRetailQuantity: 1, baseProductionRate: 0.5,
                 inputs: [
                     { material: 'Steel', quantity: 25 },
                     { material: 'Aluminum Sheets', quantity: 12.2 }
@@ -1329,7 +1329,7 @@ export class ProductRegistry {
             {
                 id: 211, name: 'Cement', category: 'CONSTRUCTION', icon: '🏗️',
                 basePrice: 80, weight: 50, unit: 'bag', necessityIndex: 0.4,
-                minB2BQuantity: 50, minRetailQuantity: 1, baseProductionRate: 50,
+                minB2BQuantity: 5000, minRetailQuantity: 1, baseProductionRate: 50,
                 inputs: [
                     { material: 'Limestone', quantity: 1.0 },
                     { material: 'Coal', quantity: 0.2 }

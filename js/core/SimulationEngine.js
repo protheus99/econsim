@@ -1538,9 +1538,51 @@ export class SimulationEngine {
             f.type === 'MINING' || f.type === 'LOGGING' || f.type === 'FARM'
         );
 
+        // Helper: Categorize suppliers by location relative to buyer
+        const categorizeSuppliers = (suppliers, buyerCity, buyerCountry) => {
+            const local = [];
+            const domestic = [];
+            const international = [];
+
+            suppliers.forEach(s => {
+                const supplierCity = s.city?.name;
+                const supplierCountry = s.city?.country?.name || s.country?.name;
+
+                if (supplierCity === buyerCity) {
+                    local.push(s);
+                } else if (supplierCountry === buyerCountry) {
+                    domestic.push(s);
+                } else {
+                    international.push(s);
+                }
+            });
+
+            return { local, domestic, international };
+        };
+
+        // Helper: Select best supplier by location priority (local > domestic > international)
+        const selectBestSupplier = (categorized, getInventoryQty) => {
+            // Sort each group by inventory quantity (highest first)
+            const sortByQty = arr => arr.sort((a, b) => getInventoryQty(b) - getInventoryQty(a));
+
+            if (categorized.local.length > 0) {
+                return { supplier: sortByQty(categorized.local)[0], source: 'local' };
+            }
+            if (categorized.domestic.length > 0) {
+                return { supplier: sortByQty(categorized.domestic)[0], source: 'domestic' };
+            }
+            if (categorized.international.length > 0) {
+                return { supplier: sortByQty(categorized.international)[0], source: 'international' };
+            }
+            return null;
+        };
+
         // TIER 1: Primary producers sell RAW materials to SEMI_RAW manufacturers
         semiRawManufacturers.forEach(manufacturer => {
             if (!manufacturer.product || !manufacturer.product.inputs) return;
+
+            const buyerCity = manufacturer.city?.name;
+            const buyerCountry = manufacturer.city?.country?.name || manufacturer.country?.name;
 
             manufacturer.product.inputs.forEach(input => {
                 const neededMaterial = input.material; // e.g., "Iron Ore", "Coal"
@@ -1550,14 +1592,28 @@ export class SimulationEngine {
                 const neededQuantity = Math.floor(input.quantity * 50); // Buy enough for ~50 hours
 
                 // Find primary producers that produce this RAW material
-                const suppliers = primaryProducers.filter(p => {
+                const allSuppliers = primaryProducers.filter(p => {
                     const producesType = p.resourceType || p.timberType || p.cropType || p.livestockType;
                     return producesType === neededMaterial && p.inventory && p.inventory.quantity > 0;
                 });
 
-                if (suppliers.length > 0) {
-                    const supplier = suppliers.sort((a, b) => b.inventory.quantity - a.inventory.quantity)[0];
-                    this.executeTrade(supplier, manufacturer, neededMaterial, neededQuantity);
+                const categorized = categorizeSuppliers(allSuppliers, buyerCity, buyerCountry);
+                const selection = selectBestSupplier(categorized, s => s.inventory?.quantity || 0);
+
+                if (selection) {
+                    this.executeTrade(selection.supplier, manufacturer, neededMaterial, neededQuantity);
+                } else if (this.globalMarket) {
+                    // Fallback: Buy from global market if no firm suppliers available
+                    const product = this.productRegistry.getProductByName(neededMaterial);
+                    const unitPrice = (product?.basePrice || 100) * 1.5; // Global market premium
+                    const result = this.globalMarket.directPurchase(manufacturer, neededMaterial, neededQuantity);
+                    if (result.success) {
+                        const totalCost = neededQuantity * unitPrice;
+                        this.transactionLog.logGlobalMarketOrder(
+                            manufacturer, neededMaterial, neededQuantity,
+                            unitPrice, totalCost, 'DELIVERED', 0
+                        );
+                    }
                 }
             });
         });
@@ -1565,6 +1621,9 @@ export class SimulationEngine {
         // TIER 2: SEMI_RAW manufacturers sell to MANUFACTURED manufacturers
         finalManufacturers.forEach(manufacturer => {
             if (!manufacturer.product || !manufacturer.product.inputs) return;
+
+            const buyerCity = manufacturer.city?.name;
+            const buyerCountry = manufacturer.city?.country?.name || manufacturer.country?.name;
 
             manufacturer.product.inputs.forEach(input => {
                 const neededMaterial = input.material; // e.g., "Steel", "Copper Wire"
@@ -1574,17 +1633,30 @@ export class SimulationEngine {
                 const neededQuantity = Math.floor(input.quantity * 50); // Buy enough for ~50 hours
 
                 // Find SEMI_RAW manufacturers that produce this material
-                const suppliers = semiRawManufacturers.filter(m => {
+                const allSuppliers = semiRawManufacturers.filter(m => {
                     return m.product &&
                            m.product.name === neededMaterial &&
                            m.finishedGoodsInventory &&
                            m.finishedGoodsInventory.quantity > 0;
                 });
 
-                if (suppliers.length > 0) {
-                    const supplier = suppliers.sort((a, b) =>
-                        b.finishedGoodsInventory.quantity - a.finishedGoodsInventory.quantity)[0];
-                    this.executeManufacturerToManufacturerTrade(supplier, manufacturer, neededMaterial, neededQuantity);
+                const categorized = categorizeSuppliers(allSuppliers, buyerCity, buyerCountry);
+                const selection = selectBestSupplier(categorized, s => s.finishedGoodsInventory?.quantity || 0);
+
+                if (selection) {
+                    this.executeManufacturerToManufacturerTrade(selection.supplier, manufacturer, neededMaterial, neededQuantity);
+                } else if (this.globalMarket) {
+                    // Fallback: Buy from global market if no firm suppliers available
+                    const product = this.productRegistry.getProductByName(neededMaterial);
+                    const unitPrice = (product?.basePrice || 100) * 1.5; // Global market premium
+                    const result = this.globalMarket.directPurchase(manufacturer, neededMaterial, neededQuantity);
+                    if (result.success) {
+                        const totalCost = neededQuantity * unitPrice;
+                        this.transactionLog.logGlobalMarketOrder(
+                            manufacturer, neededMaterial, neededQuantity,
+                            unitPrice, totalCost, 'DELIVERED', 0
+                        );
+                    }
                 }
             });
         });
