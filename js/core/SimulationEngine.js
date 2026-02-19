@@ -1269,10 +1269,12 @@ export class SimulationEngine {
             const result = this.globalMarket.sellToGlobalMarket(firm, productName, sellQuantity);
 
             if (result.success) {
+                // Use actual quantity sold (from lots) not requested quantity
+                const actualQuantitySold = result.sale.quantity;
                 this.transactionLog.logGlobalMarketSale(
                     firm,
                     productName,
-                    sellQuantity,
+                    actualQuantitySold,
                     result.sale.unitPrice,
                     result.sale.totalRevenue
                 );

@@ -150,6 +150,36 @@ window.debug = {
                     minRequired: inv.minRequired?.toFixed(0)
                 }))
             }));
+    },
+
+    // Lot inventory inspection
+    getLotReport: (firmId = null) => {
+        const firms = Array.from(window.app?.simulation?.firms?.values() || []);
+        const manufacturingFirms = firms.filter(f => f.type === 'MANUFACTURING');
+
+        const targetFirms = firmId
+            ? manufacturingFirms.filter(f => f.id === firmId)
+            : manufacturingFirms;
+
+        return targetFirms.map(f => ({
+            id: f.id,
+            product: f.product?.name,
+            tier: f.product?.tier,
+            isSemiRaw: f.isSemiRawProducer,
+            hasLotInventory: !!f.lotInventory,
+            lotSize: f.lotSize,
+            lotConfig: f.lotConfig,
+            accumulatedProduction: f.accumulatedProduction?.toFixed(2),
+            lotCount: f.lotInventory?.lots?.size || 0,
+            lots: f.lotInventory ? Array.from(f.lotInventory.lots?.values() || []).map(lot => ({
+                id: lot.id,
+                quantity: lot.quantity,
+                quality: lot.quality,
+                status: lot.status,
+                createdAt: lot.createdAt
+            })) : [],
+            finishedGoodsQty: f.finishedGoodsInventory?.quantity?.toFixed(0)
+        }));
     }
 };
 
@@ -157,3 +187,5 @@ console.log('💡 Debug helpers available: window.debug');
 console.log('   - debug.globalMarket.setMultiplier(1.5) - Set global market price multiplier');
 console.log('   - debug.globalMarket.getStats() - View global market statistics');
 console.log('   - debug.getInventoryReport() - View all manufacturing inventory');
+console.log('   - debug.getLotReport() - View lot inventory for all manufacturers');
+console.log('   - debug.getLotReport("FIRM_ID") - View lot inventory for specific firm');
