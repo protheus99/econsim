@@ -14,6 +14,7 @@ import { TransactionLog } from '../core/TransactionLog.js';
 import { ProductCostCalculator } from '../core/ProductCostCalculator.js';
 import { LotRegistry } from '../core/Lot.js';
 import { CityRetailDemandManager } from '../core/CityRetailDemandManager.js';
+import { PurchaseManager } from './purchasing/PurchaseManager.js';
 
 export class SimulationEngine {
     constructor() {
@@ -56,6 +57,9 @@ export class SimulationEngine {
 
         // City Retail Demand Manager for competitive retail system
         this.cityRetailDemandManager = null;
+
+        // Purchase Manager for unified supply chain and purchasing
+        this.purchaseManager = null;
 
         // Configuration settings (loaded from config.json or use defaults)
         this.config = {
@@ -118,6 +122,16 @@ export class SimulationEngine {
                 minCreditScore: 40,
                 maxLoanToAssetRatio: 0.80,
                 defaultThreshold: 3
+            },
+            purchasing: {
+                // Use new PurchaseManager system (set to false for legacy behavior)
+                useNewSystem: true,
+                // Enable contract-based purchasing
+                enableContracts: true,
+                // Enable supplier scoring with transport costs
+                enableSupplierScoring: true,
+                // Global market premium multiplier
+                globalMarketPremium: 1.5
             }
         };
 
@@ -204,6 +218,11 @@ export class SimulationEngine {
         // Initialize City Retail Demand Manager for competitive retail
         this.cityRetailDemandManager = new CityRetailDemandManager(this);
         console.log('✅ City Retail Demand Manager initialized');
+
+        // Initialize Purchase Manager for unified supply chain
+        this.purchaseManager = new PurchaseManager(this);
+        this.purchaseManager.setRetailDemandManager(this.cityRetailDemandManager);
+        console.log('✅ Purchase Manager initialized');
 
         // Initialize countries first
         this.initializeCountries();
@@ -1384,11 +1403,22 @@ export class SimulationEngine {
             }
         });
 
-        // Step 2: Process competitive retail sales using city-wide demand
-        this.processCompetitiveRetailSales(currentHour);
+        // Step 2 & 3: Process purchasing and supply chain
+        if (this.config.purchasing?.useNewSystem && this.purchaseManager) {
+            // New unified purchasing system handles:
+            // - Contract fulfillment
+            // - Manufacturer purchasing with supplier scoring
+            // - Retail restocking
+            // - Competitive retail sales
+            this.purchaseManager.processPurchasing(currentHour);
+        } else {
+            // Legacy system: separate retail and supply chain processing
+            // Step 2: Process competitive retail sales using city-wide demand
+            this.processCompetitiveRetailSales(currentHour);
 
-        // Step 3: Process supply chain transactions
-        this.processSupplyChain();
+            // Step 3: Process supply chain transactions
+            this.processSupplyChain();
+        }
 
         // Debug: Log supply chain stats every 24 hours (once per game day)
         if (this.dailyTick === 0) {
