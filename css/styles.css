@@ -2571,6 +2571,144 @@ body {
     color: var(--text-primary);
 }
 
+/* Transaction Category Breakdown (Updated) */
+.breakdown-item.tx-b2b-raw { border-left: 3px solid #8d6e63; }
+.breakdown-item.tx-b2b-semi { border-left: 3px solid #78909c; }
+.breakdown-item.tx-b2b-manufactured { border-left: 3px solid #5c6bc0; }
+.breakdown-item.tx-b2b-wholesale { border-left: 3px solid #26a69a; }
+.breakdown-item.tx-b2c-retail { border-left: 3px solid #66bb6a; }
+.breakdown-item.tx-global-market { border-left: 3px solid #ab47bc; }
+.breakdown-item.tx-contract { border-left: 3px solid #ffa726; }
+
+.breakdown-icon {
+    font-size: 1.2rem;
+    margin-right: 8px;
+    min-width: 24px;
+    text-align: center;
+}
+
+.breakdown-value {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-left: auto;
+    padding-left: 12px;
+}
+
+/* Transaction Category Badges */
+.category-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.category-badge.tx-b2b-raw {
+    background: rgba(141, 110, 99, 0.25);
+    color: #bcaaa4;
+}
+
+.category-badge.tx-b2b-semi {
+    background: rgba(120, 144, 156, 0.25);
+    color: #b0bec5;
+}
+
+.category-badge.tx-b2b-manufactured {
+    background: rgba(92, 107, 192, 0.25);
+    color: #9fa8da;
+}
+
+.category-badge.tx-b2b-wholesale {
+    background: rgba(38, 166, 154, 0.25);
+    color: #80cbc4;
+}
+
+.category-badge.tx-b2c-retail {
+    background: rgba(102, 187, 106, 0.25);
+    color: #a5d6a7;
+}
+
+.category-badge.tx-global-market {
+    background: rgba(171, 71, 188, 0.25);
+    color: #ce93d8;
+}
+
+.category-badge.tx-contract {
+    background: rgba(255, 167, 38, 0.25);
+    color: #ffcc80;
+}
+
+.category-badge.tx-other {
+    background: rgba(158, 158, 158, 0.25);
+    color: #bdbdbd;
+}
+
+/* Transaction row highlighting by category */
+tr.tx-b2b-raw-row { border-left: 3px solid #8d6e63; }
+tr.tx-b2b-semi-row { border-left: 3px solid #78909c; }
+tr.tx-b2b-manufactured-row { border-left: 3px solid #5c6bc0; }
+tr.tx-b2b-wholesale-row { border-left: 3px solid #26a69a; }
+tr.tx-b2c-retail-row { border-left: 3px solid #66bb6a; }
+tr.tx-global-market-row { border-left: 3px solid #ab47bc; }
+tr.tx-contract-row { border-left: 3px solid #ffa726; }
+
+/* Lot and Contract badges in transactions */
+.lot-badge-sm {
+    display: inline-block;
+    padding: 1px 5px;
+    font-size: 9px;
+    font-weight: 700;
+    background: rgba(255, 193, 7, 0.3);
+    color: #ffc107;
+    border-radius: 3px;
+    margin-left: 4px;
+    vertical-align: middle;
+}
+
+.contract-badge-sm {
+    display: inline-block;
+    margin-left: 4px;
+    font-size: 12px;
+    vertical-align: middle;
+    cursor: help;
+}
+
+.order-id-badge {
+    margin-left: 4px;
+    font-size: 12px;
+    vertical-align: middle;
+    cursor: help;
+}
+
+/* Quality indicators */
+.quality-indicator {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 4px;
+    font-size: 10px;
+    font-weight: 600;
+    border-radius: 3px;
+}
+
+.quality-indicator.quality-high {
+    background: rgba(76, 175, 80, 0.3);
+    color: var(--accent-green);
+}
+
+.quality-indicator.quality-medium {
+    background: rgba(255, 152, 0, 0.3);
+    color: var(--accent-orange);
+}
+
+.quality-indicator.quality-low {
+    background: rgba(244, 67, 54, 0.3);
+    color: var(--accent-red);
+}
+
 /* Global Market Status */
 .global-market-status {
     display: grid;
@@ -4551,6 +4689,195 @@ body {
 .bid-status.status-delivered {
     background: rgba(76, 175, 80, 0.2);
     color: var(--accent-green);
+}
+
+/* ===== Supply Contracts Section ===== */
+.firm-contracts-summary {
+    padding: 15px;
+}
+
+.contracts-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 12px;
+}
+
+@media (max-width: 1200px) {
+    .contracts-summary-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (max-width: 600px) {
+    .contracts-summary-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.contracts-summary-stat {
+    text-align: center;
+    padding: 12px;
+    background: var(--bg-primary);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+.contracts-stat-value {
+    display: block;
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--accent-blue);
+    margin-bottom: 4px;
+}
+
+.contracts-stat-label {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+}
+
+.firm-contracts-section {
+    padding: 0 15px 15px;
+}
+
+.contracts-section-header {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.contract-item {
+    padding: 12px 15px;
+    background: var(--bg-primary);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    border-left: 3px solid var(--border-color);
+}
+
+.contract-item.status-active {
+    border-left-color: var(--accent-green);
+}
+
+.contract-item.status-pending {
+    border-left-color: var(--accent-orange);
+}
+
+.contract-item.status-terminated {
+    border-left-color: var(--accent-red);
+    opacity: 0.7;
+}
+
+.contract-item-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.contract-product {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 1rem;
+}
+
+.contract-type-badge {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    font-weight: 600;
+    background: rgba(100, 181, 246, 0.2);
+    color: var(--accent-blue);
+}
+
+.contract-status-badge {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    font-weight: 600;
+    margin-left: auto;
+}
+
+.contract-status-badge.status-active {
+    background: rgba(76, 175, 80, 0.2);
+    color: var(--accent-green);
+}
+
+.contract-status-badge.status-pending {
+    background: rgba(255, 152, 0, 0.2);
+    color: var(--accent-orange);
+}
+
+.contract-status-badge.status-terminated {
+    background: rgba(244, 67, 54, 0.2);
+    color: var(--accent-red);
+}
+
+.contract-item-parties {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-bottom: 10px;
+}
+
+.contract-party-label {
+    color: var(--text-secondary);
+}
+
+.contract-party-link {
+    color: var(--accent-blue);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.contract-party-link:hover {
+    text-decoration: underline;
+}
+
+.contract-item-details {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+}
+
+@media (max-width: 800px) {
+    .contract-item-details {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.contract-detail {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.contract-detail-label {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+}
+
+.contract-detail-value {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.contract-detail-value.fulfillment-good {
+    color: var(--accent-green);
+}
+
+.contract-detail-value.fulfillment-ok {
+    color: var(--accent-orange);
+}
+
+.contract-detail-value.fulfillment-poor {
+    color: var(--accent-red);
 }
 
 .no-data {

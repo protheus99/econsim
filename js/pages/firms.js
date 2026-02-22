@@ -390,6 +390,9 @@ function showFirmDetail(firmId) {
     document.getElementById('firm-employees-count').textContent = `${firm.totalEmployees || 0} Employees`;
     renderLaborStats(firm);
 
+    // Contracts
+    renderContracts(firm);
+
     // Orders & Bids
     renderBidsAndOrders(firm);
 
@@ -875,6 +878,134 @@ function renderLaborStats(firm) {
             </div>
         </div>
     `;
+}
+
+function renderContracts(firm) {
+    const contractManager = simulation.purchaseManager?.contractManager;
+    const summaryEl = document.getElementById('firm-contracts-summary');
+    const supplierListEl = document.getElementById('firm-contracts-supplier-list');
+    const buyerListEl = document.getElementById('firm-contracts-buyer-list');
+    const countEl = document.getElementById('firm-contracts-count');
+
+    // Check if contract system is available
+    if (!contractManager) {
+        countEl.textContent = '0 Contracts';
+        summaryEl.innerHTML = '<p class="no-data">Contract system not enabled</p>';
+        supplierListEl.innerHTML = '';
+        buyerListEl.innerHTML = '';
+        return;
+    }
+
+    // Get contracts for this firm
+    const contracts = contractManager.getContractsForFirm(firm.id);
+    const asSupplier = contracts.filter(c => c.role === 'supplier');
+    const asBuyer = contracts.filter(c => c.role === 'buyer');
+    const totalContracts = contracts.length;
+
+    // Calculate totals
+    let totalSupplierValue = 0;
+    let totalBuyerValue = 0;
+    asSupplier.forEach(c => { totalSupplierValue += c.contract.totalValue || 0; });
+    asBuyer.forEach(c => { totalBuyerValue += c.contract.totalValue || 0; });
+
+    countEl.textContent = `${totalContracts} Contracts`;
+
+    // Render summary
+    summaryEl.innerHTML = `
+        <div class="contracts-summary-grid">
+            <div class="contracts-summary-stat">
+                <span class="contracts-stat-value">${totalContracts}</span>
+                <span class="contracts-stat-label">Total Contracts</span>
+            </div>
+            <div class="contracts-summary-stat">
+                <span class="contracts-stat-value">${asSupplier.length}</span>
+                <span class="contracts-stat-label">As Supplier</span>
+            </div>
+            <div class="contracts-summary-stat">
+                <span class="contracts-stat-value">${asBuyer.length}</span>
+                <span class="contracts-stat-label">As Buyer</span>
+            </div>
+            <div class="contracts-summary-stat">
+                <span class="contracts-stat-value ${moneyClass(totalSupplierValue)}">${formatCurrencyFull(totalSupplierValue)}</span>
+                <span class="contracts-stat-label">Sales Value</span>
+            </div>
+            <div class="contracts-summary-stat">
+                <span class="contracts-stat-value ${moneyClass(-totalBuyerValue)}">${formatCurrencyFull(totalBuyerValue)}</span>
+                <span class="contracts-stat-label">Purchase Value</span>
+            </div>
+        </div>
+    `;
+
+    // Helper to render a contract item
+    const renderContractItem = (contractInfo, role) => {
+        const contract = contractInfo.contract;
+        const otherPartyId = role === 'supplier' ? contract.buyerId : contract.supplierId;
+        const otherPartyName = role === 'supplier' ? contract.buyerName : contract.supplierName;
+        const otherFirm = simulation.firms.get(otherPartyId);
+        const displayName = otherPartyName || (otherFirm ? getFirmDisplayName(otherFirm) : 'Unknown');
+
+        const statusClass = contract.status === 'active' ? 'status-active' :
+                           contract.status === 'pending' ? 'status-pending' :
+                           contract.status === 'terminated' ? 'status-terminated' : 'status-other';
+
+        const typeLabel = contract.type === 'fixed_volume' ? 'Fixed' :
+                         contract.type === 'min_max' ? 'Flexible' :
+                         contract.type === 'exclusive' ? 'Exclusive' : contract.type;
+
+        const periodLabel = contract.periodType === 'daily' ? '/day' :
+                           contract.periodType === 'weekly' ? '/week' :
+                           contract.periodType === 'monthly' ? '/month' : '';
+
+        const fulfillmentRate = (contract.averageFulfillmentRate * 100).toFixed(0);
+        const fulfillmentClass = fulfillmentRate >= 90 ? 'fulfillment-good' :
+                                fulfillmentRate >= 70 ? 'fulfillment-ok' : 'fulfillment-poor';
+
+        return `
+            <div class="contract-item ${statusClass}">
+                <div class="contract-item-header">
+                    <span class="contract-product">${contract.product}</span>
+                    <span class="contract-type-badge">${typeLabel}</span>
+                    <span class="contract-status-badge ${statusClass}">${contract.status}</span>
+                </div>
+                <div class="contract-item-parties">
+                    <span class="contract-party-label">${role === 'supplier' ? 'Buyer:' : 'Supplier:'}</span>
+                    <a href="firms.html?id=${otherPartyId}" class="contract-party-link">${displayName}</a>
+                </div>
+                <div class="contract-item-details">
+                    <div class="contract-detail">
+                        <span class="contract-detail-label">Volume:</span>
+                        <span class="contract-detail-value">${contract.volumePerPeriod}${periodLabel}</span>
+                    </div>
+                    <div class="contract-detail">
+                        <span class="contract-detail-label">Price:</span>
+                        <span class="contract-detail-value">${formatCurrency(contract.pricePerUnit)}/unit</span>
+                    </div>
+                    <div class="contract-detail">
+                        <span class="contract-detail-label">Fulfillment:</span>
+                        <span class="contract-detail-value ${fulfillmentClass}">${fulfillmentRate}%</span>
+                    </div>
+                    <div class="contract-detail">
+                        <span class="contract-detail-label">Total Value:</span>
+                        <span class="contract-detail-value">${formatCurrencyFull(contract.totalValue || 0)}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    };
+
+    // Render supplier contracts
+    if (asSupplier.length === 0) {
+        supplierListEl.innerHTML = '<p class="no-data">No contracts as supplier</p>';
+    } else {
+        supplierListEl.innerHTML = asSupplier.map(c => renderContractItem(c, 'supplier')).join('');
+    }
+
+    // Render buyer contracts
+    if (asBuyer.length === 0) {
+        buyerListEl.innerHTML = '<p class="no-data">No contracts as buyer</p>';
+    } else {
+        buyerListEl.innerHTML = asBuyer.map(c => renderContractItem(c, 'buyer')).join('');
+    }
 }
 
 function renderBidsAndOrders(firm) {

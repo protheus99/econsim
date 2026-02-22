@@ -200,14 +200,27 @@ function updateTransactionStats() {
     document.getElementById('avg-per-hour').textContent = formatNumber(stats.totalTransactions / Math.max(1, simulation.clock?.totalHours || 1));
     document.getElementById('pending-orders').textContent = simulation.globalMarket?.pendingOrders?.length || 0;
 
-    // Breakdown
-    const b2bRaw = log.b2bTransactions?.filter(t => t.tier === 'RAW_TO_SEMI').length || 0;
-    const b2bSemi = log.b2bTransactions?.filter(t => t.tier === 'SEMI_TO_MANUFACTURED').length || 0;
-    document.getElementById('b2b-raw-count').textContent = b2bRaw;
-    document.getElementById('b2b-semi-count').textContent = b2bSemi;
-    document.getElementById('retail-purchase-count').textContent = stats.totalRetail || 0;
-    document.getElementById('consumer-sale-count').textContent = stats.totalConsumerSales || 0;
-    document.getElementById('global-market-count').textContent = stats.totalGlobalMarket || 0;
+    // Category breakdown using new getSummaryByCategory
+    const categorySummary = log.getSummaryByCategory ? log.getSummaryByCategory() : {};
+
+    // Update each category
+    const categoryElements = [
+        { key: 'B2B_RAW', countId: 'cat-b2b-raw-count', valueId: 'cat-b2b-raw-value' },
+        { key: 'B2B_SEMI', countId: 'cat-b2b-semi-count', valueId: 'cat-b2b-semi-value' },
+        { key: 'B2B_MANUFACTURED', countId: 'cat-b2b-manufactured-count', valueId: 'cat-b2b-manufactured-value' },
+        { key: 'B2B_WHOLESALE', countId: 'cat-b2b-wholesale-count', valueId: 'cat-b2b-wholesale-value' },
+        { key: 'B2C_RETAIL', countId: 'cat-b2c-retail-count', valueId: 'cat-b2c-retail-value' },
+        { key: 'GLOBAL_MARKET', countId: 'cat-global-market-count', valueId: 'cat-global-market-value' },
+        { key: 'CONTRACT', countId: 'cat-contract-count', valueId: 'cat-contract-value' }
+    ];
+
+    categoryElements.forEach(cat => {
+        const data = categorySummary[cat.key] || { count: 0, value: 0 };
+        const countEl = document.getElementById(cat.countId);
+        const valueEl = document.getElementById(cat.valueId);
+        if (countEl) countEl.textContent = formatNumber(data.count);
+        if (valueEl) valueEl.textContent = formatCurrency(data.value);
+    });
 }
 
 function renderBiddingOrders() {
@@ -427,14 +440,48 @@ function renderCompletedOrders() {
     });
 }
 
+// Helper to get category display info
+function getCategoryDisplay(category) {
+    const displays = {
+        'B2B_RAW': { label: 'Raw', icon: '⛏️', colorClass: 'tx-b2b-raw' },
+        'B2B_SEMI': { label: 'Semi', icon: '⚙️', colorClass: 'tx-b2b-semi' },
+        'B2B_MANUFACTURED': { label: 'Mfg', icon: '🏭', colorClass: 'tx-b2b-manufactured' },
+        'B2B_WHOLESALE': { label: 'Wholesale', icon: '📦', colorClass: 'tx-b2b-wholesale' },
+        'B2C_RETAIL': { label: 'Retail', icon: '🛒', colorClass: 'tx-b2c-retail' },
+        'GLOBAL_MARKET': { label: 'Global', icon: '🌐', colorClass: 'tx-global-market' },
+        'CONTRACT': { label: 'Contract', icon: '📝', colorClass: 'tx-contract' }
+    };
+    return displays[category] || { label: category || 'Unknown', icon: '💰', colorClass: 'tx-other' };
+}
+
+// Categorize a transaction for filtering
+function categorizeTransaction(t) {
+    if (t.category) return t.category;
+
+    // Use TransactionLog categorize if available
+    if (simulation.transactionLog?.categorize) {
+        return simulation.transactionLog.categorize(t);
+    }
+
+    // Fallback categorization
+    if (t.type === 'GLOBAL_MARKET' || t.type === 'GLOBAL_MARKET_SALE') return 'GLOBAL_MARKET';
+    if (t.contractId) return 'CONTRACT';
+    if (t.type === 'CONSUMER_SALE' || t.type === 'RETAIL_SALE') return 'B2C_RETAIL';
+    if (t.type === 'RETAIL_PURCHASE') return 'B2B_WHOLESALE';
+    if (t.tier === 'RAW_TO_SEMI') return 'B2B_RAW';
+    if (t.tier === 'SEMI_TO_MANUFACTURED') return 'B2B_SEMI';
+    return 'B2B_RAW';
+}
+
 function renderTransactions() {
     const tbody = document.getElementById('transactions-tbody');
     if (!tbody) return;
 
     let transactions = simulation.transactionLog?.transactions || [];
 
+    // Filter by category (updated from type)
     if (typeFilter !== 'all') {
-        transactions = transactions.filter(t => t.type === typeFilter);
+        transactions = transactions.filter(t => categorizeTransaction(t) === typeFilter);
     }
 
     if (cityFilter !== 'all') {
@@ -446,9 +493,11 @@ function renderTransactions() {
     if (searchTerm) {
         transactions = transactions.filter(t =>
             t.material?.toLowerCase().includes(searchTerm) ||
+            t.product?.toLowerCase().includes(searchTerm) ||
             t.seller?.name?.toLowerCase().includes(searchTerm) ||
             t.buyer?.name?.toLowerCase().includes(searchTerm) ||
-            String(t.orderId || '').toLowerCase().includes(searchTerm)
+            String(t.orderId || '').toLowerCase().includes(searchTerm) ||
+            String(t.contractId || '').toLowerCase().includes(searchTerm)
         );
     }
 
@@ -466,21 +515,40 @@ function renderTransactions() {
         const buyerFirm = buyerId ? simulation.firms.get(buyerId) : null;
         const buyerDisplay = buyerFirm ? getShortFirmName(buyerId) : (t.buyer?.name || 'Consumer');
 
+        // Get category info
+        const category = categorizeTransaction(t);
+        const catDisplay = getCategoryDisplay(category);
+
+        // Lot info badge
+        const lotInfo = t.lotId || t.lotQuality
+            ? `<span class="lot-badge-sm" title="Lot: ${t.lotId || 'N/A'}, Quality: ${t.lotQuality ? (t.lotQuality * 100).toFixed(0) + '%' : 'N/A'}">LOT</span>`
+            : '';
+
+        // Contract info badge
+        const contractInfo = t.contractId
+            ? `<span class="contract-badge-sm" title="Contract: ${t.contractId}">📝</span>`
+            : '';
+
         // Order info if available
         const orderInfo = t.orderId ? `<span class="order-id-badge" title="Order ID: ${t.orderId}">📦</span>` : '';
 
+        // Quality display
+        const qualityDisplay = t.lotQuality
+            ? `<span class="quality-indicator quality-${t.lotQuality >= 0.8 ? 'high' : t.lotQuality >= 0.5 ? 'medium' : 'low'}">${(t.lotQuality * 100).toFixed(0)}%</span>`
+            : '';
+
         return `
-            <tr class="${t.type === 'GLOBAL_MARKET' ? 'global-market-row' : ''}">
+            <tr class="${catDisplay.colorClass}-row">
                 <td>${t.gameTime || new Date(t.timestamp).toLocaleTimeString()}</td>
-                <td><span class="type-badge ${t.type?.toLowerCase()}">${t.type}</span></td>
+                <td><span class="category-badge ${catDisplay.colorClass}">${catDisplay.icon} ${catDisplay.label}</span></td>
                 <td>
                     ${sellerFirm ? `<a href="#" class="firm-link" data-firm-id="${sellerId}">${sellerDisplay}</a>` : sellerDisplay}
                 </td>
                 <td>
                     ${buyerFirm ? `<a href="#" class="firm-link" data-firm-id="${buyerId}">${buyerDisplay}</a>` : buyerDisplay}
                 </td>
-                <td>${t.material || t.productName || '-'} ${orderInfo}</td>
-                <td>${t.quantity || '-'}</td>
+                <td>${t.material || t.product || '-'} ${lotInfo}${contractInfo}${orderInfo}</td>
+                <td>${t.quantity || '-'}${qualityDisplay}</td>
                 <td>${formatCurrency(t.unitPrice || 0)}</td>
                 <td>${formatCurrency(t.totalCost || t.totalRevenue || 0)}</td>
                 <td><span class="status-badge ${t.status?.toLowerCase()}">${t.status || 'Completed'}</span></td>

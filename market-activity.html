@@ -247,31 +247,53 @@
             </div>
         </section>
 
-        <!-- Transaction Breakdown -->
+        <!-- Transaction Breakdown by Category -->
         <section class="card full-width">
             <div class="card-header">
                 <div class="card-title">Transaction Breakdown</div>
             </div>
             <div class="transaction-breakdown" id="transaction-breakdown">
-                <div class="breakdown-item">
-                    <span class="breakdown-type b2b">B2B (Raw to Semi)</span>
-                    <span class="breakdown-count" id="b2b-raw-count">0</span>
+                <div class="breakdown-item tx-b2b-raw">
+                    <span class="breakdown-icon">&#x26CF;&#xFE0F;</span>
+                    <span class="breakdown-type">Raw Materials</span>
+                    <span class="breakdown-count" id="cat-b2b-raw-count">0</span>
+                    <span class="breakdown-value" id="cat-b2b-raw-value">$0</span>
                 </div>
-                <div class="breakdown-item">
-                    <span class="breakdown-type b2b">B2B (Semi to Mfg)</span>
-                    <span class="breakdown-count" id="b2b-semi-count">0</span>
+                <div class="breakdown-item tx-b2b-semi">
+                    <span class="breakdown-icon">&#x2699;&#xFE0F;</span>
+                    <span class="breakdown-type">Semi-Processed</span>
+                    <span class="breakdown-count" id="cat-b2b-semi-count">0</span>
+                    <span class="breakdown-value" id="cat-b2b-semi-value">$0</span>
                 </div>
-                <div class="breakdown-item">
-                    <span class="breakdown-type retail">Retail Purchases</span>
-                    <span class="breakdown-count" id="retail-purchase-count">0</span>
+                <div class="breakdown-item tx-b2b-manufactured">
+                    <span class="breakdown-icon">&#x1F3ED;</span>
+                    <span class="breakdown-type">Manufactured</span>
+                    <span class="breakdown-count" id="cat-b2b-manufactured-count">0</span>
+                    <span class="breakdown-value" id="cat-b2b-manufactured-value">$0</span>
                 </div>
-                <div class="breakdown-item">
-                    <span class="breakdown-type consumer">Consumer Sales</span>
-                    <span class="breakdown-count" id="consumer-sale-count">0</span>
+                <div class="breakdown-item tx-b2b-wholesale">
+                    <span class="breakdown-icon">&#x1F4E6;</span>
+                    <span class="breakdown-type">Wholesale</span>
+                    <span class="breakdown-count" id="cat-b2b-wholesale-count">0</span>
+                    <span class="breakdown-value" id="cat-b2b-wholesale-value">$0</span>
                 </div>
-                <div class="breakdown-item">
-                    <span class="breakdown-type global">Global Market</span>
-                    <span class="breakdown-count" id="global-market-count">0</span>
+                <div class="breakdown-item tx-b2c-retail">
+                    <span class="breakdown-icon">&#x1F6D2;</span>
+                    <span class="breakdown-type">Retail Sales</span>
+                    <span class="breakdown-count" id="cat-b2c-retail-count">0</span>
+                    <span class="breakdown-value" id="cat-b2c-retail-value">$0</span>
+                </div>
+                <div class="breakdown-item tx-global-market">
+                    <span class="breakdown-icon">&#x1F310;</span>
+                    <span class="breakdown-type">Global Market</span>
+                    <span class="breakdown-count" id="cat-global-market-count">0</span>
+                    <span class="breakdown-value" id="cat-global-market-value">$0</span>
+                </div>
+                <div class="breakdown-item tx-contract">
+                    <span class="breakdown-icon">&#x1F4DD;</span>
+                    <span class="breakdown-type">Contract</span>
+                    <span class="breakdown-count" id="cat-contract-count">0</span>
+                    <span class="breakdown-value" id="cat-contract-value">$0</span>
                 </div>
             </div>
         </section>
@@ -285,10 +307,19 @@
             <div class="transaction-controls">
                 <select id="transaction-type-filter">
                     <option value="all">All Transactions</option>
-                    <option value="B2B">B2B Transactions</option>
-                    <option value="RETAIL_PURCHASE">Retail Purchases</option>
-                    <option value="CONSUMER_SALE">Consumer Sales</option>
-                    <option value="GLOBAL_MARKET">Global Market Orders</option>
+                    <optgroup label="B2B Transactions">
+                        <option value="B2B_RAW">Raw Materials</option>
+                        <option value="B2B_SEMI">Semi-Processed</option>
+                        <option value="B2B_MANUFACTURED">Manufactured</option>
+                        <option value="B2B_WHOLESALE">Wholesale</option>
+                    </optgroup>
+                    <optgroup label="Consumer Transactions">
+                        <option value="B2C_RETAIL">Retail Sales</option>
+                    </optgroup>
+                    <optgroup label="Other">
+                        <option value="GLOBAL_MARKET">Global Market</option>
+                        <option value="CONTRACT">Contract-Based</option>
+                    </optgroup>
                 </select>
                 <select id="transaction-city-filter">
                     <option value="all">All Cities</option>

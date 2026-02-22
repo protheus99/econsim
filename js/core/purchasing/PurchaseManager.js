@@ -517,10 +517,13 @@ export class PurchaseManager {
             return this.engine.firmManager.getManufacturers();
         }
 
-        // Fallback: filter from all firms
-        const allFirms = this.engine.firms || [];
+        // Fallback: filter from all firms (firms is a Map)
+        const allFirms = this.engine.firms
+            ? Array.from(this.engine.firms.values())
+            : [];
         return allFirms.filter(f =>
             f.type === 'ManufacturingPlant' ||
+            f.type === 'MANUFACTURING' ||
             f.type === 'SteelMill' ||
             f.type === 'Refinery' ||
             f.type === 'TextileMill' ||
@@ -537,9 +540,13 @@ export class PurchaseManager {
             return this.engine.firmManager.getRetailers();
         }
 
-        const allFirms = this.engine.firms || [];
+        // Fallback: filter from all firms (firms is a Map)
+        const allFirms = this.engine.firms
+            ? Array.from(this.engine.firms.values())
+            : [];
         return allFirms.filter(f =>
             f.type === 'RetailStore' ||
+            f.type === 'RETAIL' ||
             f.type === 'Supermarket' ||
             f.type === 'FashionRetail' ||
             f.type === 'ElectronicsStore'

@@ -1,5 +1,28 @@
 // js/core/TransactionLog.js
 export class TransactionLog {
+    // Transaction categories for B2B vs B2C display
+    static CATEGORIES = {
+        B2B_RAW: 'B2B_RAW',           // Primary producers (mines, farms, logging) → processors
+        B2B_SEMI: 'B2B_SEMI',         // Processors → manufacturers
+        B2B_MANUFACTURED: 'B2B_MANUFACTURED',  // Manufacturers → manufacturers
+        B2B_WHOLESALE: 'B2B_WHOLESALE',        // Manufacturers → retailers
+        B2C_RETAIL: 'B2C_RETAIL',     // Retailers → consumers
+        GLOBAL_MARKET: 'GLOBAL_MARKET',        // Global market transactions
+        CONTRACT: 'CONTRACT'           // Contract-based transactions
+    };
+
+    // Seller types that indicate raw material production
+    static RAW_PRODUCER_TYPES = ['MINING', 'Mine', 'LOGGING', 'LoggingCamp', 'FARM', 'Farm', 'OilWell'];
+
+    // Seller types that indicate semi-raw production
+    static SEMI_PRODUCER_TYPES = ['SteelMill', 'Refinery', 'TextileMill', 'FoodProcessor', 'Processor'];
+
+    // Seller types that indicate manufacturing
+    static MANUFACTURER_TYPES = ['MANUFACTURING', 'ManufacturingPlant', 'Factory'];
+
+    // Buyer types that indicate retail
+    static RETAILER_TYPES = ['RETAIL', 'RetailStore', 'Supermarket', 'FashionRetail', 'ElectronicsStore'];
+
     constructor(maxEntries = 1000) {
         this.maxEntries = maxEntries;
         this.clock = null; // Reference to game clock for timestamps
@@ -65,6 +88,208 @@ export class TransactionLog {
         }
         // Fallback for objects without the method
         return firm.name || `${firm.type || 'Unknown'} #${(firm.id || '').toString().slice(-6)}`;
+    }
+
+    /**
+     * Categorize a transaction based on seller/buyer types
+     * @param {object} tx - Transaction with sellerType and buyerType
+     * @returns {string} Category from CATEGORIES
+     */
+    categorize(tx) {
+        // Global market transactions
+        if (tx.type === 'GLOBAL_MARKET' || tx.type === 'GLOBAL_MARKET_SALE') {
+            return TransactionLog.CATEGORIES.GLOBAL_MARKET;
+        }
+
+        // Contract-based transactions
+        if (tx.contractId) {
+            return TransactionLog.CATEGORIES.CONTRACT;
+        }
+
+        // Consumer sales (B2C)
+        if (tx.buyerType === 'CONSUMERS' || tx.buyerType === 'Consumer' || tx.type === 'CONSUMER_SALE') {
+            return TransactionLog.CATEGORIES.B2C_RETAIL;
+        }
+
+        const sellerType = tx.sellerType || tx.seller?.type;
+        const buyerType = tx.buyerType || tx.buyer?.type;
+
+        // Raw material producers selling
+        if (TransactionLog.RAW_PRODUCER_TYPES.includes(sellerType)) {
+            return TransactionLog.CATEGORIES.B2B_RAW;
+        }
+
+        // Semi-raw producers selling
+        if (TransactionLog.SEMI_PRODUCER_TYPES.includes(sellerType)) {
+            return TransactionLog.CATEGORIES.B2B_SEMI;
+        }
+
+        // Manufacturers selling to retailers
+        if (TransactionLog.MANUFACTURER_TYPES.includes(sellerType) &&
+            TransactionLog.RETAILER_TYPES.includes(buyerType)) {
+            return TransactionLog.CATEGORIES.B2B_WHOLESALE;
+        }
+
+        // Manufacturers selling to other manufacturers
+        if (TransactionLog.MANUFACTURER_TYPES.includes(sellerType)) {
+            return TransactionLog.CATEGORIES.B2B_MANUFACTURED;
+        }
+
+        // Default to B2B if we can't determine
+        return TransactionLog.CATEGORIES.B2B_RAW;
+    }
+
+    /**
+     * Log a B2B sale with full details including lot and contract info
+     * @param {Firm} seller - Selling firm
+     * @param {Firm} buyer - Buying firm
+     * @param {string} product - Product name
+     * @param {number} quantity - Quantity sold
+     * @param {number} unitPrice - Price per unit
+     * @param {object} options - Optional: { lotInfo, contractId, quality }
+     * @returns {object} Transaction record
+     */
+    logB2BSale(seller, buyer, product, quantity, unitPrice, options = {}) {
+        const totalCost = quantity * unitPrice;
+
+        const transaction = {
+            id: this.generateId('B2B'),
+            type: 'B2B_SALE',
+            timestamp: Date.now(),
+            gameTime: this.getGameTimeString(),
+            seller: {
+                id: seller.id,
+                name: this.getFirmDisplayName(seller),
+                type: seller.type,
+                city: seller.city?.name || 'Unknown',
+                corporationId: seller.corporationId
+            },
+            buyer: {
+                id: buyer.id,
+                name: this.getFirmDisplayName(buyer),
+                type: buyer.type,
+                city: buyer.city?.name || 'Unknown',
+                corporationId: buyer.corporationId
+            },
+            sellerType: seller.type,
+            buyerType: buyer.type,
+            material: product,
+            product: product,
+            quantity: quantity,
+            unitPrice: unitPrice,
+            totalCost: totalCost,
+            status: 'COMPLETED',
+            // Lot information
+            lotId: options.lotInfo?.id || options.lotId || null,
+            lotQuality: options.lotInfo?.quality || options.quality || null,
+            lotExpiration: options.lotInfo?.expiration || null,
+            // Contract information
+            contractId: options.contractId || null
+        };
+
+        // Set category
+        transaction.category = this.categorize(transaction);
+
+        // Determine tier for backward compatibility
+        if (transaction.category === TransactionLog.CATEGORIES.B2B_RAW) {
+            transaction.tier = 'RAW_TO_SEMI';
+        } else if (transaction.category === TransactionLog.CATEGORIES.B2B_SEMI) {
+            transaction.tier = 'SEMI_TO_MANUFACTURED';
+        }
+
+        this.addTransaction(transaction, 'b2b');
+        return transaction;
+    }
+
+    /**
+     * Log a retail sale (to consumers) with lot info
+     * @param {Firm} retailer - Retail store
+     * @param {string} product - Product name
+     * @param {number} quantity - Quantity sold
+     * @param {number} unitPrice - Price per unit
+     * @param {object} options - Optional: { cityName, lotInfo, quality }
+     * @returns {object} Transaction record
+     */
+    logRetailSale(retailer, product, quantity, unitPrice, options = {}) {
+        const totalRevenue = quantity * unitPrice;
+        const cityName = options.cityName || retailer.city?.name || 'Unknown';
+
+        const transaction = {
+            id: this.generateId('RET'),
+            type: 'RETAIL_SALE',
+            timestamp: Date.now(),
+            gameTime: this.getGameTimeString(),
+            seller: {
+                id: retailer.id,
+                name: this.getFirmDisplayName(retailer),
+                type: retailer.type,
+                city: cityName,
+                storeType: retailer.storeType
+            },
+            buyer: {
+                type: 'CONSUMERS',
+                city: cityName,
+                segment: 'General Public'
+            },
+            sellerType: retailer.type,
+            buyerType: 'Consumer',
+            material: product,
+            product: product,
+            quantity: quantity,
+            unitPrice: unitPrice,
+            totalRevenue: totalRevenue,
+            totalCost: totalRevenue,
+            status: 'COMPLETED',
+            category: TransactionLog.CATEGORIES.B2C_RETAIL,
+            // Lot information
+            lotId: options.lotInfo?.id || null,
+            lotQuality: options.lotInfo?.quality || options.quality || null
+        };
+
+        this.addTransaction(transaction, 'consumer');
+        return transaction;
+    }
+
+    /**
+     * Log a global market purchase
+     * @param {Firm} buyer - Buying firm
+     * @param {string} product - Product name
+     * @param {number} quantity - Quantity
+     * @param {number} unitPrice - Price per unit
+     * @returns {object} Transaction record
+     */
+    logGlobalMarketPurchase(buyer, product, quantity, unitPrice) {
+        const totalCost = quantity * unitPrice;
+
+        const transaction = {
+            id: this.generateId('GMP'),
+            type: 'GLOBAL_MARKET',
+            timestamp: Date.now(),
+            gameTime: this.getGameTimeString(),
+            seller: {
+                type: 'GLOBAL_MARKET',
+                name: 'Global Market',
+                region: 'International'
+            },
+            buyer: {
+                id: buyer?.id || 'unknown',
+                name: this.getFirmDisplayName(buyer),
+                type: buyer?.type || 'Unknown',
+                city: buyer?.city?.name || 'Unknown'
+            },
+            sellerType: 'GlobalMarket',
+            buyerType: buyer?.type,
+            material: product,
+            product: product,
+            quantity: quantity,
+            unitPrice: unitPrice,
+            totalCost: totalCost,
+            status: 'COMPLETED',
+            category: TransactionLog.CATEGORIES.GLOBAL_MARKET
+        };
+
+        this.addTransaction(transaction, 'globalMarket');
+        return transaction;
     }
 
     // Log a B2B transaction (primary producer to manufacturer or manufacturer to manufacturer)
@@ -480,6 +705,125 @@ export class TransactionLog {
                 valuePerHour: avgHourlyValue.toFixed(2)
             },
             pendingGlobalOrders: this.getPendingGlobalOrders().length
+        };
+    }
+
+    /**
+     * Get transactions by category
+     * @param {string} category - Category from CATEGORIES
+     * @param {number} limit - Maximum number to return
+     * @returns {Array} Transactions matching the category
+     */
+    getByCategory(category, limit = 100) {
+        return this.transactions
+            .filter(tx => {
+                // If transaction has category set, use it
+                if (tx.category) {
+                    return tx.category === category;
+                }
+                // Otherwise, compute the category
+                return this.categorize(tx) === category;
+            })
+            .slice(-limit)
+            .reverse();
+    }
+
+    /**
+     * Get transactions for a firm within a time window
+     * @param {string} firmId - Firm ID
+     * @param {number} hours - Hours to look back (default 24)
+     * @returns {Array} Transactions involving the firm
+     */
+    getForFirm(firmId, hours = 24) {
+        const cutoff = Date.now() - (hours * 60 * 60 * 1000);
+        return this.transactions.filter(tx =>
+            (tx.seller?.id === firmId || tx.buyer?.id === firmId) &&
+            tx.timestamp >= cutoff
+        );
+    }
+
+    /**
+     * Get summary statistics broken down by category
+     * @returns {object} Summary with counts and values per category
+     */
+    getSummaryByCategory() {
+        const summary = {};
+
+        // Initialize all categories
+        for (const cat of Object.values(TransactionLog.CATEGORIES)) {
+            summary[cat] = { count: 0, volume: 0, value: 0 };
+        }
+
+        // Aggregate transactions
+        for (const tx of this.transactions) {
+            const cat = tx.category || this.categorize(tx);
+            if (!summary[cat]) {
+                summary[cat] = { count: 0, volume: 0, value: 0 };
+            }
+            summary[cat].count++;
+            summary[cat].volume += tx.quantity || 0;
+            summary[cat].value += tx.totalCost || tx.totalRevenue || 0;
+        }
+
+        return summary;
+    }
+
+    /**
+     * Get category display info (label, icon, color class)
+     * @param {string} category - Category from CATEGORIES
+     * @returns {object} Display info
+     */
+    static getCategoryDisplay(category) {
+        const displays = {
+            [TransactionLog.CATEGORIES.B2B_RAW]: {
+                label: 'Raw Materials',
+                shortLabel: 'Raw',
+                icon: '⛏️',
+                colorClass: 'tx-b2b-raw'
+            },
+            [TransactionLog.CATEGORIES.B2B_SEMI]: {
+                label: 'Semi-Processed',
+                shortLabel: 'Semi',
+                icon: '⚙️',
+                colorClass: 'tx-b2b-semi'
+            },
+            [TransactionLog.CATEGORIES.B2B_MANUFACTURED]: {
+                label: 'Manufactured',
+                shortLabel: 'Mfg',
+                icon: '�icing',
+                colorClass: 'tx-b2b-manufactured'
+            },
+            [TransactionLog.CATEGORIES.B2B_WHOLESALE]: {
+                label: 'Wholesale',
+                shortLabel: 'Wholesale',
+                icon: '📦',
+                colorClass: 'tx-b2b-wholesale'
+            },
+            [TransactionLog.CATEGORIES.B2C_RETAIL]: {
+                label: 'Retail Sales',
+                shortLabel: 'Retail',
+                icon: '🛒',
+                colorClass: 'tx-b2c-retail'
+            },
+            [TransactionLog.CATEGORIES.GLOBAL_MARKET]: {
+                label: 'Global Market',
+                shortLabel: 'Global',
+                icon: '🌐',
+                colorClass: 'tx-global-market'
+            },
+            [TransactionLog.CATEGORIES.CONTRACT]: {
+                label: 'Contract',
+                shortLabel: 'Contract',
+                icon: '📝',
+                colorClass: 'tx-contract'
+            }
+        };
+
+        return displays[category] || {
+            label: category,
+            shortLabel: category,
+            icon: '💰',
+            colorClass: 'tx-other'
         };
     }
 }
