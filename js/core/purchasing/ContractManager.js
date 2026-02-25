@@ -270,11 +270,11 @@ export class ContractManager {
      * Get supplier's available inventory for a product
      */
     getSupplierInventory(supplier, productName) {
-        // Lot-based inventory
+        // Lot-based inventory (use getAvailableQuantity)
         if (supplier.lotInventory) {
-            const lots = supplier.lotInventory.getLots(productName);
-            if (lots && lots.length > 0) {
-                return lots.reduce((sum, lot) => sum + lot.quantity, 0);
+            const quantity = supplier.lotInventory.getAvailableQuantity(productName);
+            if (quantity > 0) {
+                return quantity;
             }
         }
 
@@ -290,27 +290,19 @@ export class ContractManager {
      */
     getDeliveryQuality(supplier, productName, quantity) {
         if (supplier.lotInventory) {
-            const lots = supplier.lotInventory.getLots(productName);
-            if (lots && lots.length > 0) {
-                // Calculate weighted average quality
-                let totalQuality = 0;
-                let totalQty = 0;
-                let remaining = quantity;
-
-                for (const lot of lots) {
-                    const qty = Math.min(lot.quantity, remaining);
-                    totalQuality += lot.quality * qty;
-                    totalQty += qty;
-                    remaining -= qty;
-                    if (remaining <= 0) break;
-                }
-
-                return totalQty > 0 ? totalQuality / totalQty : 1.0;
+            // Use getAvailableLots if available, otherwise estimate from quality property
+            const availableQty = supplier.lotInventory.getAvailableQuantity(productName);
+            if (availableQty > 0) {
+                // Get quality from lot inventory's average or default
+                const avgQuality = supplier.lotInventory.getAverageQuality?.(productName) ||
+                                   supplier.inventory?.quality ||
+                                   1.0;
+                return avgQuality;
             }
         }
 
         // Default quality
-        return 1.0;
+        return supplier.inventory?.quality || 1.0;
     }
 
     /**
@@ -492,6 +484,116 @@ export class ContractManager {
         if (set) {
             set.delete(contractId);
         }
+    }
+
+    /**
+     * Get total contracted demand for a supplier's product
+     * Returns the sum of volume obligations across all active contracts
+     * @param {string} supplierId - The supplier's ID
+     * @param {string} productName - The product name
+     * @returns {object} { dailyDemand, weeklyDemand, hasContracts }
+     */
+    getContractedDemandForSupplier(supplierId, productName) {
+        const contracts = this.getActiveContractsForSupplier(supplierId, productName);
+
+        let dailyDemand = 0;
+        let weeklyDemand = 0;
+
+        for (const contract of contracts) {
+            const volume = contract.volumePerPeriod || contract.maxVolume || 0;
+
+            switch (contract.periodType) {
+                case Contract.PERIODS.DAILY:
+                    dailyDemand += volume;
+                    weeklyDemand += volume * 7;
+                    break;
+                case Contract.PERIODS.WEEKLY:
+                    dailyDemand += volume / 7;
+                    weeklyDemand += volume;
+                    break;
+                case Contract.PERIODS.MONTHLY:
+                    dailyDemand += volume / 30;
+                    weeklyDemand += volume / 4;
+                    break;
+            }
+        }
+
+        return {
+            dailyDemand,
+            weeklyDemand,
+            hasContracts: contracts.length > 0,
+            contractCount: contracts.length
+        };
+    }
+
+    /**
+     * Check if a supplier should throttle production based on contract coverage
+     * @param {Firm} supplier - The supplying firm
+     * @param {string} productName - The product being produced
+     * @param {number} currentInventory - Current available inventory
+     * @param {boolean} isPerishable - Whether the product is perishable
+     * @param {number} shelfLifeDays - Shelf life in days (if perishable)
+     * @returns {object} { shouldThrottle, reason, throttlePercent }
+     */
+    shouldThrottleProduction(supplier, productName, currentInventory, isPerishable = false, shelfLifeDays = 30) {
+        const demand = this.getContractedDemandForSupplier(supplier.id, productName);
+
+        // If no contracts exist
+        if (!demand.hasContracts) {
+            // For perishables without contracts, throttle heavily
+            if (isPerishable) {
+                // Allow minimal production (1 day buffer) for spot market
+                const spotBuffer = demand.dailyDemand || (currentInventory * 0.1);
+                if (currentInventory > spotBuffer) {
+                    return {
+                        shouldThrottle: true,
+                        reason: 'NO_CONTRACTS_PERISHABLE',
+                        throttlePercent: 90,  // Reduce production by 90%
+                        message: `No contracts for perishable ${productName}, inventory ${currentInventory} exceeds spot buffer ${spotBuffer.toFixed(0)}`
+                    };
+                }
+            }
+            // Non-perishables: still warn but allow limited production
+            if (currentInventory > 1000) {
+                return {
+                    shouldThrottle: true,
+                    reason: 'NO_CONTRACTS_HIGH_INVENTORY',
+                    throttlePercent: 50,
+                    message: `No contracts for ${productName}, high inventory ${currentInventory}`
+                };
+            }
+            return { shouldThrottle: false, reason: 'SPOT_MARKET_OK', throttlePercent: 0 };
+        }
+
+        // With contracts: calculate coverage
+        const daysOfInventory = demand.dailyDemand > 0 ? currentInventory / demand.dailyDemand : 999;
+
+        // For perishables, don't produce more than can be sold before expiration
+        if (isPerishable) {
+            const maxBufferDays = Math.min(shelfLifeDays * 0.7, 5);  // 70% of shelf life or 5 days max
+            if (daysOfInventory > maxBufferDays) {
+                const excessPercent = Math.min(90, ((daysOfInventory - maxBufferDays) / maxBufferDays) * 100);
+                return {
+                    shouldThrottle: true,
+                    reason: 'PERISHABLE_EXCESS',
+                    throttlePercent: excessPercent,
+                    message: `${daysOfInventory.toFixed(1)} days of ${productName} exceeds safe buffer of ${maxBufferDays} days`
+                };
+            }
+        }
+
+        // For non-perishables, use 7-day buffer
+        if (daysOfInventory > 7) {
+            const excessPercent = Math.min(75, ((daysOfInventory - 7) / 7) * 50);
+            return {
+                shouldThrottle: true,
+                reason: 'HIGH_INVENTORY',
+                throttlePercent: excessPercent,
+                message: `${daysOfInventory.toFixed(1)} days of inventory exceeds 7-day target`
+            };
+        }
+
+        return { shouldThrottle: false, reason: 'INVENTORY_OK', throttlePercent: 0 };
     }
 
     /**

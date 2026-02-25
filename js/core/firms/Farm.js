@@ -313,11 +313,39 @@ export class Farm extends Firm {
 
         this.currentMaturity += maturityPerHour;
 
+        // Check contract-based production throttling to prevent expiration losses
+        let throttleMultiplier = 1.0;
+        if (this.contractManager) {
+            const productName = this.livestockType;
+            const currentInventory = this.getAvailableQuantity();
+            const perishable = isPerishable(productName);
+            const shelfLife = perishable ? getShelfLife(productName) : 30;
+
+            const throttleCheck = this.contractManager.shouldThrottleProduction(
+                this, productName, currentInventory, perishable, shelfLife
+            );
+
+            if (throttleCheck.shouldThrottle) {
+                throttleMultiplier = 1 - (throttleCheck.throttlePercent / 100);
+                if (throttleMultiplier <= 0.05) {
+                    // Production fully throttled
+                    this.actualProductionRate = 0;
+                    return {
+                        produced: false,
+                        reason: 'THROTTLED_' + throttleCheck.reason,
+                        message: throttleCheck.message,
+                        resource: this.livestockType,
+                        quantity: 0
+                    };
+                }
+            }
+        }
+
         // Continuous production: use product's baseProductionRate from registry
         // Modified by technology level and efficiency
         const technologyBonus = this.technologyLevel * 0.05;
         const efficiencyFactor = this.efficiency || 1.0;
-        const hourlyOutput = this.baseProductionRate * (1 + technologyBonus) * efficiencyFactor;
+        const hourlyOutput = this.baseProductionRate * (1 + technologyBonus) * efficiencyFactor * throttleMultiplier;
 
         // Track actual production rate
         this.actualProductionRate = hourlyOutput;

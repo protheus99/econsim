@@ -244,6 +244,9 @@ export class SimulationEngine {
         // Give GlobalMarket reference to transportation network for distance-based costs
         this.globalMarket.setTransportation(this.cityManager.transportation, this.countries);
 
+        // Wire up ContractManager to firms for production throttling
+        this.wireContractManagerToFirms();
+
         // Initialize statistics before first render
         this.updateStatistics();
 
@@ -707,15 +710,39 @@ export class SimulationEngine {
     weightedRandomChoice(items, weights) {
         const total = weights.reduce((sum, w) => sum + w, 0);
         let random = this.random() * total;
-        
+
         for (let i = 0; i < items.length; i++) {
             random -= weights[i];
             if (random <= 0) {
                 return items[i];
             }
         }
-        
+
         return items[0];
+    }
+
+    /**
+     * Wire up ContractManager to all producer firms for production throttling
+     * This prevents overproduction when contracts don't exist
+     */
+    wireContractManagerToFirms() {
+        if (!this.purchaseManager?.contractManager) {
+            console.warn('ContractManager not available, skipping firm wiring');
+            return;
+        }
+
+        const contractManager = this.purchaseManager.contractManager;
+        let wiredCount = 0;
+
+        this.firms.forEach(firm => {
+            // Only producers need contract-based throttling (farms, manufacturers)
+            if (firm.firmType === 'FARM' || firm.firmType === 'MANUFACTURING') {
+                firm.contractManager = contractManager;
+                wiredCount++;
+            }
+        });
+
+        console.log(`✅ Wired ContractManager to ${wiredCount} producer firms for throttling`);
     }
 
     setupIntervals() {

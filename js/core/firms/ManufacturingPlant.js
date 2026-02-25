@@ -416,6 +416,34 @@ export class ManufacturingPlant extends Firm {
             };
         }
 
+        // Check contract-based production throttling to prevent expiration losses
+        let throttleMultiplier = 1.0;
+        if (this.contractManager) {
+            const productName = this.product?.name || this.productType;
+            const currentInventory = this.getAvailableQuantity();
+            const perishable = isPerishable(productName);
+            const shelfLife = perishable ? getShelfLife(productName) : 30;
+
+            const throttleCheck = this.contractManager.shouldThrottleProduction(
+                this, productName, currentInventory, perishable, shelfLife
+            );
+
+            if (throttleCheck.shouldThrottle) {
+                throttleMultiplier = 1 - (throttleCheck.throttlePercent / 100);
+                if (throttleMultiplier <= 0.05) {
+                    // Production fully throttled - don't consume materials
+                    this.actualProductionRate = 0;
+                    return {
+                        produced: false,
+                        reason: 'THROTTLED_' + throttleCheck.reason,
+                        message: throttleCheck.message,
+                        product: this.productType,
+                        quantity: 0
+                    };
+                }
+            }
+        }
+
         // Account for downtime
         if (Math.random() < this.downtimePercentage) {
             this.actualProductionRate = 0;
@@ -425,7 +453,7 @@ export class ManufacturingPlant extends Firm {
             };
         }
 
-        // Calculate production
+        // Calculate production (with throttle applied)
         const techBonus = (this.technologyLevel - this.product.technologyRequired) * 0.1;
         const efficiencyFactor = this.productionEfficiency;
         const workerSkillBonus = this.laborStructure.productionWorkers.count / 100;
@@ -433,7 +461,8 @@ export class ManufacturingPlant extends Firm {
         const actualOutput = this.productionLine.outputPerHour *
                             (1 + techBonus) *
                             efficiencyFactor *
-                            (1 + workerSkillBonus);
+                            (1 + workerSkillBonus) *
+                            throttleMultiplier;
 
         // Consume materials
         this.consumeRawMaterials(actualOutput / this.productionLine.outputPerHour);
