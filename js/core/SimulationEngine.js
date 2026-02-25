@@ -2193,17 +2193,41 @@ export class SimulationEngine {
     processLocalDeliveries() {
         const currentHour = this.clock.totalHours;
         const delivered = [];
+        const failed = [];
 
         this.pendingLocalDeliveries = this.pendingLocalDeliveries.filter(delivery => {
+            // Check for stuck deliveries (NaN or invalid deliveryHour)
+            if (isNaN(delivery.deliveryHour) || delivery.deliveryHour === undefined) {
+                console.error(`Stuck delivery detected: invalid deliveryHour`, delivery.id);
+                delivery.status = 'FAILED';
+                delivery.failureReason = 'INVALID_DELIVERY_HOUR';
+                failed.push(delivery);
+                return false;
+            }
+
+            // Check for excessively old deliveries (stuck for > 720 hours / 30 days)
+            const age = currentHour - (delivery.createdAt || 0);
+            if (age > 720 && currentHour < delivery.deliveryHour) {
+                console.warn(`Delivery stuck for ${age} hours, forcing completion`, delivery.id);
+                delivery.deliveryHour = currentHour; // Force completion
+            }
+
             if (currentHour >= delivery.deliveryHour) {
-                this.completeLocalDelivery(delivery);
-                delivered.push(delivery);
+                try {
+                    this.completeLocalDelivery(delivery);
+                    delivered.push(delivery);
+                } catch (error) {
+                    console.error(`Error completing delivery ${delivery.id}:`, error);
+                    delivery.status = 'FAILED';
+                    delivery.failureReason = error.message;
+                    failed.push(delivery);
+                }
                 return false;
             }
             return true;
         });
 
-        return delivered;
+        return { delivered, failed };
     }
 
     /**
@@ -2211,6 +2235,23 @@ export class SimulationEngine {
      */
     completeLocalDelivery(delivery) {
         const { buyer, materialName, quantity, type, productId, productName, wholesalePrice, lots, lotObjects, avgQuality } = delivery;
+
+        // Validate buyer still exists
+        if (!buyer || !this.firms.has(buyer.id)) {
+            console.warn(`Delivery failed: buyer ${buyer?.id || 'unknown'} no longer exists`);
+            delivery.status = 'FAILED';
+            delivery.failureReason = 'BUYER_NOT_FOUND';
+            // Release lots back to available if possible
+            if (lots && lots.length > 0) {
+                lots.forEach(lotId => {
+                    const lot = this.lotRegistry.getLot(lotId);
+                    if (lot) {
+                        lot.releaseReservation();
+                    }
+                });
+            }
+            return;
+        }
 
         if (type === 'RAW_TO_SEMI' || type === 'SEMI_TO_MANUFACTURED') {
             // B2B trade - transfer lots or quantity to buyer's raw material inventory

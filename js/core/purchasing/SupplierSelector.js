@@ -130,11 +130,11 @@ export class SupplierSelector {
      * Get available inventory for a product from a firm
      */
     getInventory(firm, productName) {
-        // Lot-based inventory
+        // Lot-based inventory (use getAvailableQuantity)
         if (firm.lotInventory) {
-            const lots = firm.lotInventory.getLots(productName);
-            if (lots && lots.length > 0) {
-                return lots.reduce((sum, lot) => sum + lot.quantity, 0);
+            const quantity = firm.lotInventory.getAvailableQuantity(productName);
+            if (quantity > 0) {
+                return quantity;
             }
         }
 
@@ -145,7 +145,17 @@ export class SupplierSelector {
         // Raw material inventory
         if (firm.rawMaterialInventory) {
             const inv = firm.rawMaterialInventory.get(productName);
-            if (inv) return inv.quantity;
+            if (inv) return inv.quantity || inv;
+        }
+
+        // Product inventory map (for retailers)
+        if (firm.productInventory instanceof Map) {
+            for (const [productId, invData] of firm.productInventory) {
+                const name = invData.productName || invData.name;
+                if (name === productName) {
+                    return invData.quantity || 0;
+                }
+            }
         }
 
         return 0;

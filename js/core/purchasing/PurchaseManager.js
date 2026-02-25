@@ -103,7 +103,11 @@ export class PurchaseManager {
      * Process purchasing for a single firm
      */
     processFirmPurchasing(firm) {
-        const inputMaterials = firm.inputMaterials || firm.inputs || [];
+        // Check multiple possible locations for input materials
+        const inputMaterials = firm.inputMaterials ||
+                               firm.inputs ||
+                               firm.product?.inputs ||
+                               [];
         if (inputMaterials.length === 0) return;
 
         for (const input of inputMaterials) {
@@ -193,21 +197,35 @@ export class PurchaseManager {
     }
 
     /**
-     * Get a firm's inventory of a specific material
+     * Get a firm's inventory of a specific material/product
      */
     getFirmInventory(firm, materialName) {
-        // Lot-based inventory
+        // Lot-based inventory (check getAvailableQuantity first for efficiency)
         if (firm.lotInventory) {
-            const lots = firm.lotInventory.getLots(materialName);
-            if (lots && lots.length > 0) {
-                return lots.reduce((sum, lot) => sum + lot.quantity, 0);
+            const quantity = firm.lotInventory.getAvailableQuantity(materialName);
+            if (quantity > 0) {
+                return quantity;
             }
         }
 
-        // Raw material inventory map
+        // Raw material inventory map (for manufacturers)
         if (firm.rawMaterialInventory) {
             const inv = firm.rawMaterialInventory.get(materialName);
             if (inv) return inv.quantity || inv;
+        }
+
+        // Product inventory map (for retailers)
+        if (firm.productInventory instanceof Map) {
+            // Try by product name - iterate to find matching product
+            for (const [productId, invData] of firm.productInventory) {
+                const productName = invData.productName || invData.name;
+                if (productName === materialName) {
+                    return invData.quantity || 0;
+                }
+            }
+            // Also try direct lookup by productId if materialName is an id
+            const invData = firm.productInventory.get(materialName);
+            if (invData) return invData.quantity || 0;
         }
 
         // Legacy inventory
@@ -396,7 +414,21 @@ export class PurchaseManager {
      */
     processRetailRestocking(retailer) {
         // Get products this retailer sells
-        const products = retailer.products || retailer.productsSold || [];
+        let products = [];
+
+        // Check various ways products might be stored
+        if (retailer.productInventory instanceof Map) {
+            // RetailStore uses productInventory Map - get product names from inventory data
+            retailer.productInventory.forEach((invData, productId) => {
+                const productName = invData.productName || invData.name ||
+                    this.engine.productRegistry?.getProduct(productId)?.name;
+                if (productName) products.push(productName);
+            });
+        } else if (retailer.products) {
+            products = retailer.products;
+        } else if (retailer.productsSold) {
+            products = retailer.productsSold;
+        }
 
         for (const productName of products) {
             const needed = this.calculateRetailNeeded(retailer, productName);

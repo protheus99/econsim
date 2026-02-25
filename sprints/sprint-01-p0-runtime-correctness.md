@@ -26,9 +26,9 @@
 | ID | Description | Priority | Skill | Status |
 |----|-------------|----------|-------|--------|
 | P0.1 | Canonical simulation hour counter | P0 | runtime-debugger | 🟢 Complete |
-| P0.2 | Deferred-delivery lifecycle hardening | P0 | runtime-debugger | 🔴 Not Started |
-| P0.3 | Replenishment reliability (mfg + retail) | P0 | runtime-debugger | 🔴 Not Started |
-| P0.4 | Deterministic regression scenario | P0 | - | 🔴 Not Started |
+| P0.2 | Deferred-delivery lifecycle hardening | P0 | runtime-debugger | 🟢 Complete |
+| P0.3 | Replenishment reliability (mfg + retail) | P0 | runtime-debugger | 🟢 Complete |
+| P0.4 | Deterministic regression scenario | P0 | - | 🟢 Complete |
 
 ---
 
@@ -110,7 +110,10 @@
 - [x] Task: Diagnose time consistency issues (P0.1)
 - [x] Task: Trace delivery lifecycle for stuck lots (P0.2)
 - [x] Task: Investigate replenishment failures (P0.3)
-- [ ] Expected output: Diagnostic report with root causes and fix recommendations
+- [x] Expected output: Diagnostic report with root causes and fix recommendations
+
+### Additional Fixes Applied
+- **SupplierSelector.js** - Fixed `getLots()` bug (same pattern as PurchaseManager)
 
 ---
 
