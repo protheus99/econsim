@@ -7,6 +7,18 @@ export class GameClock {
         this.hour = 0;
         this.isPaused = false;
         this.startTime = Date.now();
+        this._startYear = startingYear;
+    }
+
+    /**
+     * Get total simulation hours elapsed since start.
+     * Used for delivery scheduling and time-based calculations.
+     */
+    get totalHours() {
+        const yearsElapsed = this.year - this._startYear;
+        const monthsElapsed = yearsElapsed * 12 + (this.month - 1);
+        const daysElapsed = monthsElapsed * 30 + (this.day - 1);
+        return daysElapsed * 24 + this.hour;
     }
 
     tick() {
