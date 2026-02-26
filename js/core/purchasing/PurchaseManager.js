@@ -4,6 +4,7 @@
 import { SupplierSelector } from './SupplierSelector.js';
 import { ContractManager } from './ContractManager.js';
 import { TransportCost } from './TransportCost.js';
+import { Lot } from '../Lot.js';
 
 export class PurchaseManager {
     constructor(simulationEngine) {
@@ -323,12 +324,18 @@ export class PurchaseManager {
 
         // Add to buyer's inventory
         if (buyer.lotInventory) {
-            buyer.lotInventory.addLot(productName, {
-                quantity,
+            const gameTime = this.engine.clock?.getGameTime?.() || { hour: 0, day: 1, month: 1, year: 2025 };
+            const currentHour = gameTime.hour + (gameTime.day - 1) * 24 + (gameTime.month - 1) * 30 * 24;
+            const lot = new Lot({
+                id: `LOT_GM_${productName.replace(/\s+/g, '')}_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+                productName: productName,
+                quantity: quantity,
                 quality: 0.8,  // Global market products are decent quality
                 producerId: 'GLOBAL_MARKET',
-                productionDate: Date.now()
+                createdAt: currentHour,
+                status: 'AVAILABLE'
             });
+            buyer.lotInventory.addLot(lot);
         } else if (buyer.rawMaterialInventory) {
             const current = buyer.rawMaterialInventory.get(productName)?.quantity || 0;
             buyer.rawMaterialInventory.set(productName, { quantity: current + quantity });
@@ -360,12 +367,9 @@ export class PurchaseManager {
             const result = supplier.lotInventory.removeLots(productName, quantity);
             if (result && result.totalRemoved > 0) {
                 for (const lot of result.lots) {
-                    buyer.lotInventory.addLot(productName, {
-                        quantity: lot.quantity,
-                        quality: lot.quality,
-                        producerId: supplier.id,
-                        productionDate: lot.productionDate
-                    });
+                    // Transfer the lot directly (it's already a Lot instance)
+                    lot.status = 'AVAILABLE';  // Reset status for new owner
+                    buyer.lotInventory.addLot(lot);
                 }
                 return result.totalRemoved;
             }

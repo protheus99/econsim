@@ -229,14 +229,10 @@ export class ContractManager {
         if (supplier.lotInventory && buyer.lotInventory) {
             const lots = supplier.lotInventory.removeLots(product, quantity);
             if (lots && lots.totalRemoved > 0) {
-                // Add lots to buyer
+                // Transfer lots directly to buyer (they're already Lot instances)
                 for (const lot of lots.lots) {
-                    buyer.lotInventory.addLot(product, {
-                        quantity: lot.quantity,
-                        quality: lot.quality,
-                        producerId: supplier.id,
-                        productionDate: lot.productionDate
-                    });
+                    lot.status = 'AVAILABLE';  // Reset status for new owner
+                    buyer.lotInventory.addLot(lot);
                 }
                 return lots.totalRemoved;
             }

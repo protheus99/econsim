@@ -152,18 +152,47 @@ export class LotInventory {
 
     /**
      * Remove multiple lots from inventory
-     * @param {string[]} lotIds - Array of lot IDs to remove
-     * @returns {Lot[]} Array of removed lots
+     * Supports two signatures:
+     *   removeLots(lotIds) - Array of lot IDs to remove
+     *   removeLots(productName, quantity) - Remove lots by product and quantity needed
+     * @returns {Lot[]|{lots: Lot[], totalRemoved: number}} Array of removed lots or object with details
      */
-    removeLots(lotIds) {
-        const removed = [];
-        for (const lotId of lotIds) {
-            const lot = this.removeLot(lotId);
-            if (lot) {
-                removed.push(lot);
+    removeLots(productNameOrIds, quantity = null) {
+        // Check which signature is being used
+        if (Array.isArray(productNameOrIds)) {
+            // Old signature: removeLots(lotIds)
+            const removed = [];
+            for (const lotId of productNameOrIds) {
+                const lot = this.removeLot(lotId);
+                if (lot) {
+                    removed.push(lot);
+                }
             }
+            return removed;
         }
-        return removed;
+
+        // New signature: removeLots(productName, quantity)
+        const productName = productNameOrIds;
+        const availableLots = this.getAvailableLots(productName);
+
+        // Sort by sale strategy (FIFO by default)
+        availableLots.sort((a, b) => a.createdAt - b.createdAt);
+
+        const removed = [];
+        let totalRemoved = 0;
+
+        for (const lot of availableLots) {
+            if (totalRemoved >= quantity) break;
+
+            this.lots.delete(lot.id);
+            removed.push(lot);
+            totalRemoved += lot.quantity;
+        }
+
+        return {
+            lots: removed,
+            totalRemoved: totalRemoved
+        };
     }
 
     /**
