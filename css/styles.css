@@ -5594,3 +5594,98 @@ tr.tx-contract-row { border-left: 3px solid #ffa726; }
     color: var(--text-secondary);
     background: rgba(0, 0, 0, 0.2);
 }
+
+/* =====================================================
+   Production Status Section (Throttle, Contracts, Expiration)
+   ===================================================== */
+
+.production-status-section {
+    margin-top: 20px;
+    padding-top: 15px;
+    border-top: 1px solid var(--border-color);
+}
+
+.production-status-header {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 12px;
+}
+
+.production-status-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 15px;
+}
+
+.production-status-grid .status-item {
+    background: rgba(0, 0, 0, 0.2);
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+.production-status-grid .status-label {
+    font-size: 11px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+}
+
+.production-status-grid .status-value {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.production-status-grid .status-reason {
+    font-size: 11px;
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+.production-status-grid .status-detail {
+    font-size: 12px;
+    color: var(--text-secondary);
+    display: flex;
+    gap: 10px;
+}
+
+/* Throttle Status Colors */
+.throttle-none {
+    color: var(--accent-green);
+}
+
+.throttle-active {
+    color: var(--accent-orange);
+}
+
+.throttle-severe {
+    color: var(--accent-red);
+}
+
+/* Contract Coverage Colors */
+.coverage-good {
+    color: var(--accent-green);
+}
+
+.coverage-none {
+    color: var(--accent-orange);
+}
+
+/* Expiration Risk Colors */
+.expiration-none {
+    color: var(--text-secondary);
+}
+
+.expiration-low {
+    color: var(--accent-green);
+}
+
+.expiration-medium {
+    color: var(--accent-orange);
+}
+
+.expiration-high {
+    color: var(--accent-red);
+}

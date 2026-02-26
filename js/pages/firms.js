@@ -406,6 +406,9 @@ function renderProductionStats(firm) {
     if (!container) return;
     let html = '<div class="production-stats-grid">';
 
+    // Get production status info (throttle, contracts, expiration)
+    const productionStatus = getProductionStatus(firm);
+
     // Helper to get lot info
     const getLotInfo = (f) => {
         if (!f.lotInventory) return null;
@@ -544,7 +547,151 @@ function renderProductionStats(firm) {
     }
 
     html += '</div>';
+
+    // Add production status section for producers
+    if (productionStatus && (firm.type === 'FARM' || firm.type === 'MANUFACTURING')) {
+        html += renderProductionStatusSection(productionStatus);
+    }
+
     container.innerHTML = html;
+}
+
+/**
+ * Get production status including throttle, contracts, and expiration info
+ */
+function getProductionStatus(firm) {
+    if (firm.type !== 'FARM' && firm.type !== 'MANUFACTURING') {
+        return null;
+    }
+
+    const contractManager = simulation.purchaseManager?.contractManager;
+    const productName = firm.product?.name || firm.livestockType || firm.cropType || firm.resourceType;
+
+    // Get current inventory
+    let currentInventory = 0;
+    if (firm.lotInventory) {
+        currentInventory = firm.lotInventory.getAvailableQuantity?.(productName) || 0;
+    }
+    if (currentInventory === 0) {
+        currentInventory = firm.finishedGoodsInventory?.quantity || firm.inventory?.quantity || 0;
+    }
+
+    // Check perishability
+    let isPerishable = false;
+    let shelfLifeDays = 30;
+
+    // Try to detect from lot config or product
+    if (firm.lotConfig?.perishable) {
+        isPerishable = true;
+        shelfLifeDays = firm.lotConfig.shelfLifeDays || 7;
+    } else if (firm.lotInventory?.saleStrategy === 'EXPIRING_SOON') {
+        isPerishable = true;
+        shelfLifeDays = 7; // default for perishables
+    }
+
+    // Get contract info
+    let contractInfo = { hasContracts: false, dailyDemand: 0, weeklyDemand: 0, contractCount: 0 };
+    let throttleInfo = { shouldThrottle: false, reason: 'UNKNOWN', throttlePercent: 0 };
+
+    if (contractManager) {
+        contractInfo = contractManager.getContractedDemandForSupplier?.(firm.id, productName) || contractInfo;
+        throttleInfo = contractManager.shouldThrottleProduction?.(
+            firm, productName, currentInventory, isPerishable, shelfLifeDays
+        ) || throttleInfo;
+    }
+
+    // Calculate days of inventory
+    const daysOfInventory = contractInfo.dailyDemand > 0
+        ? currentInventory / contractInfo.dailyDemand
+        : (currentInventory > 0 ? 999 : 0);
+
+    // Expiration risk for perishables
+    let expirationRisk = 'none';
+    if (isPerishable) {
+        if (daysOfInventory > shelfLifeDays * 0.7) {
+            expirationRisk = 'high';
+        } else if (daysOfInventory > shelfLifeDays * 0.5) {
+            expirationRisk = 'medium';
+        } else if (daysOfInventory > shelfLifeDays * 0.3) {
+            expirationRisk = 'low';
+        }
+    }
+
+    return {
+        productName,
+        currentInventory,
+        isPerishable,
+        shelfLifeDays,
+        contractInfo,
+        throttleInfo,
+        daysOfInventory,
+        expirationRisk
+    };
+}
+
+/**
+ * Render the production status section HTML
+ */
+function renderProductionStatusSection(status) {
+    const { productName, currentInventory, isPerishable, shelfLifeDays, contractInfo, throttleInfo, daysOfInventory, expirationRisk } = status;
+
+    // Throttle status
+    const throttleClass = throttleInfo.shouldThrottle
+        ? (throttleInfo.throttlePercent >= 75 ? 'throttle-severe' : 'throttle-active')
+        : 'throttle-none';
+    const throttleLabel = throttleInfo.shouldThrottle
+        ? `Throttled ${throttleInfo.throttlePercent}%`
+        : 'Normal';
+    const throttleReason = throttleInfo.reason?.replace(/_/g, ' ') || '';
+
+    // Contract coverage
+    const coverageClass = contractInfo.hasContracts ? 'coverage-good' : 'coverage-none';
+    const coverageLabel = contractInfo.hasContracts
+        ? `${contractInfo.contractCount} contract${contractInfo.contractCount > 1 ? 's' : ''}`
+        : 'No contracts';
+
+    // Expiration risk
+    const expirationClass = `expiration-${expirationRisk}`;
+    const expirationLabel = isPerishable
+        ? (expirationRisk === 'high' ? 'High Risk' :
+           expirationRisk === 'medium' ? 'Medium Risk' :
+           expirationRisk === 'low' ? 'Low Risk' : 'Safe')
+        : 'Non-perishable';
+
+    let html = `
+        <div class="production-status-section">
+            <div class="production-status-header">Production Status</div>
+            <div class="production-status-grid">
+                <div class="status-item">
+                    <div class="status-label">Throttle Status</div>
+                    <div class="status-value ${throttleClass}">${throttleLabel}</div>
+                    ${throttleInfo.shouldThrottle ? `<div class="status-reason">${throttleReason}</div>` : ''}
+                </div>
+                <div class="status-item">
+                    <div class="status-label">Contract Coverage</div>
+                    <div class="status-value ${coverageClass}">${coverageLabel}</div>
+                    ${contractInfo.hasContracts ? `
+                        <div class="status-detail">
+                            <span>${contractInfo.dailyDemand.toFixed(0)}/day</span>
+                            <span>${contractInfo.weeklyDemand.toFixed(0)}/week</span>
+                        </div>
+                    ` : '<div class="status-detail">Selling to spot market only</div>'}
+                </div>
+                <div class="status-item">
+                    <div class="status-label">Inventory Coverage</div>
+                    <div class="status-value">${daysOfInventory < 999 ? daysOfInventory.toFixed(1) + ' days' : 'N/A'}</div>
+                    <div class="status-detail">${currentInventory.toFixed(0)} units on hand</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-label">Expiration Risk</div>
+                    <div class="status-value ${expirationClass}">${expirationLabel}</div>
+                    ${isPerishable ? `<div class="status-detail">Shelf life: ${shelfLifeDays} days</div>` : ''}
+                </div>
+            </div>
+        </div>
+    `;
+
+    return html;
 }
 
 function renderSpecificDetails(firm) {
