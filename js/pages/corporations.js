@@ -150,22 +150,15 @@ function getCorpMonthlySalary(corp) {
 }
 
 function getCorpOrders(corp) {
-    const gm = simulation.globalMarket;
-    if (!gm) return [];
-
     // Get firm IDs for this corporation
     const firmIds = (corp.facilities || []).map(f => f.id);
 
-    // Find orders won by these firms
-    const pendingOrders = (gm.pendingOrders || []).filter(o =>
-        o.winningBid && firmIds.includes(o.winningBid.firmId)
-    );
+    // Get active contracts from the contract manager
+    const contractManager = simulation.purchaseManager?.contractManager;
+    if (!contractManager) return [];
 
-    const completedOrders = (gm.completedOrders || []).filter(o =>
-        o.winningBid && firmIds.includes(o.winningBid.firmId)
-    );
-
-    return [...pendingOrders, ...completedOrders];
+    const contracts = contractManager.getActiveContracts?.() || [];
+    return contracts.filter(c => firmIds.includes(c.supplierId) || firmIds.includes(c.buyerId));
 }
 
 function renderCorporations() {

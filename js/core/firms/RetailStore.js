@@ -272,7 +272,7 @@ export class RetailStore extends Firm {
         return false;
     }
 
-    // Receive delivery from GlobalMarket - cash was already paid when order was placed
+    // Receive delivery - cash was already paid when order was placed
     receiveDelivery(productId, quantity, unitPrice, productName = null, productCategory = null) {
         // Validate product category if provided
         if (productCategory && !this.canSellProduct(productCategory)) {

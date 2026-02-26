@@ -7,7 +7,6 @@ export class TransactionLog {
         B2B_MANUFACTURED: 'B2B_MANUFACTURED',  // Manufacturers → manufacturers
         B2B_WHOLESALE: 'B2B_WHOLESALE',        // Manufacturers → retailers
         B2C_RETAIL: 'B2C_RETAIL',     // Retailers → consumers
-        GLOBAL_MARKET: 'GLOBAL_MARKET',        // Global market transactions
         CONTRACT: 'CONTRACT'           // Contract-based transactions
     };
 
@@ -34,8 +33,7 @@ export class TransactionLog {
         this.b2bTransactions = [];      // Primary → SEMI_RAW, SEMI_RAW → MANUFACTURED
         this.retailTransactions = [];    // Manufacturers → Retail
         this.consumerSales = [];         // Retail → Consumers
-        this.globalMarketOrders = [];    // Global market purchases
-        this.globalMarketSales = [];     // Global market sales (excess inventory)
+        this.contractTransactions = [];  // Contract-based transactions
 
         // Statistics
         this.stats = {
@@ -43,8 +41,7 @@ export class TransactionLog {
             totalB2B: 0,
             totalRetail: 0,
             totalConsumerSales: 0,
-            totalGlobalMarket: 0,
-            totalGlobalMarketSales: 0,
+            contractTransactions: 0,
             totalValue: 0,
             totalVolume: 0,
             hourlyStats: [],
@@ -61,8 +58,7 @@ export class TransactionLog {
             b2b: 0,
             retail: 0,
             consumer: 0,
-            globalMarket: 0,
-            globalMarketSale: 0
+            contract: 0
         };
     }
 
@@ -96,11 +92,6 @@ export class TransactionLog {
      * @returns {string} Category from CATEGORIES
      */
     categorize(tx) {
-        // Global market transactions
-        if (tx.type === 'GLOBAL_MARKET' || tx.type === 'GLOBAL_MARKET_SALE') {
-            return TransactionLog.CATEGORIES.GLOBAL_MARKET;
-        }
-
         // Contract-based transactions
         if (tx.contractId) {
             return TransactionLog.CATEGORIES.CONTRACT;
@@ -250,48 +241,6 @@ export class TransactionLog {
         return transaction;
     }
 
-    /**
-     * Log a global market purchase
-     * @param {Firm} buyer - Buying firm
-     * @param {string} product - Product name
-     * @param {number} quantity - Quantity
-     * @param {number} unitPrice - Price per unit
-     * @returns {object} Transaction record
-     */
-    logGlobalMarketPurchase(buyer, product, quantity, unitPrice) {
-        const totalCost = quantity * unitPrice;
-
-        const transaction = {
-            id: this.generateId('GMP'),
-            type: 'GLOBAL_MARKET',
-            timestamp: Date.now(),
-            gameTime: this.getGameTimeString(),
-            seller: {
-                type: 'GLOBAL_MARKET',
-                name: 'Global Market',
-                region: 'International'
-            },
-            buyer: {
-                id: buyer?.id || 'unknown',
-                name: this.getFirmDisplayName(buyer),
-                type: buyer?.type || 'Unknown',
-                city: buyer?.city?.name || 'Unknown'
-            },
-            sellerType: 'GlobalMarket',
-            buyerType: buyer?.type,
-            material: product,
-            product: product,
-            quantity: quantity,
-            unitPrice: unitPrice,
-            totalCost: totalCost,
-            status: 'COMPLETED',
-            category: TransactionLog.CATEGORIES.GLOBAL_MARKET
-        };
-
-        this.addTransaction(transaction, 'globalMarket');
-        return transaction;
-    }
-
     // Log a B2B transaction (primary producer to manufacturer or manufacturer to manufacturer)
     logB2BTransaction(seller, buyer, material, quantity, unitPrice, totalCost, tier) {
         const transaction = {
@@ -388,104 +337,6 @@ export class TransactionLog {
         return transaction;
     }
 
-    // Log a global market order
-    logGlobalMarketOrder(buyer, material, quantity, unitPrice, totalCost, status, deliveryHours, globalMarketOrderId = null) {
-        // Ensure deliveryHours is a valid number, default to 24 hours
-        const validDeliveryHours = (typeof deliveryHours === 'number' && !isNaN(deliveryHours)) ? deliveryHours : 24;
-
-        // Calculate estimated delivery safely
-        let estimatedDelivery;
-        try {
-            estimatedDelivery = new Date(Date.now() + validDeliveryHours * 3600000).toISOString();
-        } catch (e) {
-            estimatedDelivery = new Date(Date.now() + 24 * 3600000).toISOString(); // Fallback to 24 hours
-        }
-
-        const transaction = {
-            id: this.generateId('GMO'),
-            globalMarketOrderId: globalMarketOrderId, // Store the GlobalMarket order ID for matching
-            type: 'GLOBAL_MARKET',
-            timestamp: Date.now(),
-            gameTime: this.getGameTimeString(),
-            seller: {
-                type: 'GLOBAL_MARKET',
-                name: 'Global Market',
-                region: 'International'
-            },
-            buyer: {
-                id: buyer?.id || 'unknown',
-                name: this.getFirmDisplayName(buyer),
-                type: buyer?.type || 'Unknown',
-                city: buyer?.city?.name || 'Unknown',
-                product: buyer?.product?.name || 'Unknown'
-            },
-            material: material || 'Unknown',
-            quantity: quantity || 0,
-            unitPrice: unitPrice || 0,
-            totalCost: totalCost || 0,
-            status: status || 'PENDING', // 'PENDING', 'IN_TRANSIT', 'DELIVERED'
-            deliveryHours: validDeliveryHours,
-            estimatedDelivery: estimatedDelivery
-        };
-
-        this.addTransaction(transaction, 'globalMarket');
-        return transaction;
-    }
-
-    // Update global market order status by GlobalMarket order ID
-    updateGlobalMarketOrderByGMId(globalMarketOrderId, newStatus) {
-        const order = this.globalMarketOrders.find(t => t.globalMarketOrderId === globalMarketOrderId);
-        if (order) {
-            order.status = newStatus;
-            if (newStatus === 'DELIVERED') {
-                order.deliveredAt = Date.now();
-            }
-        }
-        return order;
-    }
-
-    // Update global market order status
-    updateGlobalMarketOrder(orderId, newStatus) {
-        const order = this.globalMarketOrders.find(t => t.id === orderId);
-        if (order) {
-            order.status = newStatus;
-            if (newStatus === 'DELIVERED') {
-                order.deliveredAt = Date.now();
-            }
-        }
-        return order;
-    }
-
-    // Log a sale to the global market (excess inventory disposal)
-    logGlobalMarketSale(seller, material, quantity, unitPrice, totalRevenue) {
-        const transaction = {
-            id: this.generateId('GMS'),
-            type: 'GLOBAL_MARKET_SALE',
-            timestamp: Date.now(),
-            gameTime: this.getGameTimeString(),
-            seller: {
-                id: seller.id,
-                name: this.getFirmDisplayName(seller),
-                type: seller.type,
-                city: seller.city?.name || 'Unknown',
-                product: seller.product?.name || material
-            },
-            buyer: {
-                type: 'GLOBAL_MARKET',
-                name: 'Global Market',
-                region: 'International'
-            },
-            material: material,
-            quantity: quantity,
-            unitPrice: unitPrice,
-            totalRevenue: totalRevenue,
-            status: 'COMPLETED'
-        };
-
-        this.addTransaction(transaction, 'globalMarketSale');
-        return transaction;
-    }
-
     addTransaction(transaction, category) {
         // Add to main list
         this.transactions.push(transaction);
@@ -507,15 +358,10 @@ export class TransactionLog {
                 this.stats.totalConsumerSales++;
                 this.currentHourStats.consumer++;
                 break;
-            case 'globalMarket':
-                this.globalMarketOrders.push(transaction);
-                this.stats.totalGlobalMarket++;
-                this.currentHourStats.globalMarket++;
-                break;
-            case 'globalMarketSale':
-                this.globalMarketSales.push(transaction);
-                this.stats.totalGlobalMarketSales++;
-                this.currentHourStats.globalMarketSale++;
+            case 'contract':
+                this.contractTransactions.push(transaction);
+                this.stats.contractTransactions++;
+                this.currentHourStats.contract++;
                 break;
         }
 
@@ -545,11 +391,8 @@ export class TransactionLog {
         if (this.consumerSales.length > this.maxEntries / 4) {
             this.consumerSales = this.consumerSales.slice(-this.maxEntries / 4);
         }
-        if (this.globalMarketOrders.length > this.maxEntries / 4) {
-            this.globalMarketOrders = this.globalMarketOrders.slice(-this.maxEntries / 4);
-        }
-        if (this.globalMarketSales.length > this.maxEntries / 4) {
-            this.globalMarketSales = this.globalMarketSales.slice(-this.maxEntries / 4);
+        if (this.contractTransactions.length > this.maxEntries / 4) {
+            this.contractTransactions = this.contractTransactions.slice(-this.maxEntries / 4);
         }
     }
 
@@ -581,7 +424,7 @@ export class TransactionLog {
             b2b: 0,
             retail: 0,
             consumer: 0,
-            globalMarket: 0
+            contract: 0
         };
 
         return hourStats;
@@ -601,7 +444,7 @@ export class TransactionLog {
             b2b: last24Hours.reduce((sum, h) => sum + h.b2b, 0),
             retail: last24Hours.reduce((sum, h) => sum + h.retail, 0),
             consumer: last24Hours.reduce((sum, h) => sum + h.consumer, 0),
-            globalMarket: last24Hours.reduce((sum, h) => sum + h.globalMarket, 0),
+            contract: last24Hours.reduce((sum, h) => sum + h.contract, 0),
             timestamp: Date.now()
         };
 
@@ -632,8 +475,8 @@ export class TransactionLog {
                 return this.retailTransactions.slice(-count).reverse();
             case 'CONSUMER_SALE':
                 return this.consumerSales.slice(-count).reverse();
-            case 'GLOBAL_MARKET':
-                return this.globalMarketOrders.slice(-count).reverse();
+            case 'CONTRACT':
+                return this.contractTransactions.slice(-count).reverse();
             default:
                 return this.getRecentTransactions(count);
         }
@@ -658,10 +501,6 @@ export class TransactionLog {
             .filter(t => t.material === material || t.product === material)
             .slice(-count)
             .reverse();
-    }
-
-    getPendingGlobalOrders() {
-        return this.globalMarketOrders.filter(t => t.status === 'PENDING' || t.status === 'IN_TRANSIT');
     }
 
     getHourlyStats(hours = 24) {
@@ -694,17 +533,21 @@ export class TransactionLog {
             totalTransactions: this.stats.totalTransactions,
             totalValue: this.stats.totalValue,
             totalVolume: this.stats.totalVolume,
+            totalB2B: this.stats.totalB2B,
+            totalRetail: this.stats.totalRetail,
+            totalConsumerSales: this.stats.totalConsumerSales,
+            contractTransactions: this.stats.contractTransactions,
             breakdown: {
                 b2b: this.stats.totalB2B,
                 retail: this.stats.totalRetail,
                 consumer: this.stats.totalConsumerSales,
-                globalMarket: this.stats.totalGlobalMarket
+                contract: this.stats.contractTransactions
             },
             averages: {
                 transactionsPerHour: avgHourlyTransactions.toFixed(1),
                 valuePerHour: avgHourlyValue.toFixed(2)
             },
-            pendingGlobalOrders: this.getPendingGlobalOrders().length
+            hourlyStats: this.stats.hourlyStats
         };
     }
 
@@ -804,12 +647,6 @@ export class TransactionLog {
                 shortLabel: 'Retail',
                 icon: '🛒',
                 colorClass: 'tx-b2c-retail'
-            },
-            [TransactionLog.CATEGORIES.GLOBAL_MARKET]: {
-                label: 'Global Market',
-                shortLabel: 'Global',
-                icon: '🌐',
-                colorClass: 'tx-global-market'
             },
             [TransactionLog.CATEGORIES.CONTRACT]: {
                 label: 'Contract',

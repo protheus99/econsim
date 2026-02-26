@@ -77,7 +77,7 @@ function updateDisplay() {
     document.getElementById('hourly-transactions').textContent = stats.totalTransactions || 0;
     document.getElementById('avg-transaction').textContent = formatCurrency(stats.totalValue / Math.max(1, stats.totalTransactions));
     document.getElementById('b2b-count').textContent = stats.totalB2B || 0;
-    document.getElementById('gm-orders-count').textContent = stats.totalGlobalMarket || 0;
+    document.getElementById('gm-orders-count').textContent = stats.contractTransactions || 0;
 
     // GDP by Country
     renderCountryGDP(countries);

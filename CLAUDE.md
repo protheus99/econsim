@@ -49,10 +49,11 @@ SimulationEngine.updateHourly()
 ├─ processFirmOperations()      # All firms produce
 ├─ processPurchasing()          # PurchaseManager coordinates buying
 ├─ processLocalDeliveries()     # Complete pending deliveries
-├─ GlobalMarket.processHourly() # External orders
 ├─ processLotExpiration()       # Remove expired perishables
 └─ emit('update')               # UI updates
 ```
+
+**Note**: Global Market has been removed. All purchasing is local suppliers only.
 
 ### Class Hierarchy
 
@@ -157,10 +158,9 @@ if (this.contractManager) {
 
 All settings in `data/config.json`. Key sections:
 - `simulation.timeScale.realSecond` - ms per game hour (default 1000)
-- `globalMarket.enabled` - Enable external market
-- `globalMarket.priceMultiplier` - Markup for global purchases (1.5 = 50%)
 - `inventory.reorderThresholdWeeks` - When to restock
 - `firms.distribution` - Firm type ratios
+- `retail.inventory` - Store capacities by type
 
 ## Testing
 
@@ -226,15 +226,15 @@ debug.getLotReport()       // Lot system status
 - **Files**: PascalCase for classes, camelCase for utilities
 - **Variables**: camelCase (`totalHours`, `productName`, `lotInventory`)
 - **IDs**: Descriptive prefixes (`LOT_`, `FIRM_`, `CONTRACT_`)
-- **Transaction types**: `B2B_RAW`, `B2B_SEMI`, `B2B_MANUFACTURED`, `B2C_RETAIL`, `GLOBAL_MARKET`
+- **Transaction types**: `B2B_RAW`, `B2B_SEMI`, `B2B_MANUFACTURED`, `B2B_WHOLESALE`, `B2C_RETAIL`, `CONTRACT`
 
 ## Known Gotchas
 
 1. **Never use `Math.random()`** - Use seeded RNG via `this.random()` for determinism
 2. **Lot status must be reset** when transferring between inventories
 3. **Perishable products** auto-expire - check `LotSizings.isPerishable()`
-4. **Global market** has 1.5x price and 24h delivery delay
-5. **Clock.totalHours** is cumulative since year start, not reset daily
+4. **Clock.totalHours** is cumulative since year start, not reset daily
+5. **No global market** - All purchasing uses local suppliers only
 
 ## Sprint Planning
 

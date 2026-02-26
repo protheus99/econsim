@@ -90,11 +90,9 @@ function renderSummary() {
     if (!container) return;
 
     const firms = Array.from(simulation.firms.values());
-    const gm = simulation.globalMarket;
 
     let totalRevenue = 0, totalProfit = 0, totalEmployees = 0, totalMonthlySalary = 0;
     let miningCount = 0, farmCount = 0, mfgCount = 0, retailCount = 0, loggingCount = 0;
-    let totalOrdersWon = 0;
 
     firms.forEach(f => {
         totalRevenue += f.revenue || 0;
@@ -108,13 +106,6 @@ function renderSummary() {
             case 'FARM': farmCount++; break;
             case 'MANUFACTURING': mfgCount++; break;
             case 'RETAIL': retailCount++; break;
-        }
-
-        // Count orders won
-        if (gm) {
-            const pendingOrders = (gm.pendingOrders || []).filter(o => o.winningBid?.firmId === f.id);
-            const completedOrders = (gm.completedOrders || []).filter(o => o.winningBid?.firmId === f.id);
-            totalOrdersWon += pendingOrders.length + completedOrders.length;
         }
     });
 
@@ -156,12 +147,12 @@ function getCorpFirmDisplayName(firm) {
 }
 
 function getFirmOrdersCount(firmId) {
-    const gm = simulation.globalMarket;
-    if (!gm) return 0;
+    // Count active contracts for this firm
+    const contractManager = simulation.purchaseManager?.contractManager;
+    if (!contractManager) return 0;
 
-    const pending = (gm.pendingOrders || []).filter(o => o.winningBid?.firmId === firmId).length;
-    const completed = (gm.completedOrders || []).filter(o => o.winningBid?.firmId === firmId).length;
-    return pending + completed;
+    const contracts = contractManager.getActiveContracts?.() || [];
+    return contracts.filter(c => c.supplierId === firmId || c.buyerId === firmId).length;
 }
 
 // Get real-time profit (uses getCurrentProfit if available)
@@ -1156,103 +1147,93 @@ function renderContracts(firm) {
 }
 
 function renderBidsAndOrders(firm) {
-    const gm = simulation.globalMarket;
-    if (!gm) return;
-
+    const contractManager = simulation.purchaseManager?.contractManager;
     const firmId = firm.id;
 
-    // Find orders won
-    const ordersWon = (gm.pendingOrders || []).filter(o =>
-        o.status === 'AWARDED' && o.winningBid?.firmId === firmId
-    );
+    // Get contracts where this firm is supplier or buyer
+    const contracts = contractManager?.getActiveContracts?.() || [];
+    const asSupplier = contracts.filter(c => c.supplierId === firmId);
+    const asBuyer = contracts.filter(c => c.buyerId === firmId);
 
-    const completedOrders = (gm.completedOrders || []).filter(o =>
-        o.winningBid?.firmId === firmId
-    );
+    // Get pending deliveries for this firm
+    const pendingDeliveries = simulation.purchaseManager?.pendingDeliveries?.filter(
+        d => d.seller?.id === firmId || d.buyer?.id === firmId
+    ) || [];
 
-    // Find active bids
-    const activeBids = [];
-    (gm.biddingOrders || []).forEach(order => {
-        if (order.status === 'BIDDING' && order.bids) {
-            const firmBid = order.bids.find(b => b.firmId === firmId);
-            if (firmBid) activeBids.push({ order, bid: firmBid });
-        }
-    });
+    const totalContracts = asSupplier.length + asBuyer.length;
+    const totalContractValue = [...asSupplier, ...asBuyer].reduce((sum, c) => sum + (c.totalValue || 0), 0);
 
-    const totalOrders = ordersWon.length + completedOrders.length;
-    const totalRevenue = [...ordersWon, ...completedOrders].reduce((sum, o) => sum + (o.winningBid?.totalBidValue || 0), 0);
-
-    document.getElementById('firm-orders-count').textContent = `${totalOrders} Orders`;
+    document.getElementById('firm-orders-count').textContent = `${totalContracts} Contracts`;
 
     document.getElementById('firm-bids-summary').innerHTML = `
         <div class="bids-summary-grid">
             <div class="bids-summary-stat">
-                <span class="bids-stat-value">${totalOrders}</span>
-                <span class="bids-stat-label">Total Won</span>
+                <span class="bids-stat-value">${totalContracts}</span>
+                <span class="bids-stat-label">Contracts</span>
             </div>
             <div class="bids-summary-stat">
-                <span class="bids-stat-value">${ordersWon.length}</span>
-                <span class="bids-stat-label">Pending</span>
+                <span class="bids-stat-value">${asSupplier.length}</span>
+                <span class="bids-stat-label">As Supplier</span>
             </div>
             <div class="bids-summary-stat">
-                <span class="bids-stat-value">${completedOrders.length}</span>
-                <span class="bids-stat-label">Delivered</span>
+                <span class="bids-stat-value">${asBuyer.length}</span>
+                <span class="bids-stat-label">As Buyer</span>
             </div>
             <div class="bids-summary-stat">
-                <span class="bids-stat-value">${activeBids.length}</span>
-                <span class="bids-stat-label">Active Bids</span>
+                <span class="bids-stat-value">${pendingDeliveries.length}</span>
+                <span class="bids-stat-label">Pending Deliveries</span>
             </div>
             <div class="bids-summary-stat">
-                <span class="bids-stat-value ${moneyClass(totalRevenue)}">${formatCurrencyFull(totalRevenue)}</span>
-                <span class="bids-stat-label">Revenue</span>
+                <span class="bids-stat-value ${moneyClass(totalContractValue)}">${formatCurrencyFull(totalContractValue)}</span>
+                <span class="bids-stat-label">Contract Value</span>
             </div>
         </div>
     `;
 
-    // Orders won list
+    // Supplier contracts list
     const wonList = document.getElementById('firm-orders-won-list');
-    wonList.innerHTML = ordersWon.length === 0 ? '<p class="no-data">No pending orders</p>' :
-        ordersWon.map(o => `
+    wonList.innerHTML = asSupplier.length === 0 ? '<p class="no-data">No supply contracts</p>' :
+        asSupplier.map(c => `
             <div class="firm-bid-item order-won">
                 <div class="bid-item-left">
-                    <span class="bid-product">${o.productName}</span>
-                    <span class="bid-details">${o.quantity} units</span>
+                    <span class="bid-product">${c.productName}</span>
+                    <span class="bid-details">${c.quantity} units/delivery</span>
                 </div>
                 <div class="bid-item-right">
-                    <span class="bid-value">${formatCurrency(o.winningBid?.totalBidValue || 0)}</span>
-                    <span class="bid-status status-awarded">Pending</span>
+                    <span class="bid-value">${formatCurrency(c.unitPrice || 0)}/unit</span>
+                    <span class="bid-status status-awarded">Active</span>
                 </div>
             </div>
         `).join('');
 
-    // Active bids list
+    // Pending deliveries list
     const bidsList = document.getElementById('firm-active-bids-list');
-    bidsList.innerHTML = activeBids.length === 0 ? '<p class="no-data">No active bids</p>' :
-        activeBids.map(({ order, bid }) => `
+    bidsList.innerHTML = pendingDeliveries.length === 0 ? '<p class="no-data">No pending deliveries</p>' :
+        pendingDeliveries.slice(0, 10).map(d => `
             <div class="firm-bid-item active-bid">
                 <div class="bid-item-left">
-                    <span class="bid-product">${order.productName}</span>
-                    <span class="bid-details">${order.quantity} units • ${order.bids?.length || 0} bids</span>
+                    <span class="bid-product">${d.productName || d.material}</span>
+                    <span class="bid-details">${d.quantity} units</span>
                 </div>
                 <div class="bid-item-right">
-                    <span class="bid-value">${formatCurrency(bid.totalBidValue || 0)}</span>
-                    <span class="bid-status status-bidding">Bidding</span>
+                    <span class="bid-value">${formatCurrency(d.totalCost || 0)}</span>
+                    <span class="bid-status status-bidding">In Transit</span>
                 </div>
             </div>
         `).join('');
 
-    // Completed list
+    // Buyer contracts list
     const completedList = document.getElementById('firm-completed-orders-list');
-    completedList.innerHTML = completedOrders.length === 0 ? '<p class="no-data">No completed orders</p>' :
-        completedOrders.slice(-10).reverse().map(o => `
+    completedList.innerHTML = asBuyer.length === 0 ? '<p class="no-data">No purchase contracts</p>' :
+        asBuyer.slice(-10).reverse().map(c => `
             <div class="firm-bid-item order-completed">
                 <div class="bid-item-left">
-                    <span class="bid-product">${o.productName}</span>
-                    <span class="bid-details">${o.quantity} units</span>
+                    <span class="bid-product">${c.productName}</span>
+                    <span class="bid-details">${c.quantity} units/delivery</span>
                 </div>
                 <div class="bid-item-right">
-                    <span class="bid-value">${formatCurrency(o.winningBid?.totalBidValue || 0)}</span>
-                    <span class="bid-status status-delivered">Delivered</span>
+                    <span class="bid-value">${formatCurrency(c.unitPrice || 0)}/unit</span>
+                    <span class="bid-status status-delivered">Active</span>
                 </div>
             </div>
         `).join('');
@@ -1301,9 +1282,7 @@ function renderPurchases(firm) {
     const transactionLog = simulation.transactionLog;
 
     // Get all purchase transactions for this firm
-    // Check both main transactions array and globalMarketOrders for completeness
     const allTransactions = transactionLog?.transactions || [];
-    const globalOrders = transactionLog?.globalMarketOrders || [];
 
     // Filter by buyer ID - convert to string for safe comparison
     const firmIdStr = String(firm.id);
@@ -1312,21 +1291,12 @@ function renderPurchases(firm) {
         .slice(-20)
         .reverse();
 
-    // Also check for any global market orders not in main list
-    const gmPurchases = globalOrders
-        .filter(o => String(o.buyer?.id) === firmIdStr && !purchases.some(p => p.id === o.id))
-        .slice(-10);
+    document.getElementById('firm-purchases-count').textContent = `${purchases.length} Purchases`;
 
-    const allPurchases = [...purchases, ...gmPurchases]
-        .sort((a, b) => b.timestamp - a.timestamp)
-        .slice(0, 20);
-
-    document.getElementById('firm-purchases-count').textContent = `${allPurchases.length} Purchases`;
-
-    tbody.innerHTML = allPurchases.length === 0 ? '<tr><td colspan="6" class="no-data">No purchases</td></tr>' :
-        allPurchases.map(t => {
+    tbody.innerHTML = purchases.length === 0 ? '<tr><td colspan="6" class="no-data">No purchases</td></tr>' :
+        purchases.map(t => {
             const productName = getProductName(t.productName || t.product || t.material);
-            const sellerName = t.seller?.name || (t.type === 'GLOBAL_MARKET' ? 'Global Market' : 'Unknown');
+            const sellerName = t.seller?.name || 'Unknown';
             const statusBadge = t.status && t.status !== 'COMPLETED' && t.status !== 'DELIVERED'
                 ? `<span class="status-badge status-${t.status.toLowerCase().replace(/_/g, '-')}">${t.status.replace(/_/g, ' ')}</span>`
                 : '';

@@ -890,9 +890,9 @@ export class Dashboard {
         document.getElementById('firm-purchases-tbody').innerHTML = firmPurchases.map(t => {
             const timeDisplay = t.gameTime || new Date(t.timestamp).toLocaleTimeString();
             const total = t.totalCost || 0;
-            const isGlobalMarket = t.type === 'GLOBAL_MARKET';
-            const sourceClass = isGlobalMarket ? 'source-global' : 'source-local';
-            const sourceLabel = isGlobalMarket ? 'Global Market' : 'Local';
+            const isContract = t.contractId != null;
+            const sourceClass = isContract ? 'source-contract' : 'source-local';
+            const sourceLabel = isContract ? 'Contract' : 'Local';
 
             return `
                 <tr class="transaction-row">
@@ -914,145 +914,104 @@ export class Dashboard {
     }
 
     renderFirmBidsAndOrders(firm, simulation) {
-        const gm = simulation.globalMarket;
-        if (!gm) {
-            document.getElementById('firm-bids-summary').innerHTML =
-                '<p class="no-data">Global market not available</p>';
-            return;
-        }
-
+        const contractManager = simulation.purchaseManager?.contractManager;
         const firmId = firm.id;
 
-        // Find orders won by this firm (pending delivery)
-        const ordersWon = (gm.pendingOrders || []).filter(o =>
-            o.status === 'AWARDED' && o.winningBid?.firmId === firmId
-        );
+        // Get contracts where this firm is supplier or buyer
+        const contracts = contractManager?.getActiveContracts?.() || [];
+        const asSupplier = contracts.filter(c => c.supplierId === firmId);
+        const asBuyer = contracts.filter(c => c.buyerId === firmId);
 
-        // Find completed orders by this firm
-        const completedOrders = (gm.completedOrders || []).filter(o =>
-            o.winningBid?.firmId === firmId
-        );
-
-        // Find active bids by this firm (orders in bidding state)
-        const activeBids = [];
-        (gm.biddingOrders || []).forEach(order => {
-            if (order.status === 'BIDDING' && order.bids) {
-                const firmBid = order.bids.find(b => b.firmId === firmId);
-                if (firmBid) {
-                    activeBids.push({ order, bid: firmBid });
-                }
-            }
-        });
+        // Get pending deliveries for this firm
+        const pendingDeliveries = simulation.purchaseManager?.pendingDeliveries?.filter(
+            d => d.seller?.id === firmId || d.buyer?.id === firmId
+        ) || [];
 
         // Calculate stats
-        const totalOrdersWon = ordersWon.length + completedOrders.length;
-        const totalBidsPlaced = activeBids.length;
-        const totalRevenue = [...ordersWon, ...completedOrders].reduce(
-            (sum, o) => sum + (o.winningBid?.totalBidValue || 0), 0
-        );
-        const pendingValue = ordersWon.reduce(
-            (sum, o) => sum + (o.winningBid?.totalBidValue || 0), 0
-        );
+        const totalContracts = asSupplier.length + asBuyer.length;
+        const totalContractValue = [...asSupplier, ...asBuyer].reduce((sum, c) => sum + (c.totalValue || 0), 0);
 
         // Update badge
-        document.getElementById('firm-orders-count').textContent = `${totalOrdersWon} Orders`;
+        document.getElementById('firm-orders-count').textContent = `${totalContracts} Contracts`;
 
         // Render summary stats
         document.getElementById('firm-bids-summary').innerHTML = `
             <div class="bids-summary-grid">
                 <div class="bids-summary-stat">
-                    <span class="bids-stat-value">${totalOrdersWon}</span>
-                    <span class="bids-stat-label">Total Orders Won</span>
+                    <span class="bids-stat-value">${totalContracts}</span>
+                    <span class="bids-stat-label">Active Contracts</span>
                 </div>
                 <div class="bids-summary-stat">
-                    <span class="bids-stat-value">${ordersWon.length}</span>
-                    <span class="bids-stat-label">Pending Delivery</span>
+                    <span class="bids-stat-value">${asSupplier.length}</span>
+                    <span class="bids-stat-label">As Supplier</span>
                 </div>
                 <div class="bids-summary-stat">
-                    <span class="bids-stat-value">${completedOrders.length}</span>
-                    <span class="bids-stat-label">Delivered</span>
+                    <span class="bids-stat-value">${asBuyer.length}</span>
+                    <span class="bids-stat-label">As Buyer</span>
                 </div>
                 <div class="bids-summary-stat">
-                    <span class="bids-stat-value">${totalBidsPlaced}</span>
-                    <span class="bids-stat-label">Active Bids</span>
+                    <span class="bids-stat-value">${pendingDeliveries.length}</span>
+                    <span class="bids-stat-label">Pending Deliveries</span>
                 </div>
                 <div class="bids-summary-stat">
-                    <span class="bids-stat-value">${simulation.formatMoney(totalRevenue)}</span>
-                    <span class="bids-stat-label">Total Revenue</span>
-                </div>
-                <div class="bids-summary-stat">
-                    <span class="bids-stat-value">${simulation.formatMoney(pendingValue)}</span>
-                    <span class="bids-stat-label">Pending Value</span>
+                    <span class="bids-stat-value">${simulation.formatMoney(totalContractValue)}</span>
+                    <span class="bids-stat-label">Contract Value</span>
                 </div>
             </div>
         `;
 
-        // Render orders won (pending delivery)
+        // Render supplier contracts
         const ordersWonList = document.getElementById('firm-orders-won-list');
-        if (ordersWon.length === 0) {
-            ordersWonList.innerHTML = '<p class="no-data">No pending orders</p>';
+        if (asSupplier.length === 0) {
+            ordersWonList.innerHTML = '<p class="no-data">No supply contracts</p>';
         } else {
-            ordersWonList.innerHTML = ordersWon.slice(0, 10).map(order => `
+            ordersWonList.innerHTML = asSupplier.slice(0, 10).map(c => `
                 <div class="firm-bid-item order-won">
                     <div class="bid-item-left">
-                        <span class="bid-product">${order.productName}</span>
-                        <span class="bid-details">${order.quantity} units • ${order.deliveryLocation || 'Unknown'}</span>
-                    </div>
-                    <div class="bid-item-center">
-                        <span class="bid-deadline">Due: ${order.deliveryHoursRemaining || 0}h</span>
+                        <span class="bid-product">${c.productName}</span>
+                        <span class="bid-details">${c.quantity} units/delivery</span>
                     </div>
                     <div class="bid-item-right">
-                        <span class="bid-value">${simulation.formatMoney(order.winningBid?.totalBidValue || 0)}</span>
-                        <span class="bid-status status-awarded">Awarded</span>
+                        <span class="bid-value">${simulation.formatMoney(c.unitPrice || 0)}/unit</span>
+                        <span class="bid-status status-awarded">Active</span>
                     </div>
                 </div>
             `).join('');
         }
 
-        // Render active bids
+        // Render pending deliveries
         const activeBidsList = document.getElementById('firm-active-bids-list');
-        if (activeBids.length === 0) {
-            activeBidsList.innerHTML = '<p class="no-data">No active bids</p>';
+        if (pendingDeliveries.length === 0) {
+            activeBidsList.innerHTML = '<p class="no-data">No pending deliveries</p>';
         } else {
-            activeBidsList.innerHTML = activeBids.slice(0, 10).map(({ order, bid }) => {
-                const bidCount = order.bids?.length || 0;
-                const isHighest = order.bids && order.bids[0]?.firmId === firmId;
-                return `
-                    <div class="firm-bid-item active-bid ${isHighest ? 'highest-bid' : ''}">
-                        <div class="bid-item-left">
-                            <span class="bid-product">${order.productName}</span>
-                            <span class="bid-details">${order.quantity} units • ${bidCount} total bids</span>
-                        </div>
-                        <div class="bid-item-center">
-                            <span class="bid-price-label">Your Bid:</span>
-                            <span class="bid-price">${simulation.formatMoney(bid.totalBidValue || 0)}</span>
-                        </div>
-                        <div class="bid-item-right">
-                            <span class="bid-rank">${isHighest ? '🥇 Highest' : '📊 Competing'}</span>
-                            <span class="bid-status status-bidding">Bidding</span>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        }
-
-        // Render completed orders
-        const completedList = document.getElementById('firm-completed-orders-list');
-        if (completedOrders.length === 0) {
-            completedList.innerHTML = '<p class="no-data">No completed deliveries</p>';
-        } else {
-            completedList.innerHTML = completedOrders.slice(-10).reverse().map(order => `
-                <div class="firm-bid-item order-completed">
+            activeBidsList.innerHTML = pendingDeliveries.slice(0, 10).map(d => `
+                <div class="firm-bid-item active-bid">
                     <div class="bid-item-left">
-                        <span class="bid-product">${order.productName}</span>
-                        <span class="bid-details">${order.quantity} units • ${order.deliveryLocation || 'Unknown'}</span>
-                    </div>
-                    <div class="bid-item-center">
-                        <span class="bid-delivered">Delivered</span>
+                        <span class="bid-product">${d.productName || d.material}</span>
+                        <span class="bid-details">${d.quantity} units</span>
                     </div>
                     <div class="bid-item-right">
-                        <span class="bid-value">${simulation.formatMoney(order.winningBid?.totalBidValue || 0)}</span>
-                        <span class="bid-status status-delivered">Completed</span>
+                        <span class="bid-value">${simulation.formatMoney(d.totalCost || 0)}</span>
+                        <span class="bid-status status-bidding">In Transit</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Render buyer contracts
+        const completedList = document.getElementById('firm-completed-orders-list');
+        if (asBuyer.length === 0) {
+            completedList.innerHTML = '<p class="no-data">No purchase contracts</p>';
+        } else {
+            completedList.innerHTML = asBuyer.slice(0, 10).map(c => `
+                <div class="firm-bid-item order-completed">
+                    <div class="bid-item-left">
+                        <span class="bid-product">${c.productName}</span>
+                        <span class="bid-details">${c.quantity} units/delivery</span>
+                    </div>
+                    <div class="bid-item-right">
+                        <span class="bid-value">${simulation.formatMoney(c.unitPrice || 0)}/unit</span>
+                        <span class="bid-status status-delivered">Active</span>
                     </div>
                 </div>
             `).join('');
@@ -2273,80 +2232,48 @@ export class Dashboard {
 
     updateOrdersSummary() {
         const simulation = this.getSimulation();
-        const gm = simulation.globalMarket;
-        if (!gm) return;
+        const contractManager = simulation.purchaseManager?.contractManager;
 
-        const gameTime = simulation.clock?.getGameTime();
-        const currentHour = gameTime?.hour || 0;
-
-        // Update bidding status mini banner
-        const banner = document.getElementById('bidding-status-mini');
-        const icon = document.getElementById('dash-bidding-icon');
-        const text = document.getElementById('dash-bidding-text');
-
-        if (banner && icon && text) {
-            if (currentHour >= 9 && currentHour < 12) {
-                banner.className = 'bidding-status-mini bidding-active';
-                icon.textContent = '🔴';
-                text.textContent = `BIDDING OPEN - ${12 - currentHour}h left`;
-            } else if (currentHour >= 12) {
-                banner.className = 'bidding-status-mini bidding-closed';
-                icon.textContent = '⏰';
-                text.textContent = 'Bidding closed - Opens 9AM';
-            } else {
-                banner.className = 'bidding-status-mini bidding-waiting';
-                icon.textContent = '🔔';
-                text.textContent = `Opens at 9AM (${9 - currentHour}h)`;
-            }
-        }
-
-        // Update order counts
-        const stats = gm.getStats ? gm.getStats() : {};
-        const availableCount = gm.availableOrders?.filter(o => o.status === 'AVAILABLE')?.length || 0;
-        const biddingCount = gm.biddingOrders?.filter(o => o.status === 'BIDDING')?.length || 0;
-        const awardedCount = gm.pendingOrders?.filter(o => o.status === 'AWARDED')?.length || 0;
-        const deliveredCount = stats.totalOrdersDelivered || 0;
-        const totalBids = stats.totalBidsReceived || 0;
-        const totalSpent = stats.totalSpent || 0;
+        // Get contract stats
+        const contracts = contractManager?.getActiveContracts?.() || [];
+        const pendingDeliveries = simulation.purchaseManager?.pendingDeliveries || [];
+        const transactionStats = simulation.transactionLog?.stats || {};
 
         const el = (id) => document.getElementById(id);
-        if (el('dash-available-orders')) el('dash-available-orders').textContent = availableCount.toLocaleString();
-        if (el('dash-bidding-orders')) el('dash-bidding-orders').textContent = biddingCount.toLocaleString();
-        if (el('dash-awarded-orders')) el('dash-awarded-orders').textContent = awardedCount.toLocaleString();
-        if (el('dash-delivered-orders')) el('dash-delivered-orders').textContent = deliveredCount.toLocaleString();
-        if (el('dash-total-bids')) el('dash-total-bids').textContent = totalBids.toLocaleString();
-        if (el('dash-total-spent')) el('dash-total-spent').textContent = simulation.formatMoney(totalSpent);
+        if (el('dash-available-orders')) el('dash-available-orders').textContent = contracts.length.toLocaleString();
+        if (el('dash-bidding-orders')) el('dash-bidding-orders').textContent = pendingDeliveries.length.toLocaleString();
+        if (el('dash-awarded-orders')) el('dash-awarded-orders').textContent = (transactionStats.contractTransactions || 0).toLocaleString();
+        if (el('dash-delivered-orders')) el('dash-delivered-orders').textContent = (transactionStats.totalTransactions || 0).toLocaleString();
+        if (el('dash-total-bids')) el('dash-total-bids').textContent = (transactionStats.totalB2B || 0).toLocaleString();
+        if (el('dash-total-spent')) el('dash-total-spent').textContent = simulation.formatMoney(transactionStats.totalValue || 0);
 
-        // Render recent awarded orders
-        this.renderRecentOrders(gm, simulation);
+        // Render recent contracts
+        this.renderRecentOrders(contracts, simulation);
     }
 
-    renderRecentOrders(gm, simulation) {
+    renderRecentOrders(contracts, simulation) {
         const container = document.getElementById('recent-orders-list');
         if (!container) return;
 
-        // Get recently awarded orders (pending delivery)
-        const pendingOrders = (gm.pendingOrders || []).filter(o => o.status === 'AWARDED');
-        const completedOrders = (gm.completedOrders || []).slice(-5);
+        // Get recent contracts
+        const recentContracts = contracts.slice(-8);
 
-        const recentOrders = [...pendingOrders.slice(-5), ...completedOrders].slice(-8);
-
-        if (recentOrders.length === 0) {
-            container.innerHTML = '<p class="no-recent-orders">No orders awarded yet</p>';
+        if (recentContracts.length === 0) {
+            container.innerHTML = '<p class="no-recent-orders">No active contracts</p>';
             return;
         }
 
         container.innerHTML = `
-            <div class="recent-orders-header">Recent Awarded Orders</div>
-            ${recentOrders.map(order => `
-                <div class="recent-order-item ${order.status === 'AWARDED' ? 'pending' : ''}">
+            <div class="recent-orders-header">Active Contracts</div>
+            ${recentContracts.map(c => `
+                <div class="recent-order-item">
                     <div class="recent-order-info">
-                        <span class="recent-order-product">${order.productName}</span>
-                        <span class="recent-order-details">${order.quantity} units • ${order.deliveryLocation || 'Unknown'}</span>
+                        <span class="recent-order-product">${c.productName}</span>
+                        <span class="recent-order-details">${c.quantity} units/delivery</span>
                     </div>
                     <div class="recent-order-right">
-                        <span class="recent-order-value">${simulation.formatMoney(order.winningBid?.totalBidValue || 0)}</span>
-                        <span class="recent-order-winner">${order.winningBid?.firmName || 'Unknown'}</span>
+                        <span class="recent-order-value">${simulation.formatMoney(c.unitPrice || 0)}/unit</span>
+                        <span class="recent-order-winner">Active</span>
                     </div>
                 </div>
             `).join('')}
@@ -2683,7 +2610,10 @@ export class Dashboard {
             stats.hourlyStats.length > 0
                 ? (stats.hourlyStats.reduce((sum, h) => sum + h.transactions, 0) / stats.hourlyStats.length).toFixed(1)
                 : '0');
-        this.setText('pending-orders', transactionLog.getPendingGlobalOrders().length);
+
+        // Count pending deliveries from purchase manager
+        const pendingDeliveries = simulation.purchaseManager?.pendingDeliveries || [];
+        this.setText('pending-orders', pendingDeliveries.length);
 
         // Update transaction breakdown - count B2B by tier
         const b2bTransactions = transactionLog.b2bTransactions || [];
@@ -2694,19 +2624,18 @@ export class Dashboard {
         this.setText('b2b-semi-count', semiToMfg.toLocaleString());
         this.setText('retail-purchase-count', stats.totalRetail.toLocaleString());
         this.setText('consumer-sale-count', stats.totalConsumerSales.toLocaleString());
-        this.setText('global-market-count', stats.totalGlobalMarket.toLocaleString());
+        this.setText('global-market-count', (stats.contractTransactions || 0).toLocaleString());
 
-        // Update global market status
-        const globalMarketStats = simulation.getGlobalMarketStats?.() || { totalOrders: 0, pendingOrders: 0, totalSpent: 0 };
-        const priceMultiplier = simulation.config?.globalMarket?.priceMultiplier || 1.5;
-        this.setText('gm-status', simulation.config?.globalMarket?.enabled ? 'Enabled' : 'Disabled');
-        this.setText('gm-multiplier', `${priceMultiplier}x`);
-        this.setText('gm-total-orders', globalMarketStats.totalOrders?.toLocaleString() || '0');
-        this.setText('gm-total-spent', simulation.formatMoney(globalMarketStats.totalSpent || 0));
+        // Update contract status
+        const contractManager = simulation.purchaseManager?.contractManager;
+        const activeContracts = contractManager?.getActiveContracts?.() || [];
+        this.setText('gm-status', 'Local Only');
+        this.setText('gm-multiplier', '-');
+        this.setText('gm-total-orders', activeContracts.length.toLocaleString());
+        this.setText('gm-total-spent', simulation.formatMoney(stats.totalValue || 0));
 
         // Update pending orders count badge
-        const pendingCount = transactionLog.getPendingGlobalOrders().length;
-        this.setText('pending-orders-count', `${pendingCount} Pending`);
+        this.setText('pending-orders-count', `${pendingDeliveries.length} Pending`);
 
         // Populate city filter if not already done
         this.populateCityFilter();
@@ -2714,8 +2643,8 @@ export class Dashboard {
         // Render hourly chart
         this.renderMarketHourlyChart(stats.hourlyStats);
 
-        // Render pending orders
-        this.renderPendingOrders(transactionLog.getPendingGlobalOrders());
+        // Render pending deliveries
+        this.renderPendingOrders(pendingDeliveries);
 
         // Get and filter transactions
         let transactions = [];
@@ -2727,8 +2656,8 @@ export class Dashboard {
             transactions = transactionLog.getTransactionsByType('RETAIL_PURCHASE', 100);
         } else if (typeFilter === 'CONSUMER_SALE') {
             transactions = transactionLog.getTransactionsByType('CONSUMER_SALE', 100);
-        } else if (typeFilter === 'GLOBAL_MARKET') {
-            transactions = transactionLog.getTransactionsByType('GLOBAL_MARKET', 100);
+        } else if (typeFilter === 'CONTRACT') {
+            transactions = transactionLog.getTransactionsByType('CONTRACT', 100);
         }
 
         // Apply city filter
@@ -2890,7 +2819,7 @@ export class Dashboard {
             'B2B': 'tx-b2b',
             'RETAIL_PURCHASE': 'tx-retail',
             'CONSUMER_SALE': 'tx-consumer',
-            'GLOBAL_MARKET': 'tx-global'
+            'CONTRACT': 'tx-contract'
         };
         return classes[type] || 'tx-other';
     }
@@ -2900,7 +2829,7 @@ export class Dashboard {
             'B2B': 'B2B',
             'RETAIL_PURCHASE': 'Retail',
             'CONSUMER_SALE': 'Consumer',
-            'GLOBAL_MARKET': 'Global'
+            'CONTRACT': 'Contract'
         };
         return badges[type] || type;
     }

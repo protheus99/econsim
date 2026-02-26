@@ -11,14 +11,6 @@
       "gameYear": 8640
     }
   },
-  "globalMarket": {
-    "enabled": true,
-    "priceMultiplier": 1.5,
-    "availabilityFactor": 0.8,
-    "deliveryDelayHours": 24,
-    "minimumOrderSize": 10,
-    "maxOrdersPerHour": 5
-  },
   "inventory": {
     "initialStockWeeks": 4,
     "reorderThresholdWeeks": 2,

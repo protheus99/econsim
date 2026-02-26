@@ -4,7 +4,6 @@
 import { SupplierSelector } from './SupplierSelector.js';
 import { ContractManager } from './ContractManager.js';
 import { TransportCost } from './TransportCost.js';
-import { Lot } from '../Lot.js';
 
 export class PurchaseManager {
     constructor(simulationEngine) {
@@ -19,9 +18,6 @@ export class PurchaseManager {
 
         // Configuration
         this.config = {
-            // Global market premium (fallback when no suppliers available)
-            globalMarketPremium: 1.5,
-
             // Minimum inventory threshold before triggering purchase
             reorderPoint: 0.3,  // Reorder when inventory drops to 30% of target
 
@@ -42,7 +38,6 @@ export class PurchaseManager {
         this.stats = {
             purchasesFromContracts: 0,
             purchasesFromSuppliers: 0,
-            purchasesFromGlobalMarket: 0,
             totalPurchaseValue: 0,
             retailSalesProcessed: 0
         };
@@ -164,11 +159,7 @@ export class PurchaseManager {
                 }
             }
 
-            // Step 3: Global market fallback
-            if (remaining > 0 && remaining >= this.config.minOrderQuantity) {
-                const purchased = this.purchaseFromGlobalMarket(firm, materialName, remaining);
-                this.stats.purchasesFromGlobalMarket += purchased;
-            }
+            // No global market fallback - local suppliers only
         }
     }
 
@@ -302,61 +293,7 @@ export class PurchaseManager {
         return transferred;
     }
 
-    /**
-     * Purchase from the global market (fallback)
-     */
-    purchaseFromGlobalMarket(buyer, productName, quantity) {
-        // Get base price from product registry
-        const product = this.engine.productRegistry?.getProductByName(productName);
-        const basePrice = product?.basePrice || 100;
-        const globalPrice = basePrice * this.config.globalMarketPremium;
-
-        const totalCost = quantity * globalPrice;
-
-        // Check buyer can afford
-        if (buyer.cash < totalCost) {
-            const affordable = Math.floor(buyer.cash / globalPrice);
-            if (affordable < this.config.minOrderQuantity) {
-                return 0;
-            }
-            quantity = affordable;
-        }
-
-        // Add to buyer's inventory
-        if (buyer.lotInventory) {
-            const gameTime = this.engine.clock?.getGameTime?.() || { hour: 0, day: 1, month: 1, year: 2025 };
-            const currentHour = gameTime.hour + (gameTime.day - 1) * 24 + (gameTime.month - 1) * 30 * 24;
-            const lot = new Lot({
-                id: `LOT_GM_${productName.replace(/\s+/g, '')}_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
-                productName: productName,
-                quantity: quantity,
-                quality: 0.8,  // Global market products are decent quality
-                producerId: 'GLOBAL_MARKET',
-                createdAt: currentHour,
-                status: 'AVAILABLE'
-            });
-            buyer.lotInventory.addLot(lot);
-        } else if (buyer.rawMaterialInventory) {
-            const current = buyer.rawMaterialInventory.get(productName)?.quantity || 0;
-            buyer.rawMaterialInventory.set(productName, { quantity: current + quantity });
-        }
-
-        // Deduct cost
-        buyer.cash -= quantity * globalPrice;
-        this.stats.totalPurchaseValue += quantity * globalPrice;
-
-        // Log transaction
-        if (this.engine.transactionLog) {
-            this.engine.transactionLog.logGlobalMarketPurchase?.(
-                buyer,
-                productName,
-                quantity,
-                globalPrice
-            );
-        }
-
-        return quantity;
-    }
+    // Global Market REMOVED - local suppliers only
 
     /**
      * Transfer goods from supplier to buyer
@@ -667,7 +604,6 @@ export class PurchaseManager {
         this.stats = {
             purchasesFromContracts: 0,
             purchasesFromSuppliers: 0,
-            purchasesFromGlobalMarket: 0,
             totalPurchaseValue: 0,
             retailSalesProcessed: 0
         };

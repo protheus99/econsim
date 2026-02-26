@@ -55,44 +55,8 @@
             <div class="card-badge" id="market-activity-badge">Live</div>
         </section>
 
-        <!-- Bidding Status Banner -->
-        <section class="bidding-status-banner" id="bidding-status-banner">
-            <div class="bidding-status-content">
-                <span class="bidding-status-icon" id="bidding-status-icon">🔔</span>
-                <span class="bidding-status-text" id="bidding-status-text">Bidding opens at 9:00 AM</span>
-            </div>
-            <div class="bidding-stats">
-                <span class="bidding-stat"><strong id="available-orders-count">0</strong> Available</span>
-                <span class="bidding-stat"><strong id="bidding-orders-count">0</strong> Bidding</span>
-                <span class="bidding-stat"><strong id="awarded-orders-count">0</strong> Awarded</span>
-            </div>
-        </section>
-
-        <!-- Order Summary Stats -->
+        <!-- Transaction Summary Stats -->
         <section class="market-summary-grid">
-            <div class="card">
-                <div class="card-header">
-                    <div class="card-title">Order Summary</div>
-                </div>
-                <div class="market-summary-stats">
-                    <div class="summary-stat">
-                        <span class="summary-label">Total Orders</span>
-                        <span class="summary-value" id="total-orders">0</span>
-                    </div>
-                    <div class="summary-stat">
-                        <span class="summary-label">Orders Awarded</span>
-                        <span class="summary-value" id="orders-awarded">0</span>
-                    </div>
-                    <div class="summary-stat">
-                        <span class="summary-label">Orders Delivered</span>
-                        <span class="summary-value" id="orders-delivered">0</span>
-                    </div>
-                    <div class="summary-stat">
-                        <span class="summary-label">Total Bids</span>
-                        <span class="summary-value" id="total-bids">0</span>
-                    </div>
-                </div>
-            </div>
             <div class="card">
                 <div class="card-header">
                     <div class="card-title">Transaction Summary</div>
@@ -118,132 +82,26 @@
             </div>
             <div class="card">
                 <div class="card-header">
-                    <div class="card-title">Pricing Info</div>
+                    <div class="card-title">Supply Chain Activity</div>
                 </div>
-                <div class="global-market-status">
-                    <div class="gm-stat">
-                        <span class="gm-label">Market Status</span>
-                        <span class="gm-value" id="gm-status">Enabled</span>
+                <div class="market-summary-stats">
+                    <div class="summary-stat">
+                        <span class="summary-label">B2B Transactions</span>
+                        <span class="summary-value" id="b2b-transactions">0</span>
                     </div>
-                    <div class="gm-stat">
-                        <span class="gm-label">Company Price</span>
-                        <span class="gm-value" id="gm-multiplier">1.5x</span>
+                    <div class="summary-stat">
+                        <span class="summary-label">Retail Sales</span>
+                        <span class="summary-value" id="retail-transactions">0</span>
                     </div>
-                    <div class="gm-stat">
-                        <span class="gm-label">Market Price</span>
-                        <span class="gm-value" id="gm-market-price">0.75x</span>
+                    <div class="summary-stat">
+                        <span class="summary-label">Contract Orders</span>
+                        <span class="summary-value" id="contract-transactions">0</span>
                     </div>
-                    <div class="gm-stat">
-                        <span class="gm-label">Total Spent</span>
-                        <span class="gm-value" id="gm-total-spent">$0</span>
+                    <div class="summary-stat">
+                        <span class="summary-label">Active Suppliers</span>
+                        <span class="summary-value" id="active-suppliers">0</span>
                     </div>
                 </div>
-            </div>
-        </section>
-
-        <!-- Orders Currently In Bidding -->
-        <section class="card full-width">
-            <div class="card-header">
-                <div class="card-title">Orders In Bidding (9AM - 12PM)</div>
-                <div class="card-badge status-bidding" id="bidding-count-badge">0 Orders</div>
-            </div>
-            <div class="orders-grid" id="bidding-orders-grid">
-                <p class="empty-state">No orders currently in bidding</p>
-            </div>
-        </section>
-
-        <!-- Available Orders -->
-        <section class="card full-width">
-            <div class="card-header">
-                <div class="card-title">Available Orders</div>
-                <div class="card-badge" id="available-count-badge">0 Orders</div>
-            </div>
-            <div class="order-filters">
-                <select id="order-tier-filter">
-                    <option value="all">All Tiers</option>
-                    <option value="RAW">Raw Materials</option>
-                    <option value="SEMI_RAW">Semi-Raw</option>
-                    <option value="MANUFACTURED">Manufactured</option>
-                </select>
-                <select id="order-type-filter">
-                    <option value="all">All Types</option>
-                    <option value="company">Company Orders (High Pay)</option>
-                    <option value="market">Market Orders</option>
-                </select>
-            </div>
-            <div class="orders-table-container">
-                <table class="orders-table">
-                    <thead>
-                        <tr>
-                            <th>Product</th>
-                            <th>Tier</th>
-                            <th>Quantity</th>
-                            <th>Price/Unit</th>
-                            <th>Total Value</th>
-                            <th>Delivery Fee</th>
-                            <th>Deadline</th>
-                            <th>Type</th>
-                            <th>Location</th>
-                        </tr>
-                    </thead>
-                    <tbody id="available-orders-tbody">
-                        <!-- Filled by JS -->
-                    </tbody>
-                </table>
-            </div>
-        </section>
-
-        <!-- Awarded Orders (Pending Delivery) -->
-        <section class="card full-width">
-            <div class="card-header">
-                <div class="card-title">Awarded Orders (Pending Delivery)</div>
-                <div class="card-badge" id="pending-delivery-count">0 Orders</div>
-            </div>
-            <div class="orders-table-container">
-                <table class="orders-table">
-                    <thead>
-                        <tr>
-                            <th>Product</th>
-                            <th>Tier</th>
-                            <th>Qty</th>
-                            <th>Delivering Firm</th>
-                            <th>Corporation</th>
-                            <th>Total Value</th>
-                            <th>Time Left</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody id="awarded-orders-tbody">
-                        <!-- Filled by JS -->
-                    </tbody>
-                </table>
-            </div>
-        </section>
-
-        <!-- Completed Orders (Delivered) -->
-        <section class="card full-width">
-            <div class="card-header">
-                <div class="card-title">Recently Completed Deliveries</div>
-                <div class="card-badge" id="completed-orders-count">0 Orders</div>
-            </div>
-            <div class="orders-table-container">
-                <table class="orders-table">
-                    <thead>
-                        <tr>
-                            <th>Product</th>
-                            <th>Tier</th>
-                            <th>Qty</th>
-                            <th>Delivered By</th>
-                            <th>Corporation</th>
-                            <th>Total Value</th>
-                            <th>Destination</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody id="completed-orders-tbody">
-                        <!-- Filled by JS -->
-                    </tbody>
-                </table>
             </div>
         </section>
 
@@ -283,12 +141,6 @@
                     <span class="breakdown-count" id="cat-b2c-retail-count">0</span>
                     <span class="breakdown-value" id="cat-b2c-retail-value">$0</span>
                 </div>
-                <div class="breakdown-item tx-global-market">
-                    <span class="breakdown-icon">&#x1F310;</span>
-                    <span class="breakdown-type">Global Market</span>
-                    <span class="breakdown-count" id="cat-global-market-count">0</span>
-                    <span class="breakdown-value" id="cat-global-market-value">$0</span>
-                </div>
                 <div class="breakdown-item tx-contract">
                     <span class="breakdown-icon">&#x1F4DD;</span>
                     <span class="breakdown-type">Contract</span>
@@ -317,7 +169,6 @@
                         <option value="B2C_RETAIL">Retail Sales</option>
                     </optgroup>
                     <optgroup label="Other">
-                        <option value="GLOBAL_MARKET">Global Market</option>
                         <option value="CONTRACT">Contract-Based</option>
                     </optgroup>
                 </select>

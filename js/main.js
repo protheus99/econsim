@@ -120,16 +120,6 @@ window.debug = {
     setSpeed: (speed) => window.app?.simulation?.setSpeed(speed),
     addEvent: (type, title, msg) => window.app?.simulation?.addEvent(type, title, msg),
 
-    // Global Market helpers
-    globalMarket: {
-        getStats: () => window.app?.simulation?.getGlobalMarketStats(),
-        getPrices: () => window.app?.simulation?.getGlobalMarketPrices(),
-        setMultiplier: (mult) => window.app?.simulation?.setGlobalMarketMultiplier(mult),
-        getMultiplier: () => window.app?.simulation?.getGlobalMarketMultiplier(),
-        enable: () => window.app?.simulation?.enableGlobalMarket(true),
-        disable: () => window.app?.simulation?.enableGlobalMarket(false)
-    },
-
     // Config helpers
     getConfig: () => window.app?.simulation?.getConfig(),
     setInventoryConfig: (cfg) => window.app?.simulation?.setInventoryConfig(cfg),
@@ -184,8 +174,6 @@ window.debug = {
 };
 
 console.log('💡 Debug helpers available: window.debug');
-console.log('   - debug.globalMarket.setMultiplier(1.5) - Set global market price multiplier');
-console.log('   - debug.globalMarket.getStats() - View global market statistics');
 console.log('   - debug.getInventoryReport() - View all manufacturing inventory');
 console.log('   - debug.getLotReport() - View lot inventory for all manufacturers');
 console.log('   - debug.getLotReport("FIRM_ID") - View lot inventory for specific firm');

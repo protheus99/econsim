@@ -9,7 +9,7 @@ import { Farm } from '../core/firms/Farm.js';
 import { ManufacturingPlant } from '../core/firms/ManufacturingPlant.js';
 import { RetailStore } from '../core/firms/RetailStore.js';
 import { Bank } from '../core/firms/Bank.js';
-import { GlobalMarket } from '../core/GlobalMarket.js';
+// GlobalMarket removed - local suppliers only
 import { TransactionLog } from '../core/TransactionLog.js';
 import { ProductCostCalculator } from '../core/ProductCostCalculator.js';
 import { LotRegistry } from '../core/Lot.js';
@@ -39,8 +39,7 @@ export class SimulationEngine {
         // Counter for deterministic firm ID generation
         this.firmCreationIndex = 0;
 
-        // Global Market System
-        this.globalMarket = null;
+        // Global Market System - REMOVED (local suppliers only)
 
         // Pending local deliveries (for transport time simulation)
         this.pendingLocalDeliveries = [];
@@ -67,14 +66,6 @@ export class SimulationEngine {
                 version: '1.0.0',
                 startYear: 2025,
                 timeScale: { realSecond: 1000, gameHour: 1 }
-            },
-            globalMarket: {
-                enabled: true,
-                priceMultiplier: 1.5,
-                availabilityFactor: 0.8,
-                deliveryDelayHours: 24,
-                minimumOrderSize: 10,
-                maxOrdersPerHour: 5
             },
             inventory: {
                 initialStockWeeks: 1,
@@ -131,7 +122,6 @@ export class SimulationEngine {
                 // Enable supplier scoring with transport costs
                 enableSupplierScoring: true,
                 // Global market premium multiplier
-                globalMarketPremium: 1.5
             }
         };
 
@@ -146,8 +136,6 @@ export class SimulationEngine {
             totalFirms: 0,
             totalProducts: 0,
             avgSalaryLevel: 0,
-            globalMarketOrders: 0,
-            globalMarketSpend: 0
         };
     }
 
@@ -182,7 +170,7 @@ export class SimulationEngine {
 
         // Merge each config section
         const sections = [
-            'simulation', 'globalMarket', 'inventory', 'countries', 'cities',
+            'simulation', 'inventory', 'countries', 'cities',
             'firms', 'products', 'transportation', 'labor', 'banking'
         ];
 
@@ -205,11 +193,7 @@ export class SimulationEngine {
         // Load config and wait for it before initializing systems that depend on it
         await this.loadConfig();
 
-        // Initialize Global Market first (needed for firm initialization)
-        this.globalMarket = new GlobalMarket(this.productRegistry, this.config.globalMarket);
-        // Initialize market with 500 orders for non-retail products
-        this.globalMarket.initializeOrders();
-        console.log(`✅ Global Market initialized (multiplier: ${this.config.globalMarket.priceMultiplier}x, orders: ${this.globalMarket.availableOrders.length})`);
+        // Global Market REMOVED - using local suppliers only
 
         // Initialize Product Cost Calculator for game balancing
         this.costCalculator = new ProductCostCalculator(this.productRegistry);
@@ -238,12 +222,6 @@ export class SimulationEngine {
         // Generate firms (mining, logging, farms, manufacturing, retail, banks)
         this.generateFirms();
 
-        // Give GlobalMarket reference to firms for inventory updates during delivery
-        this.globalMarket.setFirms(this.firms);
-
-        // Give GlobalMarket reference to transportation network for distance-based costs
-        this.globalMarket.setTransportation(this.cityManager.transportation, this.countries);
-
         // Wire up ContractManager to firms for production throttling
         this.wireContractManagerToFirms();
 
@@ -261,7 +239,6 @@ export class SimulationEngine {
         console.log(`   - ${this.cityManager.getTotalPopulation().toLocaleString()} total population`);
         console.log(`   - ${this.firms.size} firms operating`);
         console.log(`   - ${this.productRegistry.getAllProducts().length} products available`);
-        console.log(`   - Global Market: ${this.config.globalMarket.enabled ? 'ENABLED' : 'DISABLED'}`);
 
         this.addEvent('success', 'Simulation Started', 'Enhanced economic simulation initialized successfully');
     }
@@ -770,38 +747,11 @@ export class SimulationEngine {
         // Process hourly operations for all firms
         this.processFirmOperations();
 
-        // Get current game time for global market
-        const gameTime = this.clock.getGameTime();
-        const currentHour = gameTime.hour;
-        const currentDay = gameTime.day + (gameTime.month - 1) * 30 + (gameTime.year - 2025) * 365;
-
-        // Process global market (bidding windows and deliveries)
-        if (this.globalMarket) {
-            const marketResult = this.globalMarket.processHourly(currentHour, currentDay);
-
-            // Have firms bid on available orders during bidding hours (9am-12pm)
-            if (currentHour >= 9 && currentHour < 12) {
-                this.processFirmBidding();
-            }
-
-            if (marketResult.delivered > 0) {
-                this.stats.globalMarketOrders += marketResult.delivered;
-
-                // Sync delivered orders with TransactionLog
-                marketResult.deliveredOrders.forEach(order => {
-                    this.transactionLog.updateGlobalMarketOrderByGMId(order.id, 'DELIVERED');
-                });
-            }
-        }
-
         // Process pending local deliveries
         this.processLocalDeliveries();
 
         // Hourly critical inventory check (for fast-moving goods)
         this.checkCriticalInventoryLevels();
-
-        // Check for excess inventory and sell to global market
-        this.checkExcessInventory();
 
         // Update corporation stats from firms
         this.updateCorporationStats();
@@ -876,28 +826,8 @@ export class SimulationEngine {
                 const estimatedCost = urgentQuantity * (product?.basePrice || 100) * 2;
                 if (firm.cash < estimatedCost * 0.3) return;
 
-                // Try local first
-                const localFulfilled = this.tryLocalPurchase(firm, input.material, urgentQuantity);
-                const remaining = urgentQuantity - localFulfilled;
-
-                // If still need more, use global market direct purchase
-                if (remaining > 0 && this.globalMarket) {
-                    const result = this.globalMarket.directPurchase(firm, input.material, remaining);
-                    if (result.success) {
-                        this.stats.globalMarketSpend = (this.stats.globalMarketSpend || 0) + result.totalCost;
-
-                        this.transactionLog.logGlobalMarketOrder(
-                            firm,
-                            input.material,
-                            remaining,
-                            result.unitPrice,
-                            result.totalCost,
-                            'DELIVERED',
-                            0,
-                            `URGENT_${Date.now()}`
-                        );
-                    }
-                }
+                // Try local purchase only (no global market fallback)
+                this.tryLocalPurchase(firm, input.material, urgentQuantity);
             }
         });
     }
@@ -931,28 +861,8 @@ export class SimulationEngine {
                 const estimatedCost = urgentQuantity * unitPrice * 2;
                 if (retailer.cash < estimatedCost * 0.3) return;
 
-                // Try local first
-                const localFulfilled = this.tryLocalRetailPurchase(retailer, productId, productName, urgentQuantity);
-                const remaining = urgentQuantity - localFulfilled;
-
-                // If still need more, use global market
-                if (remaining > 0 && this.globalMarket) {
-                    const result = this.globalMarket.directPurchase(retailer, productName, remaining);
-                    if (result.success) {
-                        this.stats.globalMarketSpend = (this.stats.globalMarketSpend || 0) + result.totalCost;
-
-                        this.transactionLog.logGlobalMarketOrder(
-                            retailer,
-                            productName,
-                            remaining,
-                            result.unitPrice,
-                            result.totalCost,
-                            'DELIVERED',
-                            0,
-                            `URGENT_${Date.now()}`
-                        );
-                    }
-                }
+                // Try local purchase only (no global market fallback)
+                this.tryLocalRetailPurchase(retailer, productId, productName, urgentQuantity);
             }
         });
     }
@@ -991,59 +901,8 @@ export class SimulationEngine {
                 const estimatedCost = remainingOrder * (product?.basePrice || 100) * 1.5;
                 if (firm.cash < estimatedCost * 0.5) return;
 
-                // First try to buy from local producers via supply chain
-                const localFulfilled = this.tryLocalPurchase(firm, input.material, remainingOrder);
-                remainingOrder -= localFulfilled;
-
-                // If local purchase didn't fully fulfill the need, use global market
-                if (remainingOrder > 0 && this.globalMarket && this.globalMarket.canPlaceOrder()) {
-                    // Recalculate current inventory after local purchase
-                    const currentStock = inventory.quantity;
-
-                    // If critically low, use direct purchase for immediate delivery
-                    if (currentStock < criticalThreshold) {
-                        // Config-based urgent quantity
-                        const urgentQuantity = Math.floor(Math.min(dailyUsage * urgentOrderDays, remainingOrder));
-                        if (urgentQuantity > 0) {
-                            const result = this.globalMarket.directPurchase(firm, input.material, urgentQuantity);
-                            if (result.success) {
-                                this.stats.globalMarketSpend = (this.stats.globalMarketSpend || 0) + result.totalCost;
-                                remainingOrder -= urgentQuantity;
-
-                                this.transactionLog.logGlobalMarketOrder(
-                                    firm,
-                                    input.material,
-                                    urgentQuantity,
-                                    result.unitPrice,
-                                    result.totalCost,
-                                    'DELIVERED',
-                                    0,
-                                    `DIRECT_${Date.now()}`
-                                );
-                            }
-                        }
-                    }
-
-                    // Place remaining order through bidding system
-                    if (remainingOrder > 0) {
-                        const result = this.globalMarket.placeOrder(firm, input.material, remainingOrder, 'bulk');
-                        if (result.success) {
-                            this.stats.globalMarketSpend = (this.stats.globalMarketSpend || 0) + result.order.totalCost;
-
-                            const deliveryHours = this.config.globalMarket?.deliveryDelayHours || 24;
-                            this.transactionLog.logGlobalMarketOrder(
-                                firm,
-                                input.material,
-                                remainingOrder,
-                                result.order.unitPrice,
-                                result.order.totalCost,
-                                'PENDING',
-                                deliveryHours,
-                                result.order.id
-                            );
-                        }
-                    }
-                }
+                // Try to buy from local producers only (no global market fallback)
+                this.tryLocalPurchase(firm, input.material, remainingOrder);
             }
         });
     }
@@ -1100,57 +959,8 @@ export class SimulationEngine {
         ordersNeeded.sort((a, b) => a.priority - b.priority);
 
         for (const order of ordersNeeded) {
-            let remainingOrder = order.quantity;
-
-            // First try to buy from local manufacturers
-            const localFulfilled = this.tryLocalRetailPurchase(retailer, order.productId, order.productName, remainingOrder);
-            remainingOrder -= localFulfilled;
-
-            // If local purchase didn't fully fulfill, use global market
-            if (remainingOrder > 0 && this.globalMarket && this.globalMarket.canPlaceOrder()) {
-                const unitPrice = this.globalMarket.getMarketPrice(order.productName);
-                const totalCost = remainingOrder * unitPrice;
-
-                // Check if retailer can afford the order
-                if (retailer.cash >= totalCost) {
-                    // If urgent, use direct purchase for immediate delivery
-                    if (order.isUrgent) {
-                        const result = this.globalMarket.directPurchase(retailer, order.productName, remainingOrder);
-                        if (result.success) {
-                            this.stats.globalMarketSpend = (this.stats.globalMarketSpend || 0) + result.totalCost;
-
-                            this.transactionLog.logGlobalMarketOrder(
-                                retailer,
-                                order.productName,
-                                remainingOrder,
-                                result.unitPrice,
-                                result.totalCost,
-                                'DELIVERED',
-                                0,
-                                `DIRECT_${Date.now()}`
-                            );
-                        }
-                    } else {
-                        // Normal order through bidding system
-                        const result = this.globalMarket.placeOrder(retailer, order.productName, remainingOrder, 'bulk');
-                        if (result.success) {
-                            this.stats.globalMarketSpend = (this.stats.globalMarketSpend || 0) + result.order.totalCost;
-
-                            const deliveryHours = this.config.globalMarket?.deliveryDelayHours || 24;
-                            this.transactionLog.logGlobalMarketOrder(
-                                retailer,
-                                order.productName,
-                                remainingOrder,
-                                result.order.unitPrice || unitPrice,
-                                result.order.totalCost || totalCost,
-                                'PENDING',
-                                deliveryHours,
-                                result.order.id
-                            );
-                        }
-                    }
-                }
-            }
+            // Try to buy from local manufacturers only (no global market fallback)
+            this.tryLocalRetailPurchase(retailer, order.productId, order.productName, order.quantity);
         }
     }
 
@@ -1260,133 +1070,7 @@ export class SimulationEngine {
         return totalFulfilled;
     }
 
-    checkExcessInventory() {
-        // Sell excess inventory to global market at a discount.
-        // Two triggers:
-        //   1. URGENT: inventory >= 90% of storage capacity → sell down to 70% (ignores demand)
-        //   2. NORMAL: inventory > 50% of capacity AND no B2B sale in 48 hours → sell down to 50%
-        const URGENT_THRESHOLD = 0.90;
-        const URGENT_TARGET = 0.70;
-        const NORMAL_THRESHOLD = 0.50;
-        const NORMAL_TARGET = 0.50;
-        const NO_DEMAND_HOURS = 48;
-
-        this.firms.forEach(firm => {
-            let inventory = null;
-            let productName = null;
-
-            if (firm.type === 'MINING') {
-                inventory = firm.inventory;
-                productName = firm.resourceType;
-            } else if (firm.type === 'LOGGING') {
-                inventory = firm.inventory;
-                productName = firm.timberType;
-            } else if (firm.type === 'FARM') {
-                inventory = firm.inventory;
-                productName = firm.cropType || firm.livestockType;
-            } else if (firm.type === 'MANUFACTURING') {
-                inventory = firm.finishedGoodsInventory;
-                productName = firm.product?.name || firm.productType;
-            } else {
-                return;
-            }
-
-            if (!inventory || !productName) return;
-
-            const capacity = inventory.storageCapacity || 10000;
-            const fillRatio = inventory.quantity / capacity;
-
-            let sellQuantity = 0;
-
-            if (fillRatio >= URGENT_THRESHOLD) {
-                // Urgent: at or near max capacity — sell regardless of demand
-                sellQuantity = Math.floor(inventory.quantity - capacity * URGENT_TARGET);
-            } else if (fillRatio > NORMAL_THRESHOLD) {
-                // Normal: above half capacity — only sell if no local demand recently
-                const hoursSinceLastSale = this.clock.totalHours - (firm.lastB2BSaleHour || 0);
-                if (hoursSinceLastSale <= NO_DEMAND_HOURS) return;
-                sellQuantity = Math.floor(inventory.quantity - capacity * NORMAL_TARGET);
-            } else {
-                return;
-            }
-
-            if (sellQuantity < (this.globalMarket.config.minimumOrderSize || 10)) return;
-
-            const result = this.globalMarket.sellToGlobalMarket(firm, productName, sellQuantity);
-
-            if (result.success) {
-                // Use actual quantity sold (from lots) not requested quantity
-                const actualQuantitySold = result.sale.quantity;
-                this.transactionLog.logGlobalMarketSale(
-                    firm,
-                    productName,
-                    actualQuantitySold,
-                    result.sale.unitPrice,
-                    result.sale.totalRevenue
-                );
-
-                this.stats.globalMarketSales = (this.stats.globalMarketSales || 0) + 1;
-                this.stats.globalMarketSalesRevenue = (this.stats.globalMarketSalesRevenue || 0) + result.sale.totalRevenue;
-            }
-        });
-    }
-
-    // Have firms bid on global market orders they can fulfill
-    processFirmBidding() {
-        const biddingOrders = this.globalMarket.getBiddingOrders();
-        if (biddingOrders.length === 0) return;
-
-        // Collect firms that can produce and bid
-        const producers = Array.from(this.firms.values()).filter(f =>
-            f.type === 'MINING' || f.type === 'LOGGING' || f.type === 'FARM' || f.type === 'MANUFACTURING'
-        );
-
-        biddingOrders.forEach(order => {
-            // Find firms that produce this product
-            const eligibleFirms = producers.filter(firm => {
-                let productName = null;
-                let inventory = null;
-
-                if (firm.type === 'MINING') {
-                    productName = firm.resourceType;
-                    inventory = firm.inventory;
-                } else if (firm.type === 'LOGGING') {
-                    productName = firm.timberType;
-                    inventory = firm.inventory;
-                } else if (firm.type === 'FARM') {
-                    productName = firm.cropType || firm.livestockType;
-                    inventory = firm.inventory;
-                } else if (firm.type === 'MANUFACTURING') {
-                    productName = firm.product?.name;
-                    inventory = firm.finishedGoodsInventory;
-                }
-
-                // Check if firm produces this product and has enough inventory
-                return productName === order.productName &&
-                       inventory &&
-                       inventory.quantity >= order.quantity;
-            });
-
-            // Each eligible firm places a bid
-            eligibleFirms.forEach(firm => {
-                // Only bid if not already bid on this order
-                const alreadyBid = order.bids.some(b => b.firmId === firm.id);
-                if (alreadyBid) return;
-
-                // Calculate bid price based on production cost + profit margin
-                const baseCost = order.basePrice;
-                // Random profit margin 5-25% (using seeded RNG for determinism)
-                const profitMargin = 1.05 + this.random() * 0.20;
-                const bidPrice = baseCost * profitMargin;
-
-                // Calculate delivery fee based on quantity
-                const deliveryFee = order.quantity * 0.3 * (1 + this.random());
-
-                // Place the bid
-                this.globalMarket.placeBid(firm, order.id, bidPrice, deliveryFee);
-            });
-        });
-    }
+    // Global Market methods removed - local suppliers only
 
     updateCorporationStats() {
         // Reset and recalculate corporation stats from their firms
@@ -1659,19 +1343,8 @@ export class SimulationEngine {
 
                 if (selection) {
                     this.executeTrade(selection.supplier, manufacturer, neededMaterial, neededQuantity);
-                } else if (this.globalMarket) {
-                    // Fallback: Buy from global market if no firm suppliers available
-                    const product = this.productRegistry.getProductByName(neededMaterial);
-                    const unitPrice = (product?.basePrice || 100) * 1.5; // Global market premium
-                    const result = this.globalMarket.directPurchase(manufacturer, neededMaterial, neededQuantity);
-                    if (result.success) {
-                        const totalCost = neededQuantity * unitPrice;
-                        this.transactionLog.logGlobalMarketOrder(
-                            manufacturer, neededMaterial, neededQuantity,
-                            unitPrice, totalCost, 'DELIVERED', 0
-                        );
-                    }
                 }
+                // No global market fallback - local suppliers only
             });
         });
 
@@ -1702,19 +1375,8 @@ export class SimulationEngine {
 
                 if (selection) {
                     this.executeManufacturerToManufacturerTrade(selection.supplier, manufacturer, neededMaterial, neededQuantity);
-                } else if (this.globalMarket) {
-                    // Fallback: Buy from global market if no firm suppliers available
-                    const product = this.productRegistry.getProductByName(neededMaterial);
-                    const unitPrice = (product?.basePrice || 100) * 1.5; // Global market premium
-                    const result = this.globalMarket.directPurchase(manufacturer, neededMaterial, neededQuantity);
-                    if (result.success) {
-                        const totalCost = neededQuantity * unitPrice;
-                        this.transactionLog.logGlobalMarketOrder(
-                            manufacturer, neededMaterial, neededQuantity,
-                            unitPrice, totalCost, 'DELIVERED', 0
-                        );
-                    }
                 }
+                // No global market fallback - local suppliers only
             });
         });
 
@@ -2617,7 +2279,6 @@ export class SimulationEngine {
             events: this.events,
             marketHistory: this.marketHistory,
             stats: this.stats,
-            globalMarket: this.globalMarket ? this.globalMarket.getStats() : null,
             config: this.config,
             transactionLog: {
                 summary: this.transactionLog.getSummary(),
@@ -2640,38 +2301,7 @@ export class SimulationEngine {
         return this.countries.get(id);
     }
 
-    // Global Market control methods
-    setGlobalMarketMultiplier(multiplier) {
-        if (multiplier < 1.0) {
-            console.warn('Global market multiplier should be >= 1.0');
-            multiplier = 1.0;
-        }
-        this.config.globalMarket.priceMultiplier = multiplier;
-        if (this.globalMarket) {
-            this.globalMarket.updatePriceMultiplier(multiplier);
-        }
-        this.addEvent('info', 'Global Market', `Price multiplier set to ${multiplier}x`);
-    }
-
-    getGlobalMarketMultiplier() {
-        return this.config.globalMarket.priceMultiplier;
-    }
-
-    enableGlobalMarket(enabled = true) {
-        this.config.globalMarket.enabled = enabled;
-        if (this.globalMarket) {
-            this.globalMarket.config.enabled = enabled;
-        }
-        this.addEvent('info', 'Global Market', `Global market ${enabled ? 'enabled' : 'disabled'}`);
-    }
-
-    getGlobalMarketStats() {
-        return this.globalMarket ? this.globalMarket.getStats() : null;
-    }
-
-    getGlobalMarketPrices() {
-        return this.globalMarket ? this.globalMarket.getMarketData() : [];
-    }
+    // Global Market REMOVED - local suppliers only
 
     // Configuration methods
     setInventoryConfig(config) {
