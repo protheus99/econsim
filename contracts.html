@@ -1,0 +1,176 @@
+<!-- contracts.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contracts - Economic Simulation</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="page-nav">
+        <a href="index.html" class="nav-link">Dashboard</a>
+        <a href="global-economy.html" class="nav-link">Global Economy</a>
+        <a href="corporations.html" class="nav-link">Corporations</a>
+        <a href="market-activity.html" class="nav-link">Market Activity</a>
+        <a href="contracts.html" class="nav-link active">Contracts</a>
+        <a href="world-map.html" class="nav-link">World Map</a>
+        <a href="cities.html" class="nav-link">Cities</a>
+        <a href="products.html" class="nav-link">Products</a>
+        <a href="transportation.html" class="nav-link">Transportation</a>
+        <a href="feed.html" class="nav-link">Feed</a>
+    </nav>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="game-clock">
+            <div class="clock-display">
+                <div class="clock-info">
+                    <div class="date-time" id="game-date">2025-01-01 00:00</div>
+                    <div class="time-meta">
+                        <span class="status-indicator status-running" id="status-indicator"></span>
+                        <span id="status-text">Running</span> - 1 second = 1 game hour
+                    </div>
+                </div>
+                <div class="real-time-info">
+                    <div class="time-meta">Real Time Elapsed</div>
+                    <div class="real-time-display" id="real-time">00:00:00</div>
+                </div>
+            </div>
+            <div class="controls">
+                <button class="btn btn-play" id="btn-play">Play</button>
+                <button class="btn btn-pause" id="btn-pause">Pause</button>
+                <button class="btn btn-speed" data-speed="8">8x</button>
+                <button class="btn btn-speed" data-speed="4">4x</button>
+                <button class="btn btn-speed" data-speed="2">2x</button>
+                <button class="btn btn-speed" data-speed="1">1x</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-container">
+        <section class="page-header">
+            <h1>Supply Contracts</h1>
+            <div class="card-badge" id="contracts-badge">Debug View</div>
+        </section>
+
+        <!-- Contract Summary Stats -->
+        <section class="market-summary-grid">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Contract Summary</div>
+                </div>
+                <div class="market-summary-stats">
+                    <div class="summary-stat">
+                        <span class="summary-label">Total Contracts</span>
+                        <span class="summary-value" id="total-contracts">0</span>
+                    </div>
+                    <div class="summary-stat">
+                        <span class="summary-label">Active</span>
+                        <span class="summary-value" id="active-contracts">0</span>
+                    </div>
+                    <div class="summary-stat">
+                        <span class="summary-label">Total Value</span>
+                        <span class="summary-value" id="total-contract-value">$0</span>
+                    </div>
+                    <div class="summary-stat">
+                        <span class="summary-label">Avg Fulfillment</span>
+                        <span class="summary-value" id="avg-fulfillment">0%</span>
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Contract Types</div>
+                </div>
+                <div class="market-summary-stats">
+                    <div class="summary-stat">
+                        <span class="summary-label">Fixed Volume</span>
+                        <span class="summary-value" id="fixed-volume-count">0</span>
+                    </div>
+                    <div class="summary-stat">
+                        <span class="summary-label">Min/Max</span>
+                        <span class="summary-value" id="min-max-count">0</span>
+                    </div>
+                    <div class="summary-stat">
+                        <span class="summary-label">Exclusive</span>
+                        <span class="summary-value" id="exclusive-count">0</span>
+                    </div>
+                    <div class="summary-stat">
+                        <span class="summary-label">Defaulted</span>
+                        <span class="summary-value" id="defaulted-count">0</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Contract Breakdown by Product -->
+        <section class="card full-width">
+            <div class="card-header">
+                <div class="card-title">Contracts by Product</div>
+            </div>
+            <div class="transaction-breakdown" id="product-breakdown">
+                <!-- Filled by JS -->
+            </div>
+        </section>
+
+        <!-- Contracts Table -->
+        <section class="card full-width">
+            <div class="card-header">
+                <div class="card-title">All Contracts</div>
+                <div class="card-badge" id="showing-contracts">Showing 0</div>
+            </div>
+            <div class="transaction-controls">
+                <select id="contract-status-filter">
+                    <option value="all">All Status</option>
+                    <option value="active">Active</option>
+                    <option value="pending">Pending</option>
+                    <option value="completed">Completed</option>
+                    <option value="terminated">Terminated</option>
+                    <option value="defaulted">Defaulted</option>
+                </select>
+                <select id="contract-product-filter">
+                    <option value="all">All Products</option>
+                </select>
+                <input type="text" id="contract-search" placeholder="Search firms...">
+            </div>
+            <div class="transactions-table-container">
+                <table class="transactions-table" id="contracts-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Status</th>
+                            <th>Supplier</th>
+                            <th>Buyer</th>
+                            <th>Product</th>
+                            <th>Volume/Period</th>
+                            <th>Price</th>
+                            <th>Fulfilled</th>
+                            <th>Total Value</th>
+                            <th>Fulfillment Rate</th>
+                        </tr>
+                    </thead>
+                    <tbody id="contracts-tbody">
+                        <!-- Filled by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Contract Detail Panel (hidden by default) -->
+        <section class="card full-width hidden" id="contract-detail-panel">
+            <div class="card-header">
+                <div class="card-title">Contract Details</div>
+                <button class="btn btn-secondary" id="close-detail">Close</button>
+            </div>
+            <div id="contract-detail-content">
+                <!-- Filled by JS -->
+            </div>
+        </section>
+    </main>
+
+    <script type="module" src="js/pages/contracts.js"></script>
+</body>
+</html>

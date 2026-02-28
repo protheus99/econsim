@@ -225,6 +225,9 @@ export class SimulationEngine {
         // Wire up ContractManager to firms for production throttling
         this.wireContractManagerToFirms();
 
+        // Auto-create supply contracts for manufacturers
+        this.initializeSupplyContracts();
+
         // Initialize statistics before first render
         this.updateStatistics();
 
@@ -720,6 +723,78 @@ export class SimulationEngine {
         });
 
         console.log(`✅ Wired ContractManager to ${wiredCount} producer firms for throttling`);
+    }
+
+    /**
+     * Auto-create supply contracts for manufacturers
+     * Called during initialization after firms are generated
+     */
+    initializeSupplyContracts() {
+        if (!this.config.purchasing?.enableContracts) {
+            console.log('⏭️ Contract auto-creation disabled in config');
+            return;
+        }
+
+        const contractManager = this.purchaseManager?.contractManager;
+        if (!contractManager) {
+            console.warn('ContractManager not available, skipping contract creation');
+            return;
+        }
+
+        let contractsCreated = 0;
+        const supplierSelector = this.purchaseManager.supplierSelector;
+
+        // Get all manufacturing firms with input requirements
+        const manufacturers = Array.from(this.firms.values()).filter(firm =>
+            firm.firmType === 'MANUFACTURING' && firm.product?.inputs?.length > 0
+        );
+
+        for (const manufacturer of manufacturers) {
+            for (const input of manufacturer.product.inputs) {
+                // Calculate weekly volume need (70% coverage via contracts)
+                const hourlyUsage = input.quantity * (manufacturer.productionLine?.outputPerHour || 10);
+                const weeklyNeed = hourlyUsage * 24 * 7;
+                const contractVolume = Math.max(100, Math.floor(weeklyNeed * 0.7));
+
+                // Find best supplier using existing SupplierSelector
+                const selection = supplierSelector.selectBest({
+                    buyer: manufacturer,
+                    productName: input.material,
+                    quantity: contractVolume,
+                    considerPrice: true,
+                    considerTransport: true,
+                    considerRelationship: true
+                });
+
+                if (!selection?.supplier) {
+                    continue; // No supplier found, rely on spot market
+                }
+
+                // Get base price for product
+                const product = this.productRegistry.getProductByName(input.material);
+                const basePrice = product?.basePrice || 50;
+                const contractPrice = basePrice * 0.97; // 3% discount for contract commitment
+
+                // Create the contract
+                const contract = contractManager.createContract({
+                    supplierId: selection.supplier.id,
+                    buyerId: manufacturer.id,
+                    product: input.material,
+                    type: 'FIXED_VOLUME',
+                    volumePerPeriod: contractVolume,
+                    periodType: 'weekly',
+                    pricePerUnit: contractPrice,
+                    priceType: 'fixed',
+                    minQuality: 0.5
+                });
+
+                if (contract) {
+                    contractsCreated++;
+                }
+            }
+        }
+
+        console.log(`✅ Auto-created ${contractsCreated} supply contracts for ${manufacturers.length} manufacturers`);
     }
 
     setupIntervals() {

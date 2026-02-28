@@ -39,8 +39,8 @@ export class ContractManager {
      */
     createContract(config) {
         // Validate parties exist
-        const supplier = this.engine.firmManager?.getFirm(config.supplierId);
-        const buyer = this.engine.firmManager?.getFirm(config.buyerId);
+        const supplier = this.engine.firms?.get(config.supplierId);
+        const buyer = this.engine.firms?.get(config.buyerId);
 
         if (!supplier || !buyer) {
             console.warn(`ContractManager: Invalid supplier or buyer for contract`);
@@ -130,7 +130,7 @@ export class ContractManager {
         for (const contract of relevantContracts) {
             if (fulfilled >= needed) break;
 
-            const supplier = this.engine.firmManager?.getFirm(contract.supplierId);
+            const supplier = this.engine.firms?.get(contract.supplierId);
             if (!supplier) continue;
 
             // Check how much can be ordered under this contract
@@ -449,8 +449,8 @@ export class ContractManager {
     recordRelationshipImpact(contract, impact) {
         if (!this.engine.relationshipManager) return;
 
-        const supplier = this.engine.firmManager?.getFirm(contract.supplierId);
-        const buyer = this.engine.firmManager?.getFirm(contract.buyerId);
+        const supplier = this.engine.firms?.get(contract.supplierId);
+        const buyer = this.engine.firms?.get(contract.buyerId);
 
         if (!supplier || !buyer) return;
 

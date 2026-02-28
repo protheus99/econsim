@@ -267,10 +267,10 @@ function renderTransactions() {
                 <td>${t.gameTime || new Date(t.timestamp).toLocaleTimeString()}</td>
                 <td><span class="category-badge ${catDisplay.colorClass}">${catDisplay.icon} ${catDisplay.label}</span></td>
                 <td>
-                    ${sellerFirm ? `<a href="#" class="firm-link" data-firm-id="${sellerId}">${sellerDisplay}</a>` : sellerDisplay}
+                    ${sellerFirm ? `<a href="firms.html?id=${sellerId}" class="firm-link">${sellerDisplay}</a>` : sellerDisplay}
                 </td>
                 <td>
-                    ${buyerFirm ? `<a href="#" class="firm-link" data-firm-id="${buyerId}">${buyerDisplay}</a>` : buyerDisplay}
+                    ${buyerFirm ? `<a href="firms.html?id=${buyerId}" class="firm-link">${buyerDisplay}</a>` : buyerDisplay}
                 </td>
                 <td>${t.material || t.product || '-'} ${lotInfo}${contractInfo}${orderInfo}</td>
                 <td>${t.quantity || '-'}${qualityDisplay}</td>
@@ -280,17 +280,6 @@ function renderTransactions() {
             </tr>
         `;
     }).join('');
-
-    // Add click handlers for firm links in transactions
-    tbody.querySelectorAll('.firm-link').forEach(link => {
-        link.addEventListener('click', (e) => {
-            e.preventDefault();
-            const firmId = link.dataset.firmId;
-            if (firmId) {
-                window.location.href = `firms.html?id=${firmId}`;
-            }
-        });
-    });
 }
 
 init();
