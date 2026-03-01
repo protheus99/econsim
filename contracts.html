@@ -106,6 +106,33 @@
             </div>
         </section>
 
+        <!-- Pending Deliveries (In Transit) -->
+        <section class="card full-width">
+            <div class="card-header">
+                <div class="card-title">Pending Deliveries</div>
+                <div class="card-badge" id="pending-deliveries-count">0 in transit</div>
+            </div>
+            <div class="transactions-table-container" id="pending-deliveries-container">
+                <table class="transactions-table" id="pending-deliveries-table">
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>Quantity</th>
+                            <th>From (Supplier)</th>
+                            <th>To (Buyer)</th>
+                            <th>Dispatched</th>
+                            <th>ETA</th>
+                            <th>Time Remaining</th>
+                            <th>Value</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pending-deliveries-tbody">
+                        <!-- Filled by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
         <!-- Contract Breakdown by Product -->
         <section class="card full-width">
             <div class="card-header">

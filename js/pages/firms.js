@@ -548,6 +548,58 @@ function renderProductionStats(firm) {
 }
 
 /**
+ * Get next delivery ETA for a firm (incoming or outgoing)
+ */
+function getNextDeliveryETA(firmId) {
+    const pendingDeliveries = simulation.purchaseManager?.pendingDeliveries || [];
+    const currentHour = simulation.clock?.totalHours || 0;
+
+    // Find deliveries where this firm is buyer (incoming) or seller (outgoing)
+    const firmDeliveries = pendingDeliveries.filter(
+        d => d.buyer?.id === firmId || d.seller?.id === firmId
+    );
+
+    if (firmDeliveries.length === 0) {
+        return { hasDelivery: false };
+    }
+
+    // Sort by arrival time and get the soonest
+    firmDeliveries.sort((a, b) => a.arrivalHour - b.arrivalHour);
+    const next = firmDeliveries[0];
+
+    const hoursRemaining = Math.max(0, next.arrivalHour - currentHour);
+    const isIncoming = next.buyer?.id === firmId;
+
+    // Format ETA text
+    let etaText;
+    let etaClass;
+    if (hoursRemaining < 1) {
+        etaText = 'Arriving soon';
+        etaClass = 'eta-arriving';
+    } else if (hoursRemaining < 24) {
+        etaText = `${Math.ceil(hoursRemaining)}h`;
+        etaClass = 'eta-hours';
+    } else {
+        const days = Math.floor(hoursRemaining / 24);
+        const hours = Math.ceil(hoursRemaining % 24);
+        etaText = `${days}d ${hours}h`;
+        etaClass = 'eta-days';
+    }
+
+    return {
+        hasDelivery: true,
+        productName: next.productName,
+        quantity: Math.floor(next.quantity),
+        etaText,
+        etaClass,
+        hoursRemaining,
+        isIncoming,
+        direction: isIncoming ? 'Incoming' : 'Outgoing',
+        totalDeliveries: firmDeliveries.length
+    };
+}
+
+/**
  * Get production status including throttle, contracts, and expiration info
  */
 function getProductionStatus(firm) {
@@ -1046,6 +1098,9 @@ function renderContracts(firm) {
     asSupplier.forEach(c => { totalSupplierValue += c.contract.totalValue || 0; });
     asBuyer.forEach(c => { totalBuyerValue += c.contract.totalValue || 0; });
 
+    // Get next delivery ETA for this firm
+    const nextDeliveryInfo = getNextDeliveryETA(firm.id);
+
     countEl.textContent = `${totalContracts} Contracts`;
 
     // Render summary
@@ -1072,6 +1127,18 @@ function renderContracts(firm) {
                 <span class="contracts-stat-label">Purchase Value</span>
             </div>
         </div>
+        ${nextDeliveryInfo.hasDelivery ? `
+        <div class="next-delivery-section">
+            <div class="next-delivery-eta">
+                <span class="eta-label">Next Delivery:</span>
+                <span class="eta-value">${nextDeliveryInfo.productName}</span>
+                <span class="eta-label">ETA:</span>
+                <span class="eta-value ${nextDeliveryInfo.etaClass}">${nextDeliveryInfo.etaText}</span>
+                <span class="eta-label">Qty:</span>
+                <span class="eta-value">${nextDeliveryInfo.quantity}</span>
+            </div>
+        </div>
+        ` : ''}
     `;
 
     // Helper to render a contract item

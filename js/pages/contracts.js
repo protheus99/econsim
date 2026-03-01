@@ -69,6 +69,7 @@ function updateDisplay() {
     if (!simulation) return;
 
     updateContractStats();
+    renderPendingDeliveries();
     renderProductBreakdown();
     renderContracts();
 
@@ -79,6 +80,93 @@ function updateDisplay() {
     if (selectedContractId) {
         renderContractDetail(selectedContractId);
     }
+}
+
+function renderPendingDeliveries() {
+    const tbody = document.getElementById('pending-deliveries-tbody');
+    const countBadge = document.getElementById('pending-deliveries-count');
+    if (!tbody) return;
+
+    const pendingDeliveries = simulation.purchaseManager?.pendingDeliveries || [];
+    const currentHour = simulation.clock?.totalHours || 0;
+
+    countBadge.textContent = `${pendingDeliveries.length} in transit`;
+
+    if (pendingDeliveries.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="no-data">No deliveries in transit</td></tr>';
+        return;
+    }
+
+    // Sort by arrival time (soonest first)
+    const sorted = [...pendingDeliveries].sort((a, b) => a.arrivalHour - b.arrivalHour);
+
+    tbody.innerHTML = sorted.map(delivery => {
+        const hoursRemaining = Math.max(0, delivery.arrivalHour - currentHour);
+        const transitTotal = delivery.arrivalHour - delivery.createdAt;
+        const progressPercent = transitTotal > 0 ? Math.min(100, ((transitTotal - hoursRemaining) / transitTotal) * 100) : 100;
+
+        // Format time remaining
+        let timeRemaining;
+        if (hoursRemaining < 1) {
+            timeRemaining = '<span class="eta-arriving">Arriving soon</span>';
+        } else if (hoursRemaining < 24) {
+            timeRemaining = `<span class="eta-hours">${Math.ceil(hoursRemaining)}h</span>`;
+        } else {
+            const days = Math.floor(hoursRemaining / 24);
+            const hours = Math.ceil(hoursRemaining % 24);
+            timeRemaining = `<span class="eta-days">${days}d ${hours}h</span>`;
+        }
+
+        // Format ETA as game date
+        const etaHour = Math.floor(delivery.arrivalHour);
+        const etaDate = formatGameHourToDate(etaHour);
+
+        // Format dispatched time
+        const dispatchedDate = formatGameHourToDate(Math.floor(delivery.createdAt));
+
+        const sellerName = delivery.seller?.name || delivery.seller?.id || 'Unknown';
+        const buyerName = delivery.buyer?.name || delivery.buyer?.id || 'Unknown';
+        const totalValue = (delivery.quantity * delivery.unitPrice) + (delivery.transportCost || 0);
+
+        return `
+            <tr class="delivery-row">
+                <td>${delivery.productName}</td>
+                <td>${formatNumber(Math.floor(delivery.quantity))}</td>
+                <td><a href="firms.html?id=${delivery.seller?.id}" class="firm-link">${sellerName}</a></td>
+                <td><a href="firms.html?id=${delivery.buyer?.id}" class="firm-link">${buyerName}</a></td>
+                <td>${dispatchedDate}</td>
+                <td>${etaDate}</td>
+                <td>
+                    <div class="eta-progress">
+                        <div class="eta-progress-bar" style="width: ${progressPercent}%"></div>
+                    </div>
+                    ${timeRemaining}
+                </td>
+                <td>${formatCurrency(totalValue)}</td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function formatGameHourToDate(totalHours) {
+    if (!simulation?.clock) return '-';
+
+    // Calculate date from total hours
+    const startYear = simulation.config?.simulation?.startYear || 2025;
+    const hoursPerDay = 24;
+    const daysPerMonth = 30;
+    const monthsPerYear = 12;
+
+    const totalDays = Math.floor(totalHours / hoursPerDay);
+    const hour = totalHours % hoursPerDay;
+
+    const totalMonths = Math.floor(totalDays / daysPerMonth);
+    const day = (totalDays % daysPerMonth) + 1;
+
+    const year = startYear + Math.floor(totalMonths / monthsPerYear);
+    const month = (totalMonths % monthsPerYear) + 1;
+
+    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')} ${String(Math.floor(hour)).padStart(2, '0')}:00`;
 }
 
 function updateContractStats() {
