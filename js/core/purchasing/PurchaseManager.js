@@ -4,6 +4,7 @@
 import { SupplierSelector } from './SupplierSelector.js';
 import { ContractManager } from './ContractManager.js';
 import { TransportCost } from './TransportCost.js';
+import { Lot } from '../Lot.js';
 
 export class PurchaseManager {
     constructor(simulationEngine) {
@@ -688,56 +689,45 @@ export class PurchaseManager {
      * Add goods to buyer's inventory (handles different inventory systems)
      */
     addToBuyerInventory(buyer, productName, quantity, quality) {
-        // Try lot-based inventory first
-        if (buyer.rawMaterialLots && buyer.rawMaterialLots.has(productName)) {
-            const lotStorage = buyer.rawMaterialLots.get(productName);
-            const lot = {
-                id: `LOT_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
-                productName,
-                quantity,
-                quality: quality || 1.0,
-                status: 'available',
-                createdAt: this.engine.clock?.totalHours || 0
-            };
-            lotStorage.push(lot);
-
-            // Also update quantity tracking
-            if (buyer.rawMaterialInventory?.has(productName)) {
-                const inv = buyer.rawMaterialInventory.get(productName);
-                inv.quantity = (inv.quantity || 0) + quantity;
-            }
-            return quantity;
-        }
-
-        // Try raw material inventory
-        if (buyer.rawMaterialInventory?.has(productName)) {
-            const inv = buyer.rawMaterialInventory.get(productName);
-            inv.quantity = (inv.quantity || 0) + quantity;
-            return quantity;
-        }
-
-        // Try lot inventory (for lot-enabled products)
-        if (buyer.lotInventory) {
-            // Create a proper Lot object if possible
+        // Priority 1: Use lotInventory (modern system) with proper Lot class
+        if (buyer.lotInventory && buyer.lotInventory.addLot) {
             try {
-                const Lot = buyer.lotInventory.constructor?.Lot ||
-                           this.engine.Lot;
-                if (Lot) {
-                    const lot = new Lot({
-                        productName,
-                        quantity,
-                        quality: quality || 1.0
-                    });
-                    buyer.lotInventory.addLot(lot);
-                    return quantity;
-                }
+                const lotId = `LOT_${productName.replace(/\s+/g, '')}_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+                const lot = new Lot({
+                    id: lotId,
+                    productName,
+                    quantity,
+                    quality: quality || 1.0,
+                    status: 'AVAILABLE',
+                    createdAt: this.engine.clock?.totalHours || 0
+                });
+                buyer.lotInventory.addLot(lot);
+                return quantity;
             } catch (e) {
-                // Fallback below
+                console.warn(`PurchaseManager: Failed to add lot to lotInventory: ${e.message}`);
+                // Continue to fallback methods
             }
         }
 
-        // Fallback: try generic inventory
-        if (buyer.inventory) {
+        // Priority 2: Raw material inventory map (for manufacturers)
+        if (buyer.rawMaterialInventory instanceof Map && buyer.rawMaterialInventory.has(productName)) {
+            const inv = buyer.rawMaterialInventory.get(productName);
+            if (typeof inv === 'object') {
+                inv.quantity = (inv.quantity || 0) + quantity;
+            } else {
+                buyer.rawMaterialInventory.set(productName, { quantity });
+            }
+            return quantity;
+        }
+
+        // Priority 3: Initialize raw material inventory if it exists but product doesn't
+        if (buyer.rawMaterialInventory instanceof Map) {
+            buyer.rawMaterialInventory.set(productName, { quantity, quality: quality || 1.0 });
+            return quantity;
+        }
+
+        // Priority 4: Generic inventory object
+        if (buyer.inventory && typeof buyer.inventory === 'object') {
             buyer.inventory.quantity = (buyer.inventory.quantity || 0) + quantity;
             return quantity;
         }
