@@ -15,6 +15,7 @@ import { ProductCostCalculator } from '../core/ProductCostCalculator.js';
 import { LotRegistry } from '../core/Lot.js';
 import { CityRetailDemandManager } from '../core/CityRetailDemandManager.js';
 import { PurchaseManager } from './purchasing/PurchaseManager.js';
+import { getLotSizeForProduct } from '../core/LotSizings.js';
 
 export class SimulationEngine {
     constructor() {
@@ -790,7 +791,18 @@ export class SimulationEngine {
                 // Calculate weekly volume need (70% coverage via contracts)
                 const hourlyUsage = input.quantity * (manufacturer.productionLine?.outputPerHour || 10);
                 const weeklyNeed = hourlyUsage * 24 * 7;
-                let requestedVolume = Math.max(100, Math.floor(weeklyNeed * 0.7));
+                let requestedVolume = Math.floor(weeklyNeed * 0.7);
+
+                // Align to lot sizes - contracts should be in whole lots
+                const lotSize = getLotSizeForProduct(input.material, this.productRegistry);
+                if (lotSize > 0) {
+                    // Round up to nearest lot, minimum 2 lots per week for efficiency
+                    const lotsNeeded = Math.max(2, Math.ceil(requestedVolume / lotSize));
+                    requestedVolume = lotsNeeded * lotSize;
+                } else {
+                    // No lot size defined, use minimum of 100
+                    requestedVolume = Math.max(100, requestedVolume);
+                }
 
                 // Find best supplier using existing SupplierSelector
                 // Note: requireInventory=false since suppliers haven't produced yet at init time
@@ -824,10 +836,18 @@ export class SimulationEngine {
                     continue; // Supplier fully committed, skip
                 }
 
-                // Limit contract volume to available capacity
-                const contractVolume = Math.min(requestedVolume, Math.floor(availableCapacity));
+                // Limit contract volume to available capacity (round down to whole lots)
+                let contractVolume = Math.min(requestedVolume, Math.floor(availableCapacity));
 
-                if (contractVolume < 50) {
+                // Re-align to lot boundaries after capacity limiting
+                if (lotSize > 0) {
+                    const wholeLots = Math.floor(contractVolume / lotSize);
+                    if (wholeLots < 2) {
+                        capacityLimitedCount++;
+                        continue; // Less than 2 lots per week - not worth a contract
+                    }
+                    contractVolume = wholeLots * lotSize;
+                } else if (contractVolume < 100) {
                     capacityLimitedCount++;
                     continue; // Too small to be worth a contract
                 }

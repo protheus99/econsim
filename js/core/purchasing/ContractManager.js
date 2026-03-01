@@ -3,6 +3,7 @@
 
 import { Contract } from './Contract.js';
 import { TransportCost } from './TransportCost.js';
+import { getLotSizeForProduct } from '../LotSizings.js';
 
 export class ContractManager {
     constructor(simulationEngine) {
@@ -147,12 +148,20 @@ export class ContractManager {
             const available = this.getSupplierInventory(supplier, productName);
             if (available <= 0) continue;
 
-            // Determine delivery quantity (always integer)
-            const toDeliver = Math.floor(Math.min(
+            // Determine delivery quantity (aligned to lot sizes)
+            let toDeliver = Math.floor(Math.min(
                 available,
                 maxOrderable,
                 needed - fulfilled
             ));
+
+            // Align to lot boundaries for efficiency
+            const lotSize = getLotSizeForProduct(productName, this.engine.productRegistry);
+            if (lotSize > 0 && toDeliver >= lotSize) {
+                // Round down to whole lots
+                const wholeLots = Math.floor(toDeliver / lotSize);
+                toDeliver = wholeLots * lotSize;
+            }
 
             if (toDeliver > 0) {
                 // Get quality from lots if available
