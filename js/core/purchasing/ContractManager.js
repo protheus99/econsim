@@ -147,12 +147,12 @@ export class ContractManager {
             const available = this.getSupplierInventory(supplier, productName);
             if (available <= 0) continue;
 
-            // Determine delivery quantity
-            const toDeliver = Math.min(
+            // Determine delivery quantity (always integer)
+            const toDeliver = Math.floor(Math.min(
                 available,
                 maxOrderable,
                 needed - fulfilled
-            );
+            ));
 
             if (toDeliver > 0) {
                 // Get quality from lots if available
@@ -228,7 +228,9 @@ export class ContractManager {
 
         // Log delivery creation with transit time (useful for debugging)
         if (transport.hours > 4) {
-            console.log(`📦 Contract delivery: ${removed} ${product} from ${supplier.name} to ${buyer.name} - ${transport.hours}h transit (${transport.mode})`);
+            const supplierName = supplier.getDisplayName?.() || supplier.name || supplier.id || 'Unknown Supplier';
+            const buyerName = buyer.getDisplayName?.() || buyer.name || buyer.id || 'Unknown Buyer';
+            console.log(`📦 Contract delivery: ${Math.floor(removed)} ${product} from ${supplierName} to ${buyerName} - ${transport.hours}h transit (${transport.mode})`);
         }
 
         // Create pending delivery instead of instant transfer
