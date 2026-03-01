@@ -5811,3 +5811,71 @@ tr.tx-contract-row { border-left: 3px solid #ffa726; }
     padding: 30px;
     font-style: italic;
 }
+
+/* Clickable product breakdown items */
+.product-breakdown-item {
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 2px solid transparent;
+}
+
+.product-breakdown-item:hover {
+    background: var(--bg-tertiary);
+    transform: translateY(-2px);
+}
+
+.product-breakdown-item.selected {
+    border-color: var(--accent-blue);
+    background: rgba(100, 181, 246, 0.1);
+}
+
+/* Product detail summary */
+.product-detail-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    padding: 15px;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    margin-bottom: 15px;
+}
+
+.product-detail-summary .summary-stat {
+    flex: 1;
+    min-width: 120px;
+    text-align: center;
+}
+
+.product-detail-summary .summary-label {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+}
+
+.product-detail-summary .summary-value {
+    display: block;
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+/* Sale type badges (contract vs spot) */
+.sale-type-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.sale-type-badge.contract {
+    background: rgba(100, 181, 246, 0.2);
+    color: var(--accent-blue);
+}
+
+.sale-type-badge.spot {
+    background: rgba(255, 152, 0, 0.2);
+    color: var(--accent-orange);
+}

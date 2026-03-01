@@ -46,11 +46,13 @@ export class SupplierSelector {
             quantity,
             considerPrice = true,
             considerTransport = true,
-            considerRelationship = true
+            considerRelationship = true,
+            requireInventory = true,  // Set to false for contract initialization
+            forSpotPurchase = true    // Set to false for contract fulfillment (uses full inventory)
         } = options;
 
         // Find all potential suppliers
-        const suppliers = this.findSuppliers(productName);
+        const suppliers = this.findSuppliers(productName, requireInventory, forSpotPurchase);
 
         if (suppliers.length === 0) {
             return null;
@@ -67,7 +69,7 @@ export class SupplierSelector {
                 buyer,
                 productName,
                 quantity,
-                { considerPrice, considerTransport, considerRelationship }
+                { considerPrice, considerTransport, considerRelationship, forSpotPurchase }
             );
             return { supplier, ...score };
         });
@@ -90,18 +92,30 @@ export class SupplierSelector {
 
     /**
      * Find all suppliers that produce a specific product
+     * @param {string} productName - Product to find suppliers for
+     * @param {boolean} requireInventory - If true, only return suppliers with inventory (default: true)
+     * @param {boolean} forSpotPurchase - If true, exclude inventory reserved for contracts (default: true)
      */
-    findSuppliers(productName) {
+    findSuppliers(productName, requireInventory = true, forSpotPurchase = true) {
         const suppliers = [];
+        const contractManager = this.engine.purchaseManager?.contractManager;
 
         this.engine.firms.forEach(firm => {
             // Check if firm produces this product
             const produces = this.firmProduces(firm, productName);
             if (!produces) return;
 
-            // Check if firm has inventory
-            const inventory = this.getInventory(firm, productName);
-            if (inventory <= 0) return;
+            // Check if firm has inventory (skip if not required, e.g., for contract setup)
+            if (requireInventory) {
+                let inventory;
+                if (forSpotPurchase && contractManager) {
+                    // For spot purchases, only count non-reserved inventory
+                    inventory = contractManager.getSpotAvailableInventory(firm, productName);
+                } else {
+                    inventory = this.getInventory(firm, productName);
+                }
+                if (inventory <= 0) return;
+            }
 
             suppliers.push(firm);
         });
@@ -205,7 +219,14 @@ export class SupplierSelector {
         }
 
         // 5. Inventory score (0-100, more inventory = higher score)
-        const availableQty = this.getInventory(supplier, productName);
+        // For spot purchases, only count non-reserved inventory
+        let availableQty;
+        const contractManager = this.engine.purchaseManager?.contractManager;
+        if (options.forSpotPurchase && contractManager) {
+            availableQty = contractManager.getSpotAvailableInventory(supplier, productName);
+        } else {
+            availableQty = this.getInventory(supplier, productName);
+        }
         const inventoryScore = Math.min(100, (availableQty / quantity) * 100);
 
         // Calculate weighted total

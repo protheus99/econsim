@@ -29,6 +29,9 @@ export async function getSimulation() {
         });
     });
 
+    // Expose simulation globally for debugging
+    window.simulation = simulation;
+
     return simulation;
 }
 

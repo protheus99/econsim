@@ -742,32 +742,94 @@ export class SimulationEngine {
         }
 
         let contractsCreated = 0;
+        let noSupplierCount = 0;
+        let capacityLimitedCount = 0;
         const supplierSelector = this.purchaseManager.supplierSelector;
+
+        // Track committed capacity per supplier (supplierId -> weekly committed volume)
+        const supplierCommitments = new Map();
+
+        // Helper to get supplier's max weekly production (with 10% buffer)
+        const getSupplierWeeklyCapacity = (supplier) => {
+            let dailyCapacity = 0;
+
+            // Manufacturing plants
+            if (supplier.productionLine?.outputPerHour) {
+                dailyCapacity = supplier.productionLine.outputPerHour * 24;
+            }
+            // Mining companies
+            else if (supplier.extractionRate) {
+                dailyCapacity = supplier.extractionRate * 24;
+            }
+            // Logging companies
+            else if (supplier.harvestRate) {
+                dailyCapacity = supplier.harvestRate * 24;
+            }
+            // Farms
+            else if (supplier.productionRate) {
+                dailyCapacity = supplier.productionRate * 24;
+            }
+            // Default fallback
+            else {
+                dailyCapacity = 100; // Conservative default
+            }
+
+            // Weekly capacity with 10% buffer (only commit 90% of capacity)
+            return dailyCapacity * 7 * 0.9;
+        };
 
         // Get all manufacturing firms with input requirements
         const manufacturers = Array.from(this.firms.values()).filter(firm =>
-            firm.firmType === 'MANUFACTURING' && firm.product?.inputs?.length > 0
+            firm.type === 'MANUFACTURING' && firm.product?.inputs?.length > 0
         );
+
+        console.log(`📋 Contract init: Found ${manufacturers.length} manufacturers with inputs`);
 
         for (const manufacturer of manufacturers) {
             for (const input of manufacturer.product.inputs) {
                 // Calculate weekly volume need (70% coverage via contracts)
                 const hourlyUsage = input.quantity * (manufacturer.productionLine?.outputPerHour || 10);
                 const weeklyNeed = hourlyUsage * 24 * 7;
-                const contractVolume = Math.max(100, Math.floor(weeklyNeed * 0.7));
+                let requestedVolume = Math.max(100, Math.floor(weeklyNeed * 0.7));
 
                 // Find best supplier using existing SupplierSelector
+                // Note: requireInventory=false since suppliers haven't produced yet at init time
+                // Note: forSpotPurchase=false since we're setting up contracts, not spot buying
                 const selection = supplierSelector.selectBest({
                     buyer: manufacturer,
                     productName: input.material,
-                    quantity: contractVolume,
+                    quantity: requestedVolume,
                     considerPrice: true,
                     considerTransport: true,
-                    considerRelationship: true
+                    considerRelationship: true,
+                    requireInventory: false,
+                    forSpotPurchase: false
                 });
 
                 if (!selection?.supplier) {
+                    noSupplierCount++;
                     continue; // No supplier found, rely on spot market
+                }
+
+                const supplier = selection.supplier;
+                const supplierId = supplier.id;
+
+                // Check supplier's available capacity
+                const maxWeeklyCapacity = getSupplierWeeklyCapacity(supplier);
+                const currentCommitment = supplierCommitments.get(supplierId) || 0;
+                const availableCapacity = maxWeeklyCapacity - currentCommitment;
+
+                if (availableCapacity <= 0) {
+                    capacityLimitedCount++;
+                    continue; // Supplier fully committed, skip
+                }
+
+                // Limit contract volume to available capacity
+                const contractVolume = Math.min(requestedVolume, Math.floor(availableCapacity));
+
+                if (contractVolume < 50) {
+                    capacityLimitedCount++;
+                    continue; // Too small to be worth a contract
                 }
 
                 // Get base price for product
@@ -777,10 +839,10 @@ export class SimulationEngine {
 
                 // Create the contract
                 const contract = contractManager.createContract({
-                    supplierId: selection.supplier.id,
+                    supplierId: supplierId,
                     buyerId: manufacturer.id,
                     product: input.material,
-                    type: 'FIXED_VOLUME',
+                    type: 'fixed_volume',
                     volumePerPeriod: contractVolume,
                     periodType: 'weekly',
                     pricePerUnit: contractPrice,
@@ -790,11 +852,14 @@ export class SimulationEngine {
 
                 if (contract) {
                     contractsCreated++;
+                    // Track the commitment
+                    supplierCommitments.set(supplierId, currentCommitment + contractVolume);
                 }
             }
         }
 
         console.log(`✅ Auto-created ${contractsCreated} supply contracts for ${manufacturers.length} manufacturers`);
+        console.log(`   📊 ${noSupplierCount} inputs had no supplier, ${capacityLimitedCount} limited by supplier capacity`);
     }
 
     setupIntervals() {

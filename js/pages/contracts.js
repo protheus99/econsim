@@ -6,11 +6,18 @@ let statusFilter = 'all';
 let productFilter = 'all';
 let searchTerm = '';
 let selectedContractId = null;
+let selectedProduct = null;
 
 async function init() {
     simulation = await getSimulation();
     setupClock(simulation);
     setupControls(simulation);
+
+    // Debug logging
+    console.log('Contracts page init');
+    console.log('PurchaseManager:', simulation.purchaseManager);
+    console.log('ContractManager:', simulation.purchaseManager?.contractManager);
+    console.log('Contracts count:', simulation.purchaseManager?.contractManager?.contracts?.size);
 
     // Setup filters
     document.getElementById('contract-status-filter')?.addEventListener('change', (e) => {
@@ -65,6 +72,10 @@ function updateDisplay() {
     renderProductBreakdown();
     renderContracts();
 
+    if (selectedProduct) {
+        renderProductDetailView();
+    }
+
     if (selectedContractId) {
         renderContractDetail(selectedContractId);
     }
@@ -89,9 +100,10 @@ function updateContractStats() {
     let activeCount = 0;
 
     contracts.forEach(c => {
-        if (c.type === 'fixed_volume' || c.type === 'FIXED_VOLUME') fixedVolume++;
-        else if (c.type === 'min_max' || c.type === 'MIN_MAX') minMax++;
-        else if (c.type === 'exclusive' || c.type === 'EXCLUSIVE') exclusive++;
+        const type = c.type?.toLowerCase();
+        if (type === 'fixed_volume') fixedVolume++;
+        else if (type === 'min_max') minMax++;
+        else if (type === 'exclusive') exclusive++;
 
         if (c.status === 'defaulted') defaulted++;
         if (c.isActive?.() || c.status === 'active') {
@@ -145,14 +157,169 @@ function renderProductBreakdown() {
 
     container.innerHTML = Array.from(byProduct.entries())
         .sort((a, b) => b[1].count - a[1].count)
-        .slice(0, 8)
         .map(([product, data]) => `
-            <div class="breakdown-item tx-contract">
+            <div class="breakdown-item tx-contract product-breakdown-item${selectedProduct === product ? ' selected' : ''}" data-product="${product}">
                 <span class="breakdown-type">${product}</span>
                 <span class="breakdown-count">${data.active}/${data.count} active</span>
                 <span class="breakdown-value">${formatCurrency(data.value)}</span>
             </div>
         `).join('');
+
+    // Add click handlers for product items
+    container.querySelectorAll('.product-breakdown-item').forEach(item => {
+        item.addEventListener('click', () => {
+            const product = item.dataset.product;
+            if (selectedProduct === product) {
+                selectedProduct = null; // Toggle off
+            } else {
+                selectedProduct = product;
+            }
+            renderProductBreakdown();
+            renderProductDetailView();
+        });
+    });
+}
+
+function renderProductDetailView() {
+    const container = document.getElementById('product-detail-container');
+    if (!container) return;
+
+    if (!selectedProduct) {
+        container.innerHTML = '';
+        container.classList.add('hidden');
+        return;
+    }
+
+    const contractManager = simulation.purchaseManager?.contractManager;
+    if (!contractManager) {
+        container.innerHTML = '<div class="no-data">No contract data</div>';
+        return;
+    }
+
+    // Get all contracts for this product
+    const contracts = Array.from(contractManager.contracts.values())
+        .filter(c => c.product === selectedProduct)
+        .sort((a, b) => {
+            // Active first, then by total value
+            const aActive = a.status === 'active' ? 1 : 0;
+            const bActive = b.status === 'active' ? 1 : 0;
+            if (aActive !== bActive) return bActive - aActive;
+            return (b.totalValue || 0) - (a.totalValue || 0);
+        });
+
+    if (contracts.length === 0) {
+        container.innerHTML = `<div class="no-data">No contracts found for ${selectedProduct}</div>`;
+        container.classList.remove('hidden');
+        return;
+    }
+
+    // Calculate summary stats
+    const activeCount = contracts.filter(c => c.status === 'active').length;
+    const totalVolume = contracts.reduce((sum, c) => sum + (c.volumePerPeriod || 0), 0);
+    const totalValue = contracts.reduce((sum, c) => sum + (c.totalValue || 0), 0);
+    const avgPrice = contracts.reduce((sum, c) => sum + (c.pricePerUnit || 0), 0) / contracts.length;
+
+    container.innerHTML = `
+        <div class="card full-width">
+            <div class="card-header">
+                <div class="card-title">Contracts for: ${selectedProduct}</div>
+                <button class="btn btn-secondary" id="close-product-detail">Close</button>
+            </div>
+            <div class="product-detail-summary">
+                <div class="summary-stat">
+                    <span class="summary-label">Total Contracts</span>
+                    <span class="summary-value">${contracts.length}</span>
+                </div>
+                <div class="summary-stat">
+                    <span class="summary-label">Active</span>
+                    <span class="summary-value">${activeCount}</span>
+                </div>
+                <div class="summary-stat">
+                    <span class="summary-label">Total Volume/Week</span>
+                    <span class="summary-value">${formatNumber(totalVolume)}</span>
+                </div>
+                <div class="summary-stat">
+                    <span class="summary-label">Total Value</span>
+                    <span class="summary-value">${formatCurrency(totalValue)}</span>
+                </div>
+                <div class="summary-stat">
+                    <span class="summary-label">Avg Price</span>
+                    <span class="summary-value">${formatCurrency(avgPrice)}</span>
+                </div>
+            </div>
+            <div class="transactions-table-container">
+                <table class="transactions-table">
+                    <thead>
+                        <tr>
+                            <th>Status</th>
+                            <th>Supplier</th>
+                            <th>Supplier Location</th>
+                            <th>Buyer</th>
+                            <th>Buyer Location</th>
+                            <th>Volume/Period</th>
+                            <th>Price/Unit</th>
+                            <th>Period Fulfilled</th>
+                            <th>Total Delivered</th>
+                            <th>Total Value</th>
+                            <th>Fulfillment %</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${contracts.map(c => {
+                            const supplierFirm = simulation.firms.get(c.supplierId);
+                            const buyerFirm = simulation.firms.get(c.buyerId);
+                            const supplierName = c.supplierName || getShortFirmName(c.supplierId);
+                            const buyerName = c.buyerName || getShortFirmName(c.buyerId);
+                            const supplierCity = supplierFirm?.city?.name || 'Unknown';
+                            const buyerCity = buyerFirm?.city?.name || 'Unknown';
+                            const fulfillmentRate = ((c.averageFulfillmentRate || 0) * 100).toFixed(1);
+                            const fulfillmentClass = c.averageFulfillmentRate >= 0.9 ? 'high' :
+                                                      c.averageFulfillmentRate >= 0.7 ? 'medium' : 'low';
+                            const periodLabel = c.periodType === 'daily' ? '/day' :
+                                               c.periodType === 'weekly' ? '/week' : '/month';
+
+                            return `
+                                <tr class="contract-row" data-contract-id="${c.id}">
+                                    <td><span class="status-badge ${getStatusBadgeClass(c.status)}">${c.status}</span></td>
+                                    <td><a href="firms.html?id=${c.supplierId}" class="firm-link">${supplierName}</a></td>
+                                    <td>${supplierCity}</td>
+                                    <td><a href="firms.html?id=${c.buyerId}" class="firm-link">${buyerName}</a></td>
+                                    <td>${buyerCity}</td>
+                                    <td>${formatNumber(c.volumePerPeriod || 0)}${periodLabel}</td>
+                                    <td>${formatCurrency(c.pricePerUnit || 0)}</td>
+                                    <td>${formatNumber(c.currentPeriodFulfilled || 0)} / ${formatNumber(c.volumePerPeriod || 0)}</td>
+                                    <td>${formatNumber(c.totalDelivered || 0)}</td>
+                                    <td>${formatCurrency(c.totalValue || 0)}</td>
+                                    <td><span class="quality-indicator quality-${fulfillmentClass}">${fulfillmentRate}%</span></td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+
+    container.classList.remove('hidden');
+
+    // Add close button handler
+    document.getElementById('close-product-detail')?.addEventListener('click', () => {
+        selectedProduct = null;
+        renderProductBreakdown();
+        renderProductDetailView();
+    });
+
+    // Add click handlers for contract rows
+    container.querySelectorAll('.contract-row').forEach(row => {
+        row.addEventListener('click', (e) => {
+            if (e.target.tagName === 'A') return;
+            const contractId = row.dataset.contractId;
+            if (contractId) {
+                selectedContractId = contractId;
+                renderContractDetail(contractId);
+            }
+        });
+    });
 }
 
 function getShortFirmName(firmId) {

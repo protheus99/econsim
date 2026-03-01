@@ -1244,14 +1244,21 @@ function renderSales(firm) {
     const transactions = simulation.transactionLog?.transactions || [];
     const sales = transactions.filter(t => t.seller?.id === firm.id).slice(-20).reverse();
 
-    document.getElementById('firm-sales-count').textContent = `${sales.length} Sales`;
+    // Count contract vs spot sales
+    const contractSales = sales.filter(t => t.contractId).length;
+    const spotSales = sales.length - contractSales;
+    document.getElementById('firm-sales-count').textContent = `${sales.length} Sales (${contractSales} contract, ${spotSales} spot)`;
 
-    tbody.innerHTML = sales.length === 0 ? '<tr><td colspan="6" class="no-data">No sales</td></tr>' :
+    tbody.innerHTML = sales.length === 0 ? '<tr><td colspan="7" class="no-data">No sales</td></tr>' :
         sales.map(t => {
             const productName = getProductName(t.productName || t.product || t.material);
+            const saleType = t.contractId
+                ? '<span class="sale-type-badge contract">Contract</span>'
+                : '<span class="sale-type-badge spot">Spot</span>';
             return `
             <tr>
                 <td>${new Date(t.timestamp).toLocaleTimeString()}</td>
+                <td>${saleType}</td>
                 <td>${t.buyer?.name || 'Unknown'}</td>
                 <td>${productName}</td>
                 <td>${t.quantity || '-'}</td>

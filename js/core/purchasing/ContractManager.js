@@ -381,6 +381,34 @@ export class ContractManager {
     }
 
     /**
+     * Calculate reserved inventory for a supplier (committed to contracts)
+     * Spot buyers should only access inventory beyond this reserved amount
+     */
+    getReservedInventory(supplierId, productName) {
+        const supplierContracts = this.getActiveContractsForSupplier(supplierId, productName);
+        let reserved = 0;
+
+        for (const contract of supplierContracts) {
+            // Reserve the remaining unfulfilled volume for this period
+            const remaining = contract.volumePerPeriod - (contract.currentPeriodFulfilled || 0);
+            if (remaining > 0) {
+                reserved += remaining;
+            }
+        }
+
+        return reserved;
+    }
+
+    /**
+     * Get available inventory for spot sales (total - reserved for contracts)
+     */
+    getSpotAvailableInventory(supplier, productName) {
+        const totalInventory = this.getSupplierInventory(supplier, productName);
+        const reserved = this.getReservedInventory(supplier.id, productName);
+        return Math.max(0, totalInventory - reserved);
+    }
+
+    /**
      * Get active contracts where firm is supplier for a specific product
      */
     getActiveContractsForSupplier(supplierId, productName = null) {
