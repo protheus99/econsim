@@ -36,7 +36,11 @@ export class Farm extends Firm {
         this.yieldPerHectare = this.calculateYieldPerHectare();
 
         // Base production rate from product registry or fallback
-        this.baseProductionRate = this.product?.baseProductionRate || 100;
+        let baseRate = this.product?.baseProductionRate || 100;
+        // Apply random 10-20% reduction to simulate equipment variability
+        const randomFn = this.engine?.random || Math.random;
+        const reductionPercent = 0.10 + (randomFn() * 0.10); // 10-20% reduction
+        this.baseProductionRate = baseRate * (1 - reductionPercent);
 
         // Labor structure for crop farm
         this.laborStructure = {
@@ -92,7 +96,11 @@ export class Farm extends Firm {
         this.outputProduct = this.getOutputProduct(this.livestockType);
 
         // Base production rate from product registry or fallback
-        this.baseProductionRate = this.product?.baseProductionRate || 10;
+        let baseRate = this.product?.baseProductionRate || 10;
+        // Apply random 10-20% reduction to simulate equipment variability
+        const randomFn = this.engine?.random || Math.random;
+        const reductionPercent = 0.10 + (randomFn() * 0.10); // 10-20% reduction
+        this.baseProductionRate = baseRate * (1 - reductionPercent);
 
         // Labor structure for livestock farm
         this.laborStructure = {

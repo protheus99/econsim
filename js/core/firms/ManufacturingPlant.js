@@ -79,10 +79,19 @@ export class ManufacturingPlant extends Firm {
         const baseOutput = this.product.baseProductionRate || 10;
         const complexity = this.product.technologyRequired;
 
+        // Calculate base output per hour adjusted by complexity
+        let outputPerHour = baseOutput / Math.sqrt(complexity);
+
+        // Apply random 10-20% reduction to simulate equipment variability
+        // This creates room for future efficiency improvements
+        const randomFn = this.engine?.random || Math.random;
+        const reductionPercent = 0.10 + (randomFn() * 0.10); // 10-20% reduction
+        outputPerHour = outputPerHour * (1 - reductionPercent);
+
         return {
             inputs: this.product.inputs,
             baseProductionRate: baseOutput, // Store the base rate for reference
-            outputPerHour: baseOutput / Math.sqrt(complexity), // Adjusted by complexity
+            outputPerHour: outputPerHour,
             productionTime: this.product.productionTime || 1,
             requiredTech: this.product.technologyRequired
         };

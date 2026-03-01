@@ -100,18 +100,25 @@ export class MiningCompany extends Firm {
     }
     
     calculateBaseExtractionRate() {
+        let baseRate;
+
         // Use product's baseProductionRate if available from registry
         if (this.product && this.product.baseProductionRate) {
-            return this.product.baseProductionRate;
+            baseRate = this.product.baseProductionRate;
+        } else {
+            // Fallback to hardcoded rates based on mine type
+            const rates = {
+                'OPEN_PIT': 50, // Higher rate for surface mining
+                'UNDERGROUND': 25 // Lower rate for underground
+            };
+            baseRate = rates[this.mineType];
         }
 
-        // Fallback to hardcoded rates based on mine type
-        const rates = {
-            'OPEN_PIT': 50, // Higher rate for surface mining
-            'UNDERGROUND': 25 // Lower rate for underground
-        };
-
-        return rates[this.mineType];
+        // Apply random 10-20% reduction to simulate equipment variability
+        // This creates room for future efficiency improvements
+        const randomFn = this.engine?.random || Math.random;
+        const reductionPercent = 0.10 + (randomFn() * 0.10); // 10-20% reduction
+        return baseRate * (1 - reductionPercent);
     }
     
     calculateTotalEmployees() {

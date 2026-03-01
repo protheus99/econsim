@@ -24,7 +24,11 @@ export class LoggingCompany extends Firm {
         this.certifiedSustainable = false;
 
         // Production capacity - use product's baseProductionRate if available
-        this.baseHarvestRate = this.product?.baseProductionRate || 25; // Cubic meters per hour
+        let baseRate = this.product?.baseProductionRate || 25; // Cubic meters per hour
+        // Apply random 10-20% reduction to simulate equipment variability
+        const randomFn = this.engine?.random || Math.random;
+        const reductionPercent = 0.10 + (randomFn() * 0.10); // 10-20% reduction
+        this.baseHarvestRate = baseRate * (1 - reductionPercent);
         this.actualHarvestRate = this.baseHarvestRate;
         this.currentProduction = 0;
         
