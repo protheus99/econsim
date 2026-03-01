@@ -2,6 +2,7 @@
 // Manages contract lifecycle and fulfillment
 
 import { Contract } from './Contract.js';
+import { TransportCost } from './TransportCost.js';
 
 export class ContractManager {
     constructor(simulationEngine) {
@@ -111,6 +112,11 @@ export class ContractManager {
      * @returns {number} Quantity fulfilled from contracts
      */
     fulfillFromContracts(buyer, productName, needed) {
+        // Validate buyer
+        if (!buyer || !buyer.id) {
+            return 0;
+        }
+
         let fulfilled = 0;
 
         // Get all active contracts for this buyer and product
@@ -186,36 +192,62 @@ export class ContractManager {
 
     /**
      * Execute a contract-based trade between supplier and buyer
+     * Creates a pending delivery with proper transit time
      */
     executeContractTrade(supplier, buyer, product, quantity, unitPrice, quality, contract) {
-        const totalCost = quantity * unitPrice;
-
-        // Check buyer can afford
-        if (buyer.cash < totalCost) {
-            console.warn(`ContractManager: Buyer ${buyer.name} cannot afford contract delivery`);
+        // Validate parties
+        if (!supplier || !buyer) {
+            console.warn('ContractManager: Invalid supplier or buyer for contract trade');
             return false;
         }
 
-        // Transfer goods from supplier to buyer
-        const transferred = this.transferGoods(supplier, buyer, product, quantity);
-        if (transferred <= 0) {
+        // Calculate transport cost and time
+        const transport = this.calculateTransport(supplier, buyer, quantity);
+        const totalProductCost = quantity * unitPrice;
+        const totalCost = totalProductCost + transport.cost;
+
+        // Check buyer can afford (product + transport)
+        const buyerCash = buyer.cash || 0;
+        if (buyerCash < totalCost) {
             return false;
         }
 
-        // Execute payment
+        // Remove goods from supplier inventory immediately
+        const removed = this.removeFromSupplierInventory(supplier, product, quantity);
+        if (removed <= 0) {
+            return false;
+        }
+
+        // Execute payment (immediate - payment on dispatch)
         buyer.cash -= totalCost;
-        supplier.cash += totalCost;
+        supplier.cash += totalProductCost; // Supplier gets product cost only
 
-        // Log transaction if transaction log exists
-        if (this.engine.transactionLog) {
-            this.engine.transactionLog.logB2BSale?.(
-                supplier,
-                buyer,
-                product,
-                transferred,
-                unitPrice,
-                { contractId: contract.id, quality }
-            );
+        // Calculate arrival time
+        const currentHour = this.engine.clock?.totalHours || 0;
+        const arrivalHour = currentHour + transport.hours;
+
+        // Log delivery creation with transit time (useful for debugging)
+        if (transport.hours > 4) {
+            console.log(`📦 Contract delivery: ${removed} ${product} from ${supplier.name} to ${buyer.name} - ${transport.hours}h transit (${transport.mode})`);
+        }
+
+        // Create pending delivery instead of instant transfer
+        const purchaseManager = this.engine.purchaseManager;
+        if (purchaseManager) {
+            purchaseManager.createPendingDelivery({
+                seller: supplier,
+                buyer: buyer,
+                productName: product,
+                quantity: removed,
+                quality: quality,
+                unitPrice: unitPrice,
+                transportCost: transport.cost,
+                contractId: contract.id,
+                arrivalHour: arrivalHour
+            });
+        } else {
+            // Fallback: instant transfer if no purchase manager
+            this.transferGoods(supplier, buyer, product, removed);
         }
 
         return true;
@@ -260,6 +292,70 @@ export class ContractManager {
         }
 
         return toTransfer;
+    }
+
+    /**
+     * Calculate transport cost and time between supplier and buyer
+     * @param {Firm} supplier - The supplier firm
+     * @param {Firm} buyer - The buyer firm
+     * @param {number} quantity - Quantity being shipped
+     * @returns {object} { cost, hours, distance, mode }
+     */
+    calculateTransport(supplier, buyer, quantity) {
+        const supplierCity = supplier.city;
+        const buyerCity = buyer.city;
+
+        if (!supplierCity || !buyerCity) {
+            // Default values if cities unavailable
+            return { cost: 0, hours: 1, distance: 0, mode: 'truck' };
+        }
+
+        // Use TransportCost class to calculate
+        const transport = TransportCost.calculate(supplierCity, buyerCity, quantity);
+
+        return {
+            cost: transport.cost,
+            hours: transport.hours,
+            distance: transport.distance,
+            mode: transport.mode
+        };
+    }
+
+    /**
+     * Remove goods from supplier inventory for shipping
+     * Goods are removed immediately when shipped, before transit
+     * @param {Firm} supplier - The supplier firm
+     * @param {string} product - Product name
+     * @param {number} quantity - Quantity to remove
+     * @returns {number} Quantity actually removed
+     */
+    removeFromSupplierInventory(supplier, product, quantity) {
+        // Try lot-based inventory first
+        if (supplier.lotInventory) {
+            const result = supplier.lotInventory.removeLots(product, quantity);
+            if (result && result.totalRemoved > 0) {
+                // Store removed lots temporarily for delivery completion
+                // (They'll be transferred to buyer when delivery arrives)
+                return result.totalRemoved;
+            }
+        }
+
+        // Fallback to simple inventory
+        if (supplier.inventory && typeof supplier.inventory.quantity === 'number') {
+            const available = supplier.inventory.quantity;
+            const removed = Math.min(available, quantity);
+            supplier.inventory.quantity -= removed;
+            return removed;
+        }
+
+        if (supplier.finishedGoodsInventory && typeof supplier.finishedGoodsInventory.quantity === 'number') {
+            const available = supplier.finishedGoodsInventory.quantity;
+            const removed = Math.min(available, quantity);
+            supplier.finishedGoodsInventory.quantity -= removed;
+            return removed;
+        }
+
+        return 0;
     }
 
     /**

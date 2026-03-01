@@ -890,6 +890,11 @@ export class SimulationEngine {
         // Process pending local deliveries
         this.processLocalDeliveries();
 
+        // Process contract deliveries that have arrived
+        if (this.purchaseManager) {
+            this.purchaseManager.processArrivedDeliveries();
+        }
+
         // Hourly critical inventory check (for fast-moving goods)
         this.checkCriticalInventoryLevels();
 

@@ -44,6 +44,9 @@ export class PurchaseManager {
 
         // Track pending purchases for batching
         this.pendingPurchases = new Map();
+
+        // Pending deliveries in transit
+        this.pendingDeliveries = [];
     }
 
     /**
@@ -570,6 +573,176 @@ export class PurchaseManager {
         }
 
         return Array.from(products);
+    }
+
+    /**
+     * Create a pending delivery (goods in transit)
+     * @param {object} deliveryData - Delivery information
+     * @returns {object} The created delivery
+     */
+    createPendingDelivery(deliveryData) {
+        const {
+            seller,
+            buyer,
+            productName,
+            quantity,
+            quality,
+            unitPrice,
+            transportCost,
+            contractId,
+            arrivalHour  // totalHours when delivery arrives
+        } = deliveryData;
+
+        const delivery = {
+            id: `DEL_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+            seller: { id: seller.id, name: seller.name || seller.getDisplayName?.() },
+            buyer: { id: buyer.id, name: buyer.name || buyer.getDisplayName?.() },
+            productName,
+            quantity,
+            quality: quality || 1.0,
+            unitPrice,
+            totalCost: quantity * unitPrice,
+            transportCost: transportCost || 0,
+            contractId: contractId || null,
+            createdAt: this.engine.clock?.totalHours || 0,
+            arrivalHour,
+            status: 'in_transit'
+        };
+
+        this.pendingDeliveries.push(delivery);
+        return delivery;
+    }
+
+    /**
+     * Process deliveries that have arrived
+     * Called each simulation tick
+     */
+    processArrivedDeliveries() {
+        const currentHour = this.engine.clock?.totalHours || 0;
+        const arrived = [];
+        const stillPending = [];
+
+        for (const delivery of this.pendingDeliveries) {
+            if (currentHour >= delivery.arrivalHour) {
+                arrived.push(delivery);
+            } else {
+                stillPending.push(delivery);
+            }
+        }
+
+        this.pendingDeliveries = stillPending;
+
+        // Process each arrived delivery
+        for (const delivery of arrived) {
+            this.completeDelivery(delivery);
+        }
+
+        // Log summary of completed deliveries (only for non-trivial batches)
+        if (arrived.length > 0 && arrived.some(d => d.arrivalHour - d.createdAt > 4)) {
+            console.log(`📬 ${arrived.length} contract deliveries arrived`);
+        }
+
+        return arrived.length;
+    }
+
+    /**
+     * Complete a delivery - transfer goods to buyer
+     */
+    completeDelivery(delivery) {
+        const buyer = this.engine.firms?.get(delivery.buyer.id);
+        if (!buyer) {
+            console.warn(`PurchaseManager: Buyer ${delivery.buyer.id} not found for delivery`);
+            return false;
+        }
+
+        // Add goods to buyer's inventory
+        const transferred = this.addToBuyerInventory(buyer, delivery.productName, delivery.quantity, delivery.quality);
+
+        if (transferred > 0) {
+            delivery.status = 'delivered';
+
+            // Log the completed transaction
+            if (this.engine.transactionLog) {
+                this.engine.transactionLog.logB2BSale?.(
+                    { id: delivery.seller.id, name: delivery.seller.name },
+                    buyer,
+                    delivery.productName,
+                    transferred,
+                    delivery.unitPrice,
+                    {
+                        contractId: delivery.contractId,
+                        quality: delivery.quality,
+                        transportCost: delivery.transportCost,
+                        deliveryId: delivery.id
+                    }
+                );
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Add goods to buyer's inventory (handles different inventory systems)
+     */
+    addToBuyerInventory(buyer, productName, quantity, quality) {
+        // Try lot-based inventory first
+        if (buyer.rawMaterialLots && buyer.rawMaterialLots.has(productName)) {
+            const lotStorage = buyer.rawMaterialLots.get(productName);
+            const lot = {
+                id: `LOT_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+                productName,
+                quantity,
+                quality: quality || 1.0,
+                status: 'available',
+                createdAt: this.engine.clock?.totalHours || 0
+            };
+            lotStorage.push(lot);
+
+            // Also update quantity tracking
+            if (buyer.rawMaterialInventory?.has(productName)) {
+                const inv = buyer.rawMaterialInventory.get(productName);
+                inv.quantity = (inv.quantity || 0) + quantity;
+            }
+            return quantity;
+        }
+
+        // Try raw material inventory
+        if (buyer.rawMaterialInventory?.has(productName)) {
+            const inv = buyer.rawMaterialInventory.get(productName);
+            inv.quantity = (inv.quantity || 0) + quantity;
+            return quantity;
+        }
+
+        // Try lot inventory (for lot-enabled products)
+        if (buyer.lotInventory) {
+            // Create a proper Lot object if possible
+            try {
+                const Lot = buyer.lotInventory.constructor?.Lot ||
+                           this.engine.Lot;
+                if (Lot) {
+                    const lot = new Lot({
+                        productName,
+                        quantity,
+                        quality: quality || 1.0
+                    });
+                    buyer.lotInventory.addLot(lot);
+                    return quantity;
+                }
+            } catch (e) {
+                // Fallback below
+            }
+        }
+
+        // Fallback: try generic inventory
+        if (buyer.inventory) {
+            buyer.inventory.quantity = (buyer.inventory.quantity || 0) + quantity;
+            return quantity;
+        }
+
+        return 0;
     }
 
     /**
