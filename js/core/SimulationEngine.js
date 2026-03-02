@@ -213,8 +213,8 @@ export class SimulationEngine {
         // Initialize countries first
         this.initializeCountries();
 
-        // Initialize city manager with countries and config
-        this.cityManager = new CityManager(this.countries, this.config);
+        // Initialize city manager with countries and config (pass seeded random for deterministic generation)
+        this.cityManager = new CityManager(this.countries, this.config, () => this.random());
         this.cities = this.cityManager.generateInitialCities(); // Uses config.cities.initial
 
         // Generate corporations and build lookup Map
@@ -241,6 +241,9 @@ export class SimulationEngine {
 
         // Setup intervals
         this.setupIntervals();
+
+        // Setup page lifecycle handlers for state persistence
+        this.setupPageLifecycleHandlers();
 
         this.isInitialized = true;
 
@@ -2617,6 +2620,8 @@ export class SimulationEngine {
             }
 
             sessionStorage.setItem(SimulationEngine.GAME_STATE_KEY, JSON.stringify(state));
+            // Debug log (uncomment if needed)
+            // console.log(`💾 Saved state: ${Object.keys(state.cities).length} cities, ${Object.keys(state.firms).length} firms`);
         } catch (e) {
             console.warn('Failed to save game state:', e);
         }
@@ -2682,7 +2687,20 @@ export class SimulationEngine {
                 this.transactionLog.transactions = state.recentTransactions;
             }
 
+            // Count how many were actually restored
+            let citiesRestored = 0;
+            let firmsRestored = 0;
+            const cities = this.cityManager?.getAllCities() || [];
+            for (const city of cities) {
+                if (state.cities[city.id]) citiesRestored++;
+            }
+            for (const [id, firmState] of Object.entries(state.firms)) {
+                if (this.firms.has(id)) firmsRestored++;
+            }
+
             console.log(`♻️ Restored game state: Day ${this.clock.day}, Hour ${this.clock.hour}`);
+            console.log(`   - Cities: ${citiesRestored}/${cities.length} restored`);
+            console.log(`   - Firms: ${firmsRestored}/${Object.keys(state.firms).length} restored`);
             return true;
         } catch (e) {
             console.warn('Failed to restore game state:', e);
@@ -2710,6 +2728,33 @@ export class SimulationEngine {
         if (this.hourlyInterval) {
             clearInterval(this.hourlyInterval);
         }
+        if (this.autoSaveInterval) {
+            clearInterval(this.autoSaveInterval);
+        }
+        // Save state one final time before destruction
+        this.saveState();
+    }
+
+    /**
+     * Setup page lifecycle event handlers to save state when navigating away
+     */
+    setupPageLifecycleHandlers() {
+        // Save state when user leaves the page
+        window.addEventListener('beforeunload', () => {
+            this.saveState();
+        });
+
+        // Save state when tab becomes hidden (more reliable on mobile)
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden') {
+                this.saveState();
+            }
+        });
+
+        // Save state periodically as a safety net (every 10 seconds)
+        this.autoSaveInterval = setInterval(() => {
+            this.saveState();
+        }, 10000);
     }
 
     // Session state management for cross-page navigation

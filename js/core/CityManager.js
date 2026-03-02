@@ -4,12 +4,15 @@ import { TransportationNetwork } from './TransportationNetwork.js';
 import { CityNameGenerator } from '../data/CityNames.js';
 
 export class CityManager {
-    constructor(countries, config = {}) {
+    constructor(countries, config = {}, randomFn = null) {
         this.cities = new Map();
         this.countries = countries;
         this.config = config;
         this.transportation = new TransportationNetwork();
-        this.cityNameGenerator = new CityNameGenerator(countries);
+        // Use seeded random function if provided, otherwise fall back to Math.random
+        this.random = randomFn || (() => Math.random());
+        // Pass the same random function to CityNameGenerator for deterministic names
+        this.cityNameGenerator = new CityNameGenerator(countries, this.random);
     }
 
     generateInitialCities(count = null) {
@@ -57,21 +60,21 @@ export class CityManager {
         const popRange = maxPop - minPop;
 
         // Population distribution using config ranges
-        const rand = Math.random();
+        const rand = this.random();
         let population;
 
         if (rand < 0.4) {
             // Small: minPop to minPop + 10% of range
-            population = minPop + Math.random() * (popRange * 0.1);
+            population = minPop + this.random() * (popRange * 0.1);
         } else if (rand < 0.7) {
             // Medium: 10% to 35% of range
-            population = minPop + (popRange * 0.1) + Math.random() * (popRange * 0.25);
+            population = minPop + (popRange * 0.1) + this.random() * (popRange * 0.25);
         } else if (rand < 0.9) {
             // Large: 35% to 65% of range
-            population = minPop + (popRange * 0.35) + Math.random() * (popRange * 0.30);
+            population = minPop + (popRange * 0.35) + this.random() * (popRange * 0.30);
         } else {
             // Major: 65% to 100% of range
-            population = minPop + (popRange * 0.65) + Math.random() * (popRange * 0.35);
+            population = minPop + (popRange * 0.65) + this.random() * (popRange * 0.35);
         }
 
         // Salary level influenced by country economic level
@@ -79,11 +82,11 @@ export class CityManager {
         let baseSalaryLevel = salaryConfig.default;
 
         if (country.economicLevel === 'DEVELOPED') {
-            baseSalaryLevel = 0.6 + Math.random() * 0.3; // 0.6-0.9
+            baseSalaryLevel = 0.6 + this.random() * 0.3; // 0.6-0.9
         } else if (country.economicLevel === 'EMERGING') {
-            baseSalaryLevel = 0.4 + Math.random() * 0.3; // 0.4-0.7
+            baseSalaryLevel = 0.4 + this.random() * 0.3; // 0.4-0.7
         } else {
-            baseSalaryLevel = 0.3 + Math.random() * 0.3; // 0.3-0.6
+            baseSalaryLevel = 0.3 + this.random() * 0.3; // 0.3-0.6
         }
 
         // Clamp salary level to config bounds
@@ -98,8 +101,8 @@ export class CityManager {
         const regionY = Math.floor(countryIndex / 5) * 200;
 
         city.coordinates = {
-            x: regionX + Math.random() * 200,
-            y: regionY + Math.random() * 200
+            x: regionX + this.random() * 200,
+            y: regionY + this.random() * 200
         };
 
         // Climate based on coordinates

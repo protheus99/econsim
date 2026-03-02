@@ -81,44 +81,51 @@ export const CITY_NAMES = [
 
 // City name generator with country assignment
 export class CityNameGenerator {
-    constructor(countries) {
+    constructor(countries, randomFn = null) {
         this.availableNames = [...CITY_NAMES];
         this.usedNames = new Set();
         this.countries = countries;
+        // Use seeded random function if provided, otherwise fall back to Math.random
+        this.random = randomFn || (() => Math.random());
     }
-    
+
+    // Set the random function (called by CityManager after construction)
+    setRandomFunction(randomFn) {
+        this.random = randomFn;
+    }
+
     getRandomName() {
         if (this.availableNames.length === 0) {
             // If we run out, generate procedural names
             return this.generateProceduralName();
         }
-        
-        const index = Math.floor(Math.random() * this.availableNames.length);
+
+        const index = Math.floor(this.random() * this.availableNames.length);
         const name = this.availableNames[index];
-        
+
         this.availableNames.splice(index, 1);
         this.usedNames.add(name);
-        
+
         return name;
     }
-    
+
     generateProceduralName() {
         const prefixes = ['New', 'Old', 'North', 'South', 'East', 'West', 'Upper', 'Lower'];
         const suffixes = ['ville', 'town', 'city', 'port', 'field', 'dale', 'haven', 'burg'];
         const middles = ['Oak', 'Pine', 'River', 'Lake', 'Hill', 'Valley', 'Stone', 'Wood'];
-        
-        const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
-        const middle = middles[Math.floor(Math.random() * middles.length)];
-        const suffix = suffixes[Math.floor(Math.random() * suffixes.length)];
-        
+
+        const prefix = prefixes[Math.floor(this.random() * prefixes.length)];
+        const middle = middles[Math.floor(this.random() * middles.length)];
+        const suffix = suffixes[Math.floor(this.random() * suffixes.length)];
+
         return `${prefix}${middle}${suffix}`;
     }
-    
+
     getNameForCountry(country) {
         // Get a name and associate it with the country
         return this.getRandomName();
     }
-    
+
     reset() {
         this.availableNames = [...CITY_NAMES];
         this.usedNames.clear();

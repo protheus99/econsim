@@ -48,6 +48,18 @@ export class Dashboard {
             });
         });
 
+        // Reset button
+        document.getElementById('btn-reset')?.addEventListener('click', () => {
+            if (confirm('Reset simulation? This will start a new game with fresh data.')) {
+                // Clear saved game state
+                sessionStorage.removeItem('gameState');
+                // Clear session seed to get a new world
+                sessionStorage.removeItem('simulation_session');
+                // Reload the page to start fresh
+                window.location.reload();
+            }
+        });
+
         // Transportation calculator
         document.getElementById('calculate-route')?.addEventListener('click', () => {
             this.calculateRoute();

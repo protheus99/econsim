@@ -356,8 +356,9 @@ function renderProductDetailView() {
                         ${contracts.map(c => {
                             const supplierFirm = simulation.firms.get(c.supplierId);
                             const buyerFirm = simulation.firms.get(c.buyerId);
-                            const supplierName = c.supplierName || getShortFirmName(c.supplierId);
-                            const buyerName = c.buyerName || getShortFirmName(c.buyerId);
+                            // Always use getShortFirmName for proper display names
+                            const supplierName = getShortFirmName(c.supplierId);
+                            const buyerName = getShortFirmName(c.buyerId);
                             const supplierCity = supplierFirm?.city?.name || 'Unknown';
                             const buyerCity = buyerFirm?.city?.name || 'Unknown';
                             const fulfillmentRate = ((c.averageFulfillmentRate || 0) * 100).toFixed(1);
@@ -416,20 +417,25 @@ function getShortFirmName(firmId) {
     const firm = simulation.firms.get(firmId);
     if (!firm) return firmId.substring(0, 12) + '...';
 
-    const corp = simulation.corporations.find(c => c.id === firm.corporationId);
-    const corpName = corp?.name || 'Ind.';
+    // Use firm's getDisplayName method if available
+    if (typeof firm.getDisplayName === 'function') {
+        return firm.getDisplayName();
+    }
+
+    // Fallback to manual construction
+    const abbr = firm.corporationAbbreviation || '???';
 
     let typeName = '';
     switch (firm.type) {
-        case 'MINING': typeName = firm.resourceType || 'Mine'; break;
-        case 'LOGGING': typeName = firm.timberType || 'Logging'; break;
-        case 'FARM': typeName = firm.cropType || firm.livestockType || 'Farm'; break;
-        case 'MANUFACTURING': typeName = firm.product?.name || 'Mfg'; break;
-        case 'RETAIL': typeName = firm.storeType || 'Retail'; break;
+        case 'MINING': typeName = `${firm.resourceType || 'Mining'} Mine`; break;
+        case 'LOGGING': typeName = `${firm.timberType || 'Timber'} Logging`; break;
+        case 'FARM': typeName = firm.cropType ? `${firm.cropType} Farm` : `${firm.livestockType || 'Livestock'} Ranch`; break;
+        case 'MANUFACTURING': typeName = `${firm.product?.name || 'Manufacturing'} Plant`; break;
+        case 'RETAIL': typeName = `${firm.storeType || 'Retail'} Store`; break;
         default: typeName = firm.type;
     }
 
-    return `${corpName} - ${typeName}`;
+    return `${abbr} ${typeName}`;
 }
 
 function getStatusBadgeClass(status) {
@@ -494,8 +500,9 @@ function renderContracts() {
     }
 
     tbody.innerHTML = contracts.map(c => {
-        const supplierName = c.supplierName || getShortFirmName(c.supplierId);
-        const buyerName = c.buyerName || getShortFirmName(c.buyerId);
+        // Always use getShortFirmName to get proper display names
+        const supplierName = getShortFirmName(c.supplierId);
+        const buyerName = getShortFirmName(c.buyerId);
         const fulfillmentRate = ((c.averageFulfillmentRate || 0) * 100).toFixed(1);
         const fulfillmentClass = c.averageFulfillmentRate >= 0.9 ? 'high' :
                                   c.averageFulfillmentRate >= 0.7 ? 'medium' : 'low';
@@ -600,14 +607,14 @@ function renderContractDetail(contractId) {
                 <div class="detail-row">
                     <span class="detail-label">Supplier:</span>
                     <span class="detail-value">
-                        <a href="firms.html?id=${contract.supplierId}">${contract.supplierName || getShortFirmName(contract.supplierId)}</a>
+                        <a href="firms.html?id=${contract.supplierId}">${getShortFirmName(contract.supplierId)}</a>
                         ${supplierFirm?.city?.name ? `<br><small>${supplierFirm.city.name}</small>` : ''}
                     </span>
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Buyer:</span>
                     <span class="detail-value">
-                        <a href="firms.html?id=${contract.buyerId}">${contract.buyerName || getShortFirmName(contract.buyerId)}</a>
+                        <a href="firms.html?id=${contract.buyerId}">${getShortFirmName(contract.buyerId)}</a>
                         ${buyerFirm?.city?.name ? `<br><small>${buyerFirm.city.name}</small>` : ''}
                     </span>
                 </div>

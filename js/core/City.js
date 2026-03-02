@@ -1,9 +1,9 @@
 // js/core/City.js (Updated)
 export class City {
     constructor(name, population, salaryLevel = 0.5, country, config = {}) {
-        this.id = this.generateId();
-        this.name = name;
+        this.name = name;  // Set name first so generateId() can use it
         this.config = config;
+        this.id = this.generateId();
         this.population = this.validatePopulation(population);
 
         // Salary level bounds from config
@@ -53,7 +53,10 @@ export class City {
     }
 
     generateId() {
-        return `CITY_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        // Use deterministic ID based on city name for stable state persistence
+        // This ensures the same city gets the same ID across page loads
+        const nameSlug = this.name.toLowerCase().replace(/[^a-z0-9]/g, '_');
+        return `CITY_${nameSlug}`;
     }
 
     validatePopulation(pop) {
