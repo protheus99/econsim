@@ -14,9 +14,26 @@ export async function getSimulation() {
         return simulation;
     }
 
+    // Check if we have saved state to restore
+    const savedStateJson = sessionStorage.getItem('gameState');
+    let savedState = null;
+    if (savedStateJson) {
+        try {
+            savedState = JSON.parse(savedStateJson);
+        } catch (e) {
+            // Invalid saved state, ignore
+        }
+    }
+
     // Create and initialize simulation
     simulation = new SimulationEngine();
     await simulation.initialize();
+
+    // Auto-resume if the simulation was running before page navigation
+    if (savedState && savedState.running) {
+        simulation.clock.resume();
+        console.log('▶️ Auto-resumed running simulation');
+    }
 
     // Setup update listener using window events (SimulationEngine uses dispatchEvent)
     window.addEventListener('simulation-update', (event) => {

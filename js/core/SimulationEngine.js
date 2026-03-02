@@ -16,6 +16,7 @@ import { LotRegistry } from '../core/Lot.js';
 import { CityRetailDemandManager } from '../core/CityRetailDemandManager.js';
 import { PurchaseManager } from './purchasing/PurchaseManager.js';
 import { getLotSizeForProduct } from '../core/LotSizings.js';
+import { Contract } from './purchasing/Contract.js';
 
 export class SimulationEngine {
     constructor() {
@@ -228,6 +229,12 @@ export class SimulationEngine {
 
         // Auto-create supply contracts for manufacturers
         this.initializeSupplyContracts();
+
+        // Restore saved state if available (for cross-page persistence)
+        const stateRestored = this.restoreState();
+        if (stateRestored) {
+            console.log('♻️ Game state restored from previous page');
+        }
 
         // Initialize statistics before first render
         this.updateStatistics();
@@ -892,6 +899,8 @@ export class SimulationEngine {
                     this.clock.tick();
                     this.updateHourly();
                 }
+                // Save state after each tick cycle for cross-page persistence
+                this.saveState();
             }
             this.emit('update');
         }, tickRate);
@@ -2539,6 +2548,162 @@ export class SimulationEngine {
     getBalanceReport(options = {}) {
         if (!this.costCalculator) return 'Cost calculator not initialized';
         return this.costCalculator.generateBalanceReport(options);
+    }
+
+    // ============================================
+    // State Persistence for Cross-Page Navigation
+    // ============================================
+
+    static GAME_STATE_KEY = 'gameState';
+
+    /**
+     * Save full game state to sessionStorage
+     */
+    saveState() {
+        try {
+            const state = {
+                version: 1,
+                savedAt: Date.now(),
+
+                // Clock
+                clock: {
+                    totalHours: this.clock.totalHours,
+                    hour: this.clock.hour,
+                    day: this.clock.day,
+                    month: this.clock.month,
+                    year: this.clock.year
+                },
+
+                // Simulation control
+                running: this.running,
+                timeScale: this.timeScale,
+
+                // Firm states (keyed by firm ID)
+                firms: {},
+
+                // City states (keyed by city ID)
+                cities: {},
+
+                // Contracts
+                contracts: [],
+                pendingDeliveries: [],
+
+                // Transaction log (recent entries only to save space)
+                recentTransactions: this.transactionLog?.transactions?.slice(-100) || []
+            };
+
+            // Serialize firms
+            for (const [id, firm] of this.firms) {
+                if (firm.getSerializableState) {
+                    state.firms[id] = firm.getSerializableState();
+                }
+            }
+
+            // Serialize cities
+            const cities = this.cityManager?.getAllCities() || [];
+            for (const city of cities) {
+                if (city.getSerializableState) {
+                    state.cities[city.id] = city.getSerializableState();
+                }
+            }
+
+            // Serialize contracts
+            const contractManager = this.purchaseManager?.contractManager;
+            if (contractManager) {
+                for (const contract of contractManager.contracts.values()) {
+                    state.contracts.push(contract.toJSON());
+                }
+                state.pendingDeliveries = contractManager.pendingDeliveries || [];
+            }
+
+            sessionStorage.setItem(SimulationEngine.GAME_STATE_KEY, JSON.stringify(state));
+        } catch (e) {
+            console.warn('Failed to save game state:', e);
+        }
+    }
+
+    /**
+     * Restore full game state from sessionStorage
+     * @returns {boolean} true if state was restored
+     */
+    restoreState() {
+        const saved = sessionStorage.getItem(SimulationEngine.GAME_STATE_KEY);
+        if (!saved) return false;
+
+        try {
+            const state = JSON.parse(saved);
+
+            // Restore clock
+            if (state.clock && this.clock) {
+                this.clock.totalHours = state.clock.totalHours;
+                this.clock.hour = state.clock.hour;
+                this.clock.day = state.clock.day;
+                this.clock.month = state.clock.month;
+                this.clock.year = state.clock.year;
+            }
+
+            // Restore control state (but don't auto-start, let shared.js handle that)
+            this.timeScale = state.timeScale || 1;
+
+            // Restore firm states
+            if (state.firms) {
+                for (const [id, firmState] of Object.entries(state.firms)) {
+                    const firm = this.firms.get(id);
+                    if (firm && firm.restoreState) {
+                        firm.restoreState(firmState);
+                    }
+                }
+            }
+
+            // Restore city states
+            if (state.cities) {
+                const cities = this.cityManager?.getAllCities() || [];
+                for (const city of cities) {
+                    const cityState = state.cities[city.id];
+                    if (cityState && city.restoreState) {
+                        city.restoreState(cityState);
+                    }
+                }
+            }
+
+            // Restore contracts
+            const contractManager = this.purchaseManager?.contractManager;
+            if (contractManager && state.contracts) {
+                contractManager.contracts.clear();
+                for (const contractData of state.contracts) {
+                    const contract = Contract.fromJSON(contractData);
+                    contractManager.contracts.set(contract.id, contract);
+                }
+                contractManager.pendingDeliveries = state.pendingDeliveries || [];
+            }
+
+            // Restore transaction log
+            if (state.recentTransactions && this.transactionLog) {
+                this.transactionLog.transactions = state.recentTransactions;
+            }
+
+            console.log(`♻️ Restored game state: Day ${this.clock.day}, Hour ${this.clock.hour}`);
+            return true;
+        } catch (e) {
+            console.warn('Failed to restore game state:', e);
+            sessionStorage.removeItem(SimulationEngine.GAME_STATE_KEY);
+            return false;
+        }
+    }
+
+    /**
+     * Check if there is saved state available
+     * @returns {boolean}
+     */
+    hasSavedState() {
+        return sessionStorage.getItem(SimulationEngine.GAME_STATE_KEY) !== null;
+    }
+
+    /**
+     * Clear saved state
+     */
+    clearSavedState() {
+        sessionStorage.removeItem(SimulationEngine.GAME_STATE_KEY);
     }
 
     destroy() {

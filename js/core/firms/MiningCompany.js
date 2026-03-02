@@ -486,4 +486,46 @@ export class MiningCompany extends Firm {
         const abbr = this.corporationAbbreviation || '???';
         return `${abbr} ${this.resourceType} Mine`;
     }
+
+    // Override: Get serializable state including mining-specific data
+    getSerializableState() {
+        const baseState = super.getSerializableState();
+        return {
+            ...baseState,
+            remainingReserves: this.remainingReserves,
+            depletionRate: this.depletionRate,
+            reserveQuality: this.reserveQuality,
+            equipmentDegradation: this.equipmentDegradation,
+            equipmentEfficiency: this.equipmentEfficiency,
+            accumulatedProduction: this.accumulatedProduction,
+            lotInventory: this.lotInventory?.toJSON?.() || null,
+            inventory: {
+                quantity: this.inventory.quantity,
+                quality: this.inventory.quality
+            }
+        };
+    }
+
+    // Override: Restore mining-specific state
+    restoreState(state) {
+        super.restoreState(state);
+        if (!state) return;
+
+        this.remainingReserves = state.remainingReserves ?? this.remainingReserves;
+        this.depletionRate = state.depletionRate ?? this.depletionRate;
+        this.reserveQuality = state.reserveQuality ?? this.reserveQuality;
+        this.equipmentDegradation = state.equipmentDegradation ?? this.equipmentDegradation;
+        this.equipmentEfficiency = state.equipmentEfficiency ?? this.equipmentEfficiency;
+        this.accumulatedProduction = state.accumulatedProduction ?? this.accumulatedProduction;
+
+        if (state.inventory) {
+            this.inventory.quantity = state.inventory.quantity ?? this.inventory.quantity;
+            this.inventory.quality = state.inventory.quality ?? this.inventory.quality;
+        }
+
+        // Restore lot inventory if serialization exists
+        if (state.lotInventory && this.lotInventory) {
+            this.lotInventory.restoreFromJSON?.(state.lotInventory, this.lotRegistry);
+        }
+    }
 }

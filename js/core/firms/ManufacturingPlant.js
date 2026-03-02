@@ -907,4 +907,103 @@ export class ManufacturingPlant extends Firm {
         const productName = this.product?.name || 'Manufacturing';
         return `${abbr} ${productName} Plant`;
     }
+
+    // Override: Get serializable state including manufacturing-specific data
+    getSerializableState() {
+        const baseState = super.getSerializableState();
+
+        // Serialize raw material inventory
+        const rawMaterials = {};
+        for (const [material, inv] of this.rawMaterialInventory) {
+            rawMaterials[material] = {
+                quantity: inv.quantity,
+                avgQuality: inv.avgQuality
+            };
+        }
+
+        // Serialize raw material lots
+        const rawMaterialLotsData = {};
+        for (const [material, storage] of this.rawMaterialLots) {
+            rawMaterialLotsData[material] = storage.lots.map(lot => ({
+                id: lot.id,
+                productName: lot.productName,
+                quantity: lot.quantity,
+                remainingQuantity: lot.remainingQuantity,
+                quality: lot.quality,
+                createdAt: lot.createdAt,
+                expiresDay: lot.expiresDay
+            }));
+        }
+
+        return {
+            ...baseState,
+            productType: this.productType,
+            productionEfficiency: this.productionEfficiency,
+            defectRate: this.defectRate,
+            qualityControl: this.qualityControl,
+            downtimePercentage: this.downtimePercentage,
+            accumulatedProduction: this.accumulatedProduction,
+            productionLine: {
+                outputPerHour: this.productionLine.outputPerHour,
+                inputsPerHour: this.productionLine.inputsPerHour
+            },
+            finishedGoodsInventory: {
+                quantity: this.finishedGoodsInventory.quantity,
+                quality: this.finishedGoodsInventory.quality
+            },
+            rawMaterialInventory: rawMaterials,
+            rawMaterialLotsData: rawMaterialLotsData,
+            lotInventory: this.lotInventory?.toJSON?.() || null
+        };
+    }
+
+    // Override: Restore manufacturing-specific state
+    restoreState(state) {
+        super.restoreState(state);
+        if (!state) return;
+
+        this.productionEfficiency = state.productionEfficiency ?? this.productionEfficiency;
+        this.defectRate = state.defectRate ?? this.defectRate;
+        this.qualityControl = state.qualityControl ?? this.qualityControl;
+        this.downtimePercentage = state.downtimePercentage ?? this.downtimePercentage;
+        this.accumulatedProduction = state.accumulatedProduction ?? this.accumulatedProduction;
+
+        if (state.productionLine) {
+            this.productionLine.outputPerHour = state.productionLine.outputPerHour ?? this.productionLine.outputPerHour;
+        }
+
+        if (state.finishedGoodsInventory) {
+            this.finishedGoodsInventory.quantity = state.finishedGoodsInventory.quantity ?? this.finishedGoodsInventory.quantity;
+            this.finishedGoodsInventory.quality = state.finishedGoodsInventory.quality ?? this.finishedGoodsInventory.quality;
+        }
+
+        // Restore raw material inventory quantities
+        if (state.rawMaterialInventory) {
+            for (const [material, data] of Object.entries(state.rawMaterialInventory)) {
+                const inv = this.rawMaterialInventory.get(material);
+                if (inv) {
+                    inv.quantity = data.quantity ?? inv.quantity;
+                    inv.avgQuality = data.avgQuality ?? inv.avgQuality;
+                }
+            }
+        }
+
+        // Restore raw material lots
+        if (state.rawMaterialLotsData) {
+            for (const [material, lotsData] of Object.entries(state.rawMaterialLotsData)) {
+                const storage = this.rawMaterialLots.get(material);
+                if (storage) {
+                    storage.lots = lotsData.map(lotData => ({
+                        ...lotData,
+                        remainingQuantity: lotData.remainingQuantity ?? lotData.quantity
+                    }));
+                }
+            }
+        }
+
+        // Restore lot inventory if serialization exists
+        if (state.lotInventory && this.lotInventory) {
+            this.lotInventory.restoreFromJSON?.(state.lotInventory, this.lotRegistry);
+        }
+    }
 }

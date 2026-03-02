@@ -925,4 +925,57 @@ export class RetailStore extends Firm {
         const typeName = storeTypeNames[this.storeType] || this.storeType;
         return `${abbr} ${typeName}`;
     }
+
+    // Override: Get serializable state including retail-specific data
+    getSerializableState() {
+        const baseState = super.getSerializableState();
+
+        // Serialize inventory
+        const inventoryData = {};
+        for (const [product, inv] of this.inventory) {
+            inventoryData[product] = {
+                quantity: inv.quantity,
+                quality: inv.quality,
+                avgCost: inv.avgCost
+            };
+        }
+
+        return {
+            ...baseState,
+            storeType: this.storeType,
+            storeSize: this.storeSize,
+            customerSatisfaction: this.customerSatisfaction,
+            footTraffic: this.footTraffic,
+            lastDayFootTraffic: this.lastDayFootTraffic,
+            totalSalesCount: this.totalSalesCount,
+            totalUnitsOrdered: this.totalUnitsOrdered,
+            totalUnitsSold: this.totalUnitsSold,
+            inventoryData: inventoryData
+        };
+    }
+
+    // Override: Restore retail-specific state
+    restoreState(state) {
+        super.restoreState(state);
+        if (!state) return;
+
+        this.customerSatisfaction = state.customerSatisfaction ?? this.customerSatisfaction;
+        this.footTraffic = state.footTraffic ?? this.footTraffic;
+        this.lastDayFootTraffic = state.lastDayFootTraffic ?? this.lastDayFootTraffic;
+        this.totalSalesCount = state.totalSalesCount ?? this.totalSalesCount;
+        this.totalUnitsOrdered = state.totalUnitsOrdered ?? this.totalUnitsOrdered;
+        this.totalUnitsSold = state.totalUnitsSold ?? this.totalUnitsSold;
+
+        // Restore inventory quantities
+        if (state.inventoryData) {
+            for (const [product, data] of Object.entries(state.inventoryData)) {
+                const inv = this.inventory.get(product);
+                if (inv) {
+                    inv.quantity = data.quantity ?? inv.quantity;
+                    inv.quality = data.quality ?? inv.quality;
+                    inv.avgCost = data.avgCost ?? inv.avgCost;
+                }
+            }
+        }
+    }
 }

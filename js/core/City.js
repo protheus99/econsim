@@ -259,11 +259,53 @@ export class City {
         this.salaryLevel = Math.max(0.1, Math.min(1.0, this.salaryLevel));
         this.costOfLiving *= 1.02 + (Math.random() * 0.02);
     }
-    
+
     formatCurrency(amount) {
         if (amount >= 1e9) return `$${(amount / 1e9).toFixed(2)}B`;
         if (amount >= 1e6) return `$${(amount / 1e6).toFixed(2)}M`;
         if (amount >= 1e3) return `$${(amount / 1e3).toFixed(2)}K`;
         return `$${amount.toFixed(2)}`;
+    }
+
+    /**
+     * Get serializable state for persistence
+     */
+    getSerializableState() {
+        return {
+            id: this.id,
+            population: this.population,
+            unemploymentRate: this.unemploymentRate,
+            consumerConfidence: this.consumerConfidence,
+            salaryLevel: this.salaryLevel,
+            costOfLiving: this.costOfLiving,
+            localPreference: this.localPreference,
+            infrastructureQuality: this.infrastructureQuality,
+            monthlyStats: { ...this.monthlyStats }
+        };
+    }
+
+    /**
+     * Restore state from persisted data
+     */
+    restoreState(state) {
+        if (!state) return;
+
+        this.population = state.population ?? this.population;
+        this.unemploymentRate = state.unemploymentRate ?? this.unemploymentRate;
+        this.consumerConfidence = state.consumerConfidence ?? this.consumerConfidence;
+        this.salaryLevel = state.salaryLevel ?? this.salaryLevel;
+        this.costOfLiving = state.costOfLiving ?? this.costOfLiving;
+        this.localPreference = state.localPreference ?? this.localPreference;
+        this.infrastructureQuality = state.infrastructureQuality ?? this.infrastructureQuality;
+
+        if (state.monthlyStats) {
+            this.monthlyStats = { ...this.monthlyStats, ...state.monthlyStats };
+        }
+
+        // Recalculate derived values
+        this.demographics = this.calculateDemographics();
+        this.economicClasses = this.calculateEconomicClasses();
+        this.totalPurchasingPower = this.calculateTotalPurchasingPower();
+        this.marketSize = this.calculateMarketSize();
     }
 }

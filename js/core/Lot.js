@@ -406,6 +406,56 @@ export class LotInventory {
             byProduct
         };
     }
+
+    /**
+     * Serialize inventory for storage
+     */
+    toJSON() {
+        const lotsArray = [];
+        for (const lot of this.lots.values()) {
+            lotsArray.push(lot.toJSON());
+        }
+        return {
+            ownerId: this.ownerId,
+            storageCapacity: this.storageCapacity,
+            saleStrategy: this.saleStrategy,
+            lots: lotsArray
+        };
+    }
+
+    /**
+     * Restore inventory from serialized data
+     * @param {Object} data - Serialized inventory data
+     * @param {LotRegistry} lotRegistry - Optional lot registry to register lots with
+     */
+    restoreFromJSON(data, lotRegistry = null) {
+        if (!data) return;
+
+        this.saleStrategy = data.saleStrategy || this.saleStrategy;
+        this.lots.clear();
+
+        for (const lotData of data.lots || []) {
+            const lot = Lot.fromJSON(lotData);
+            this.lots.set(lot.id, lot);
+
+            // Register with global registry if provided
+            if (lotRegistry) {
+                lotRegistry.allLots.set(lot.id, lot);
+            }
+        }
+    }
+
+    /**
+     * Create LotInventory from serialized data
+     * @param {Object} data - Serialized data
+     * @param {LotRegistry} lotRegistry - Optional lot registry
+     * @returns {LotInventory}
+     */
+    static fromJSON(data, lotRegistry = null) {
+        const inventory = new LotInventory(data.ownerId, data.storageCapacity);
+        inventory.restoreFromJSON(data, lotRegistry);
+        return inventory;
+    }
 }
 
 /**

@@ -156,4 +156,49 @@ export class Firm {
         this.monthlyRevenue = 0;
         this.monthlyExpenses = 0;
     }
+
+    /**
+     * Get serializable state for persistence
+     * Override in subclasses to include type-specific state
+     */
+    getSerializableState() {
+        return {
+            id: this.id,
+            cash: this.cash,
+            revenue: this.revenue,
+            expenses: this.expenses,
+            profit: this.profit,
+            monthlyRevenue: this.monthlyRevenue,
+            monthlyExpenses: this.monthlyExpenses,
+            monthlyProfit: this.monthlyProfit,
+            totalAssets: this.totalAssets,
+            totalLiabilities: this.totalLiabilities,
+            brandRating: this.brandRating,
+            technologyLevel: this.technologyLevel,
+            efficiency: this.efficiency,
+            loans: this.loans
+        };
+    }
+
+    /**
+     * Restore state from persisted data
+     * Override in subclasses to restore type-specific state
+     */
+    restoreState(state) {
+        if (!state) return;
+
+        this.cash = state.cash ?? this.cash;
+        this.revenue = state.revenue ?? this.revenue;
+        this.expenses = state.expenses ?? this.expenses;
+        this.profit = state.profit ?? this.profit;
+        this.monthlyRevenue = state.monthlyRevenue ?? this.monthlyRevenue;
+        this.monthlyExpenses = state.monthlyExpenses ?? this.monthlyExpenses;
+        this.monthlyProfit = state.monthlyProfit ?? this.monthlyProfit;
+        this.totalAssets = state.totalAssets ?? this.totalAssets;
+        this.totalLiabilities = state.totalLiabilities ?? this.totalLiabilities;
+        this.brandRating = state.brandRating ?? this.brandRating;
+        this.technologyLevel = state.technologyLevel ?? this.technologyLevel;
+        this.efficiency = state.efficiency ?? this.efficiency;
+        this.loans = state.loans ?? this.loans;
+    }
 }

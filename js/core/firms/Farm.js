@@ -697,4 +697,69 @@ export class Farm extends Firm {
             return `${abbr} ${this.livestockType} Ranch`;
         }
     }
+
+    // Override: Get serializable state including farm-specific data
+    getSerializableState() {
+        const baseState = super.getSerializableState();
+        const state = {
+            ...baseState,
+            farmType: this.farmType,
+            landSize: this.landSize,
+            accumulatedProduction: this.accumulatedProduction,
+            lotInventory: this.lotInventory?.toJSON?.() || null,
+            inventory: {
+                quantity: this.inventory.quantity,
+                quality: this.inventory.quality
+            }
+        };
+
+        // Crop-specific state
+        if (this.farmType === 'CROP') {
+            state.cropType = this.cropType;
+            state.soilQuality = this.soilQuality;
+            state.currentGrowthStage = this.currentGrowthStage;
+            state.yieldPerHectare = this.yieldPerHectare;
+            state.irrigationLevel = this.irrigationLevel;
+        } else {
+            // Livestock-specific state
+            state.livestockType = this.livestockType;
+            state.herdSize = this.herdSize;
+            state.currentMaturity = this.currentMaturity;
+            state.feedingRate = this.feedingRate;
+        }
+
+        return state;
+    }
+
+    // Override: Restore farm-specific state
+    restoreState(state) {
+        super.restoreState(state);
+        if (!state) return;
+
+        this.landSize = state.landSize ?? this.landSize;
+        this.accumulatedProduction = state.accumulatedProduction ?? this.accumulatedProduction;
+
+        if (state.inventory) {
+            this.inventory.quantity = state.inventory.quantity ?? this.inventory.quantity;
+            this.inventory.quality = state.inventory.quality ?? this.inventory.quality;
+        }
+
+        // Crop-specific restore
+        if (this.farmType === 'CROP') {
+            this.soilQuality = state.soilQuality ?? this.soilQuality;
+            this.currentGrowthStage = state.currentGrowthStage ?? this.currentGrowthStage;
+            this.yieldPerHectare = state.yieldPerHectare ?? this.yieldPerHectare;
+            this.irrigationLevel = state.irrigationLevel ?? this.irrigationLevel;
+        } else {
+            // Livestock-specific restore
+            this.herdSize = state.herdSize ?? this.herdSize;
+            this.currentMaturity = state.currentMaturity ?? this.currentMaturity;
+            this.feedingRate = state.feedingRate ?? this.feedingRate;
+        }
+
+        // Restore lot inventory if serialization exists
+        if (state.lotInventory && this.lotInventory) {
+            this.lotInventory.restoreFromJSON?.(state.lotInventory, this.lotRegistry);
+        }
+    }
 }

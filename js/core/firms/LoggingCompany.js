@@ -436,4 +436,48 @@ export class LoggingCompany extends Firm {
         const abbr = this.corporationAbbreviation || '???';
         return `${abbr} ${this.timberType} Logging`;
     }
+
+    // Override: Get serializable state including logging-specific data
+    getSerializableState() {
+        const baseState = super.getSerializableState();
+        return {
+            ...baseState,
+            forestSize: this.forestSize,
+            forestDensity: this.forestDensity,
+            forestHealth: this.forestHealth,
+            averageTreeAge: this.averageTreeAge,
+            certifiedSustainable: this.certifiedSustainable,
+            equipmentEfficiency: this.equipmentEfficiency,
+            accumulatedProduction: this.accumulatedProduction,
+            lotInventory: this.lotInventory?.toJSON?.() || null,
+            inventory: {
+                quantity: this.inventory.quantity,
+                quality: this.inventory.quality
+            }
+        };
+    }
+
+    // Override: Restore logging-specific state
+    restoreState(state) {
+        super.restoreState(state);
+        if (!state) return;
+
+        this.forestSize = state.forestSize ?? this.forestSize;
+        this.forestDensity = state.forestDensity ?? this.forestDensity;
+        this.forestHealth = state.forestHealth ?? this.forestHealth;
+        this.averageTreeAge = state.averageTreeAge ?? this.averageTreeAge;
+        this.certifiedSustainable = state.certifiedSustainable ?? this.certifiedSustainable;
+        this.equipmentEfficiency = state.equipmentEfficiency ?? this.equipmentEfficiency;
+        this.accumulatedProduction = state.accumulatedProduction ?? this.accumulatedProduction;
+
+        if (state.inventory) {
+            this.inventory.quantity = state.inventory.quantity ?? this.inventory.quantity;
+            this.inventory.quality = state.inventory.quality ?? this.inventory.quality;
+        }
+
+        // Restore lot inventory if serialization exists
+        if (state.lotInventory && this.lotInventory) {
+            this.lotInventory.restoreFromJSON?.(state.lotInventory, this.lotRegistry);
+        }
+    }
 }
