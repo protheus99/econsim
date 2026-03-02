@@ -101,7 +101,7 @@ export class ContractManager {
             }
         }
 
-        console.log(`ContractManager: Created contract ${contract.id} - ${supplier.name} -> ${buyer.name} for ${config.product}`);
+        console.log(`ContractManager: Created contract ${contract.id} - ${supplier.getDisplayName()} -> ${buyer.getDisplayName()} for ${config.product}`);
         return contract;
     }
 

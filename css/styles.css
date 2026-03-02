@@ -183,6 +183,16 @@ body {
     color: white;
 }
 
+.btn-reset {
+    background: var(--accent-red, #f44336);
+    color: white;
+    margin-left: 10px;
+}
+
+.btn-reset:hover {
+    background: #d32f2f;
+}
+
 .btn-primary {
     background: var(--accent-blue);
     color: white;

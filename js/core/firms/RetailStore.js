@@ -930,14 +930,18 @@ export class RetailStore extends Firm {
     getSerializableState() {
         const baseState = super.getSerializableState();
 
-        // Serialize inventory
+        // Serialize product inventory
         const inventoryData = {};
-        for (const [product, inv] of this.inventory) {
-            inventoryData[product] = {
-                quantity: inv.quantity,
-                quality: inv.quality,
-                avgCost: inv.avgCost
-            };
+        if (this.productInventory) {
+            for (const [productId, inv] of this.productInventory) {
+                inventoryData[productId] = {
+                    quantity: inv.quantity,
+                    wholesalePrice: inv.wholesalePrice,
+                    retailPrice: inv.retailPrice,
+                    avgQuality: inv.avgQuality,
+                    productName: inv.productName
+                };
+            }
         }
 
         return {
@@ -966,14 +970,15 @@ export class RetailStore extends Firm {
         this.totalUnitsOrdered = state.totalUnitsOrdered ?? this.totalUnitsOrdered;
         this.totalUnitsSold = state.totalUnitsSold ?? this.totalUnitsSold;
 
-        // Restore inventory quantities
-        if (state.inventoryData) {
-            for (const [product, data] of Object.entries(state.inventoryData)) {
-                const inv = this.inventory.get(product);
+        // Restore product inventory quantities
+        if (state.inventoryData && this.productInventory) {
+            for (const [productId, data] of Object.entries(state.inventoryData)) {
+                const inv = this.productInventory.get(productId);
                 if (inv) {
                     inv.quantity = data.quantity ?? inv.quantity;
-                    inv.quality = data.quality ?? inv.quality;
-                    inv.avgCost = data.avgCost ?? inv.avgCost;
+                    inv.wholesalePrice = data.wholesalePrice ?? inv.wholesalePrice;
+                    inv.retailPrice = data.retailPrice ?? inv.retailPrice;
+                    inv.avgQuality = data.avgQuality ?? inv.avgQuality;
                 }
             }
         }

@@ -2565,13 +2565,13 @@ export class SimulationEngine {
                 version: 1,
                 savedAt: Date.now(),
 
-                // Clock
+                // Clock (totalHours is computed from these, don't save it)
                 clock: {
-                    totalHours: this.clock.totalHours,
                     hour: this.clock.hour,
                     day: this.clock.day,
                     month: this.clock.month,
-                    year: this.clock.year
+                    year: this.clock.year,
+                    isPaused: this.clock.isPaused
                 },
 
                 // Simulation control
@@ -2633,13 +2633,13 @@ export class SimulationEngine {
         try {
             const state = JSON.parse(saved);
 
-            // Restore clock
+            // Restore clock (totalHours is computed automatically from these)
             if (state.clock && this.clock) {
-                this.clock.totalHours = state.clock.totalHours;
                 this.clock.hour = state.clock.hour;
                 this.clock.day = state.clock.day;
                 this.clock.month = state.clock.month;
                 this.clock.year = state.clock.year;
+                this.clock.isPaused = state.clock.isPaused ?? false;
             }
 
             // Restore control state (but don't auto-start, let shared.js handle that)

@@ -151,6 +151,7 @@ export function setupControls(simulation) {
 
     const btnPlay = document.getElementById('btn-play');
     const btnPause = document.getElementById('btn-pause');
+    const btnReset = document.getElementById('btn-reset');
     const speedButtons = document.querySelectorAll('.btn-speed');
 
     if (btnPlay) {
@@ -189,6 +190,26 @@ export function setupControls(simulation) {
             }
         });
     });
+
+    if (btnReset) {
+        btnReset.addEventListener('click', () => {
+            if (confirm('Reset simulation? This will start a new game with fresh data.')) {
+                resetSimulation();
+            }
+        });
+    }
+}
+
+/**
+ * Reset the simulation completely - clears all state and reloads
+ */
+export function resetSimulation() {
+    // Clear saved game state
+    sessionStorage.removeItem('gameState');
+    // Clear session seed to get a new world
+    sessionStorage.removeItem('simulation_session');
+    // Reload the page to start fresh
+    window.location.reload();
 }
 
 // Utility function for safe DOM element access
