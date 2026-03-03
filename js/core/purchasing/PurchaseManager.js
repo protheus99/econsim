@@ -488,6 +488,34 @@ export class PurchaseManager {
                     }
                 }
             }
+
+            // Log retail sales for retailers in this city
+            for (const retailer of retailers) {
+                if (retailer.getPendingCompetitiveSales) {
+                    const sales = retailer.getPendingCompetitiveSales();
+                    if (sales && sales.length > 0) {
+                        this.logRetailSales(retailer, sales);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Log retail B2C sales to the transaction log
+     */
+    logRetailSales(retailer, sales) {
+        if (!this.engine.transactionLog) return;
+
+        for (const sale of sales) {
+            this.engine.transactionLog.logConsumerSale(
+                retailer,
+                sale.productName,
+                sale.quantity,
+                sale.unitPrice,
+                sale.total,
+                retailer.city?.name || 'Unknown'
+            );
         }
     }
 
