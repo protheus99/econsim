@@ -890,6 +890,108 @@ export class SimulationEngine {
 
         console.log(`✅ Auto-created ${contractsCreated} supply contracts for ${manufacturers.length} manufacturers`);
         console.log(`   📊 ${noSupplierCount} inputs had no supplier, ${capacityLimitedCount} limited by supplier capacity`);
+
+        // === RETAIL CONTRACTS ===
+        // Create contracts for retail stores to purchase from manufacturers/wholesalers
+        let retailContractsCreated = 0;
+        let retailNoSupplierCount = 0;
+        let retailCapacityLimitedCount = 0;
+
+        // Get all retail firms
+        const retailers = Array.from(this.firms.values()).filter(firm =>
+            firm.type === 'RETAIL' && firm.productInventory?.size > 0
+        );
+
+        console.log(`📋 Contract init: Found ${retailers.length} retailers with inventory`);
+
+        for (const retailer of retailers) {
+            // Iterate through products this retailer sells
+            for (const [productId, invData] of retailer.productInventory) {
+                const productName = invData.productName;
+                if (!productName) continue;
+
+                // Estimate weekly sales need based on store metrics
+                // Formula: dailyFootTraffic * conversionRate * avgItemsPerTransaction * 7 days
+                const dailyCustomers = (retailer.dailyFootTraffic || 500) * (retailer.conversionRate || 0.4);
+                const avgItemsPerProduct = 2; // Average units per product per purchasing customer
+                const productShareFactor = 1 / Math.max(1, retailer.productInventory.size); // Share of basket
+                const weeklyEstimatedSales = dailyCustomers * avgItemsPerProduct * productShareFactor * 7;
+
+                // Request 60% coverage via contracts (rest from spot market)
+                let requestedVolume = Math.floor(weeklyEstimatedSales * 0.6);
+
+                // Minimum contract volume
+                if (requestedVolume < 50) {
+                    requestedVolume = 50;
+                }
+
+                // Find best supplier (manufacturer that produces this product)
+                const selection = supplierSelector.selectBest({
+                    buyer: retailer,
+                    productName: productName,
+                    quantity: requestedVolume,
+                    considerPrice: true,
+                    considerTransport: true,
+                    considerRelationship: true,
+                    requireInventory: false,
+                    forSpotPurchase: false
+                });
+
+                if (!selection?.supplier) {
+                    retailNoSupplierCount++;
+                    continue; // No supplier found for this product
+                }
+
+                const supplier = selection.supplier;
+                const supplierId = supplier.id;
+
+                // Check supplier's available capacity
+                const maxWeeklyCapacity = getSupplierWeeklyCapacity(supplier);
+                const currentCommitment = supplierCommitments.get(supplierId) || 0;
+                const availableCapacity = maxWeeklyCapacity - currentCommitment;
+
+                if (availableCapacity <= 0) {
+                    retailCapacityLimitedCount++;
+                    continue; // Supplier fully committed
+                }
+
+                // Limit contract volume to available capacity
+                let contractVolume = Math.min(requestedVolume, Math.floor(availableCapacity));
+
+                if (contractVolume < 20) {
+                    retailCapacityLimitedCount++;
+                    continue; // Too small to be worth a contract
+                }
+
+                // Get base price - use wholesale price from inventory or product registry
+                const product = this.productRegistry.getProduct(productId) ||
+                               this.productRegistry.getProductByName(productName);
+                const basePrice = invData.wholesalePrice || product?.basePrice || 50;
+                const contractPrice = basePrice * 0.95; // 5% discount for retail contracts
+
+                // Create the contract
+                const contract = contractManager.createContract({
+                    supplierId: supplierId,
+                    buyerId: retailer.id,
+                    product: productName,
+                    type: 'fixed_volume',
+                    volumePerPeriod: contractVolume,
+                    periodType: 'weekly',
+                    pricePerUnit: contractPrice,
+                    priceType: 'fixed',
+                    minQuality: 0.5
+                });
+
+                if (contract) {
+                    retailContractsCreated++;
+                    // Track the commitment
+                    supplierCommitments.set(supplierId, currentCommitment + contractVolume);
+                }
+            }
+        }
+
+        console.log(`✅ Auto-created ${retailContractsCreated} supply contracts for ${retailers.length} retailers`);
+        console.log(`   📊 ${retailNoSupplierCount} products had no supplier, ${retailCapacityLimitedCount} limited by capacity`);
     }
 
     setupIntervals() {

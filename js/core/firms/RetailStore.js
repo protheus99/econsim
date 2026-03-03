@@ -558,7 +558,8 @@ export class RetailStore extends Firm {
                     // Quantity based on necessity - buy more essentials
                     const baseQty = necessityIndex > 0.7 ? 2 : 1;
                     const quantityPurchased = Math.floor(baseQty + Math.random() * maxQty);
-                    const actualQuantity = Math.min(quantityPurchased, inventory.quantity);
+                    // Floor to ensure whole numbers - can't sell fractions of items
+                    const actualQuantity = Math.floor(Math.min(quantityPurchased, inventory.quantity));
 
                     if (actualQuantity > 0) {
                         const saleValue = actualQuantity * inventory.retailPrice;
@@ -792,12 +793,15 @@ export class RetailStore extends Firm {
     fulfillAllocatedDemand(productId, demandQuantity, hourOfDay) {
         const inventory = this.productInventory.get(productId);
 
-        if (!inventory || inventory.quantity <= 0) {
-            return { sold: 0, unfulfilled: demandQuantity, revenue: 0, cost: 0 };
+        // Ensure whole number quantities - can't sell fractions of items
+        const demandQty = Math.floor(demandQuantity);
+
+        if (!inventory || inventory.quantity <= 0 || demandQty <= 0) {
+            return { sold: 0, unfulfilled: demandQty, revenue: 0, cost: 0 };
         }
 
-        // Sell up to available inventory
-        const actualSold = Math.min(demandQuantity, inventory.quantity);
+        // Sell up to available inventory (floor to ensure whole numbers)
+        const actualSold = Math.floor(Math.min(demandQty, inventory.quantity));
         const unfulfilled = demandQuantity - actualSold;
 
         // Calculate financials

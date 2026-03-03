@@ -303,8 +303,8 @@ export class CityRetailDemandManager {
             const proportion = data.score / totalScore;
             const allocatedDemand = Math.floor(demandPool * proportion);
 
-            // Cap at available inventory
-            const actualAllocation = Math.min(allocatedDemand, data.inventory);
+            // Cap at available inventory (floor to ensure whole numbers)
+            const actualAllocation = Math.floor(Math.min(allocatedDemand, data.inventory));
 
             if (actualAllocation > 0) {
                 allocations.set(retailerId, {
