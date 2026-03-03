@@ -1,8 +1,8 @@
 // js/core/Country.js
 export class Country {
     constructor(config) {
+        this.name = config.name;  // Set name first for deterministic ID
         this.id = this.generateId();
-        this.name = config.name;
         this.continent = config.continent;
         this.economicLevel = config.economicLevel;
         this.resources = config.resources;
@@ -35,7 +35,9 @@ export class Country {
     }
     
     generateId() {
-        return `COUNTRY_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        // Use deterministic ID based on country name for stable state persistence
+        const nameSlug = this.name.toLowerCase().replace(/[^a-z0-9]/g, '_');
+        return `COUNTRY_${nameSlug}`;
     }
     
     calculateRiskPremium() {

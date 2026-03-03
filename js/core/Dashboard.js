@@ -1,4 +1,6 @@
 // js/ui/Dashboard.js
+import { SimulationEngine } from './SimulationEngine.js';
+
 export class Dashboard {
     constructor(simulation) {
         this.simulation = simulation;
@@ -51,6 +53,8 @@ export class Dashboard {
         // Reset button
         document.getElementById('btn-reset')?.addEventListener('click', () => {
             if (confirm('Reset simulation? This will start a new game with fresh data.')) {
+                // Prevent beforeunload from saving state
+                SimulationEngine.isResetting = true;
                 // Clear saved game state
                 sessionStorage.removeItem('gameState');
                 // Clear session seed to get a new world

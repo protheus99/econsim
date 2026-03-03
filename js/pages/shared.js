@@ -204,6 +204,8 @@ export function setupControls(simulation) {
  * Reset the simulation completely - clears all state and reloads
  */
 export function resetSimulation() {
+    // Prevent beforeunload from saving state
+    SimulationEngine.isResetting = true;
     // Clear saved game state
     sessionStorage.removeItem('gameState');
     // Clear session seed to get a new world

@@ -478,7 +478,7 @@ export class SimulationEngine {
                 const city = citiesArray[cityIndex % citiesArray.length];
                 cityIndex++;
                 const corp = this.corporations[Math.floor(this.random() * this.corporations.length)];
-                const firmId = `FIRM_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                const firmId = this.generateDeterministicId('FIRM', this.firmCreationIndex++);
 
                 const firm = new ManufacturingPlant({ city: city }, city.country, product.id, this.productRegistry, firmId);
                 firm.isSemiRawProducer = true;
@@ -512,7 +512,7 @@ export class SimulationEngine {
                 const city = citiesArray[cityIndex % citiesArray.length];
                 cityIndex++;
                 const corp = this.corporations[Math.floor(this.random() * this.corporations.length)];
-                const firmId = `FIRM_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                const firmId = this.generateDeterministicId('FIRM', this.firmCreationIndex++);
 
                 const firm = new ManufacturingPlant({ city: city }, city.country, product.id, this.productRegistry, firmId);
                 firm.isSemiRawProducer = false;
@@ -2558,11 +2558,15 @@ export class SimulationEngine {
     // ============================================
 
     static GAME_STATE_KEY = 'gameState';
+    static isResetting = false;  // Flag to prevent saving during reset
 
     /**
      * Save full game state to sessionStorage
      */
     saveState() {
+        // Don't save if we're in the middle of a reset
+        if (SimulationEngine.isResetting) return;
+
         try {
             const state = {
                 version: 1,
@@ -2731,8 +2735,10 @@ export class SimulationEngine {
         if (this.autoSaveInterval) {
             clearInterval(this.autoSaveInterval);
         }
-        // Save state one final time before destruction
-        this.saveState();
+        // Save state one final time before destruction (unless resetting)
+        if (!SimulationEngine.isResetting) {
+            this.saveState();
+        }
     }
 
     /**
