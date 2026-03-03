@@ -478,8 +478,13 @@ export class PurchaseManager {
                                     retailers.find(r => r.id === retailerId);
 
                     if (retailer && retailer.fulfillAllocatedDemand) {
-                        retailer.fulfillAllocatedDemand(product, allocation);
-                        this.stats.retailSalesProcessed += allocation.demand || 0;
+                        // fulfillAllocatedDemand expects (productId, demandQuantity, hourOfDay)
+                        const result = retailer.fulfillAllocatedDemand(
+                            product.id,
+                            allocation.demand || 0,
+                            currentHour
+                        );
+                        this.stats.retailSalesProcessed += result?.sold || allocation.demand || 0;
                     }
                 }
             }
@@ -567,9 +572,20 @@ export class PurchaseManager {
         const products = new Set();
 
         for (const retailer of retailers) {
-            const retProducts = retailer.products || retailer.productsSold || [];
-            for (const p of retProducts) {
-                products.add(typeof p === 'string' ? p : p.name);
+            // RetailStore uses productInventory Map
+            if (retailer.productInventory) {
+                retailer.productInventory.forEach((inv, productId) => {
+                    if (inv.quantity > 0) {
+                        // Store product name for lookup
+                        products.add(inv.productName || productId);
+                    }
+                });
+            } else {
+                // Fallback for other retailer types
+                const retProducts = retailer.products || retailer.productsSold || [];
+                for (const p of retProducts) {
+                    products.add(typeof p === 'string' ? p : p.name);
+                }
             }
         }
 

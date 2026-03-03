@@ -972,7 +972,9 @@ export class RetailStore extends Firm {
 
         // Restore product inventory quantities
         if (state.inventoryData && this.productInventory) {
-            for (const [productId, data] of Object.entries(state.inventoryData)) {
+            for (const [productIdStr, data] of Object.entries(state.inventoryData)) {
+                // Convert string key back to number (Map keys are numbers)
+                const productId = parseInt(productIdStr, 10) || productIdStr;
                 const inv = this.productInventory.get(productId);
                 if (inv) {
                     inv.quantity = data.quantity ?? inv.quantity;

@@ -608,6 +608,26 @@ export class ContractManager {
     }
 
     /**
+     * Rebuild all indices from the contracts map
+     * Call this after manually adding contracts (e.g., after state restore)
+     */
+    rebuildIndices() {
+        // Clear existing indices
+        this.bySupplier.clear();
+        this.byBuyer.clear();
+        this.byProduct.clear();
+
+        // Rebuild from contracts
+        for (const contract of this.contracts.values()) {
+            this.addToIndex(this.bySupplier, contract.supplierId, contract.id);
+            this.addToIndex(this.byBuyer, contract.buyerId, contract.id);
+            this.addToIndex(this.byProduct, contract.product, contract.id);
+        }
+
+        console.log(`ContractManager: Rebuilt indices for ${this.contracts.size} contracts`);
+    }
+
+    /**
      * Remove contract ID from an index
      */
     removeFromIndex(indexMap, key, contractId) {

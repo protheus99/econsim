@@ -2683,6 +2683,8 @@ export class SimulationEngine {
                     const contract = Contract.fromJSON(contractData);
                     contractManager.contracts.set(contract.id, contract);
                 }
+                // Rebuild indices so getContractsForFirm works correctly
+                contractManager.rebuildIndices();
                 contractManager.pendingDeliveries = state.pendingDeliveries || [];
             }
 
