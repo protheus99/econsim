@@ -4848,18 +4848,6 @@ tr.tx-contract-row { border-left: 3px solid #ffa726; }
     text-decoration: underline;
 }
 
-.contract-item-details {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 8px;
-}
-
-@media (max-width: 800px) {
-    .contract-item-details {
-        grid-template-columns: repeat(2, 1fr);
-    }
-}
-
 .contract-detail {
     display: flex;
     flex-direction: column;
@@ -4888,6 +4876,117 @@ tr.tx-contract-row { border-left: 3px solid #ffa726; }
 
 .contract-detail-value.fulfillment-poor {
     color: var(--accent-red);
+}
+
+/* Contract Delivery Status Section */
+.contract-delivery-status {
+    background: var(--bg-secondary);
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin: 10px 0;
+}
+
+.delivery-status-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+}
+
+.delivery-status-row:first-child {
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 8px;
+    margin-bottom: 4px;
+}
+
+.delivery-status-item {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.delivery-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+}
+
+.delivery-value {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.delivery-value.no-delivery {
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+.delivery-value.in-transit {
+    color: var(--accent-blue);
+}
+
+.delivery-status-item.pending .delivery-value {
+    color: var(--accent-green);
+}
+
+/* Contract Period Progress */
+.contract-period-progress {
+    margin: 10px 0;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.period-progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+}
+
+.period-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+}
+
+.period-value {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.period-progress-bar {
+    height: 6px;
+    background: var(--bg-secondary);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.period-progress-fill {
+    height: 100%;
+    background: var(--accent-green);
+    border-radius: 3px;
+    transition: width 0.3s ease;
+}
+
+/* Update grid for 5 columns */
+.contract-item-details {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+}
+
+@media (max-width: 1000px) {
+    .contract-item-details {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (max-width: 700px) {
+    .contract-item-details {
+        grid-template-columns: repeat(2, 1fr);
+    }
 }
 
 .no-data {

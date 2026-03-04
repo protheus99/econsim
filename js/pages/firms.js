@@ -1141,6 +1141,32 @@ function renderContracts(firm) {
         ` : ''}
     `;
 
+    // Helper to get pending deliveries for a contract
+    const getPendingDeliveriesForContract = (contractId) => {
+        const pendingDeliveries = simulation.purchaseManager?.pendingDeliveries || [];
+        return pendingDeliveries.filter(d => d.contractId === contractId);
+    };
+
+    // Helper to format game time from hours
+    const formatGameTime = (totalHours) => {
+        if (!totalHours && totalHours !== 0) return 'Never';
+        const currentHour = simulation.clock?.totalHours || 0;
+        const hoursAgo = currentHour - totalHours;
+
+        if (hoursAgo < 0) {
+            // Future time
+            const hoursUntil = Math.abs(hoursAgo);
+            if (hoursUntil < 24) return `in ${Math.ceil(hoursUntil)}h`;
+            const days = Math.floor(hoursUntil / 24);
+            return `in ${days}d`;
+        }
+
+        if (hoursAgo < 1) return 'Just now';
+        if (hoursAgo < 24) return `${Math.floor(hoursAgo)}h ago`;
+        const daysAgo = Math.floor(hoursAgo / 24);
+        return `${daysAgo}d ago`;
+    };
+
     // Helper to render a contract item
     const renderContractItem = (contractInfo, role) => {
         const contract = contractInfo.contract;
@@ -1157,13 +1183,39 @@ function renderContracts(firm) {
                          contract.type === 'min_max' ? 'Flexible' :
                          contract.type === 'exclusive' ? 'Exclusive' : contract.type;
 
-        const periodLabel = contract.periodType === 'daily' ? '/day' :
-                           contract.periodType === 'weekly' ? '/week' :
-                           contract.periodType === 'monthly' ? '/month' : '';
+        const periodLabel = contract.periodType === 'daily' ? 'day' :
+                           contract.periodType === 'weekly' ? 'week' :
+                           contract.periodType === 'monthly' ? 'month' : 'period';
 
+        // Fulfillment rate is reliability (% of orders delivered on time)
         const fulfillmentRate = (contract.averageFulfillmentRate * 100).toFixed(0);
         const fulfillmentClass = fulfillmentRate >= 90 ? 'fulfillment-good' :
                                 fulfillmentRate >= 70 ? 'fulfillment-ok' : 'fulfillment-poor';
+
+        // Current period progress
+        const periodProgress = contract.currentPeriodFulfilled || 0;
+        const periodExpected = contract.volumePerPeriod || 0;
+        const periodPct = periodExpected > 0 ? Math.min(100, (periodProgress / periodExpected * 100)).toFixed(0) : 0;
+
+        // Last delivery info from fulfillmentHistory
+        const lastDelivery = contract.fulfillmentHistory?.length > 0
+            ? contract.fulfillmentHistory[contract.fulfillmentHistory.length - 1]
+            : null;
+        const lastDeliveryTime = lastDelivery?.date
+            ? formatGameTime(lastDelivery.date / (1000 * 60 * 60)) // Convert ms to hours approximation
+            : null;
+
+        // Check for pending deliveries
+        const pendingDeliveries = getPendingDeliveriesForContract(contract.id);
+        const hasPendingDelivery = pendingDeliveries.length > 0;
+        const nextDelivery = hasPendingDelivery ? pendingDeliveries[0] : null;
+        const nextDeliveryEta = nextDelivery
+            ? formatGameTime(nextDelivery.arrivalHour)
+            : null;
+
+        // Total delivered (lifetime)
+        const totalDelivered = contract.totalDelivered || 0;
+        const deliveryCount = contract.fulfillmentHistory?.length || 0;
 
         return `
             <div class="contract-item ${statusClass}">
@@ -1176,21 +1228,67 @@ function renderContracts(firm) {
                     <span class="contract-party-label">${role === 'supplier' ? 'Buyer:' : 'Supplier:'}</span>
                     <a href="firms.html?id=${otherPartyId}" class="contract-party-link">${displayName}</a>
                 </div>
+
+                <!-- Delivery Status Section -->
+                <div class="contract-delivery-status">
+                    <div class="delivery-status-row">
+                        ${lastDelivery ? `
+                            <span class="delivery-status-item">
+                                <span class="delivery-label">Last Received:</span>
+                                <span class="delivery-value">${lastDelivery.deliveredQuantity} units ${lastDeliveryTime || ''}</span>
+                            </span>
+                        ` : `
+                            <span class="delivery-status-item">
+                                <span class="delivery-label">Last Received:</span>
+                                <span class="delivery-value no-delivery">No deliveries yet</span>
+                            </span>
+                        `}
+                    </div>
+                    <div class="delivery-status-row">
+                        ${hasPendingDelivery ? `
+                            <span class="delivery-status-item pending">
+                                <span class="delivery-label">Next Shipment:</span>
+                                <span class="delivery-value in-transit">${nextDelivery.quantity} units - ETA ${nextDeliveryEta}</span>
+                            </span>
+                        ` : `
+                            <span class="delivery-status-item">
+                                <span class="delivery-label">Next Shipment:</span>
+                                <span class="delivery-value">Awaiting order</span>
+                            </span>
+                        `}
+                    </div>
+                </div>
+
+                <!-- Period Progress -->
+                <div class="contract-period-progress">
+                    <div class="period-progress-header">
+                        <span class="period-label">This ${periodLabel}:</span>
+                        <span class="period-value">${periodProgress} / ${periodExpected} units (${periodPct}%)</span>
+                    </div>
+                    <div class="period-progress-bar">
+                        <div class="period-progress-fill" style="width: ${periodPct}%"></div>
+                    </div>
+                </div>
+
                 <div class="contract-item-details">
                     <div class="contract-detail">
-                        <span class="contract-detail-label">Volume:</span>
-                        <span class="contract-detail-value">${contract.volumePerPeriod}${periodLabel}</span>
+                        <span class="contract-detail-label">Contract Rate:</span>
+                        <span class="contract-detail-value">${contract.volumePerPeriod} units/${periodLabel}</span>
                     </div>
                     <div class="contract-detail">
-                        <span class="contract-detail-label">Price:</span>
-                        <span class="contract-detail-value">${formatCurrency(contract.pricePerUnit)}/unit</span>
+                        <span class="contract-detail-label">Unit Price:</span>
+                        <span class="contract-detail-value">${formatCurrency(contract.pricePerUnit)}</span>
                     </div>
-                    <div class="contract-detail">
-                        <span class="contract-detail-label">Fulfillment:</span>
+                    <div class="contract-detail" title="Percentage of deliveries that arrived on time and complete">
+                        <span class="contract-detail-label">Reliability:</span>
                         <span class="contract-detail-value ${fulfillmentClass}">${fulfillmentRate}%</span>
                     </div>
-                    <div class="contract-detail">
-                        <span class="contract-detail-label">Total Value:</span>
+                    <div class="contract-detail" title="Total units received over contract lifetime">
+                        <span class="contract-detail-label">Total Received:</span>
+                        <span class="contract-detail-value">${formatNumber(totalDelivered)} units (${deliveryCount} deliveries)</span>
+                    </div>
+                    <div class="contract-detail" title="Total monetary value of all completed deliveries">
+                        <span class="contract-detail-label">Lifetime Value:</span>
                         <span class="contract-detail-value">${formatCurrencyFull(contract.totalValue || 0)}</span>
                     </div>
                 </div>

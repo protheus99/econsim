@@ -770,7 +770,37 @@ export class PurchaseManager {
             return quantity;
         }
 
-        // Priority 4: Generic inventory object
+        // Priority 4: Retail productInventory (Map with product IDs as keys)
+        if (buyer.productInventory instanceof Map) {
+            // Find the product entry by name
+            for (const [productId, inv] of buyer.productInventory) {
+                if (inv.productName === productName) {
+                    inv.quantity = (inv.quantity || 0) + quantity;
+                    return quantity;
+                }
+            }
+            // Product not found in inventory - try to add it
+            // Look up product ID from registry
+            const product = this.engine.productRegistry?.getProductByName(productName);
+            if (product) {
+                const existingInv = buyer.productInventory.get(product.id);
+                if (existingInv) {
+                    existingInv.quantity = (existingInv.quantity || 0) + quantity;
+                } else {
+                    // Add new product entry
+                    buyer.productInventory.set(product.id, {
+                        productName: productName,
+                        quantity: quantity,
+                        retailPrice: product.basePrice * 1.3, // Default 30% markup
+                        wholesalePrice: product.basePrice
+                    });
+                }
+                return quantity;
+            }
+            console.warn(`PurchaseManager: Could not find product ${productName} in registry for retail inventory`);
+        }
+
+        // Priority 5: Generic inventory object
         if (buyer.inventory && typeof buyer.inventory === 'object') {
             buyer.inventory.quantity = (buyer.inventory.quantity || 0) + quantity;
             return quantity;
