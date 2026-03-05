@@ -371,473 +371,473 @@ export const LOT_SIZING_CONFIG = {
     },
 
     // ==================
-    // MANUFACTURED Products - Grocery (48hr lot formation)
+    // MANUFACTURED Products - Grocery (retail-friendly lot sizes)
     // ==================
     'Bread': {
-        lotSize: 4800,
+        lotSize: 240,       // Retail: ~1 case per lot
         unit: 'loaf',
         perishable: true,
         shelfLifeDays: 5,
-        hoursToForm: 48  // ~100 units/hr * 48 hrs
+        hoursToForm: 48
     },
     'Meat': {
-        lotSize: 2880,
+        lotSize: 144,       // Retail: ~1 case per lot
         unit: 'lb',
         perishable: true,
         shelfLifeDays: 5,
-        hoursToForm: 48  // ~60 units/hr * 48 hrs
+        hoursToForm: 48
     },
     'Seafood': {
-        lotSize: 1920,
+        lotSize: 96,        // Retail: ~1 case per lot
         unit: 'lb',
         perishable: true,
         shelfLifeDays: 3,
-        hoursToForm: 48  // ~40 units/hr * 48 hrs
+        hoursToForm: 48
     },
     'Fruits': {
-        lotSize: 3840,
+        lotSize: 192,       // Retail: ~1 case per lot
         unit: 'lb',
         perishable: true,
         shelfLifeDays: 7,
-        hoursToForm: 48  // ~80 units/hr * 48 hrs
+        hoursToForm: 48
     },
     'Breakfast Cereal': {
-        lotSize: 3360,
+        lotSize: 168,       // Retail: ~1 case per lot
         unit: 'box',
         perishable: false,
-        hoursToForm: 48  // ~70 units/hr * 48 hrs
+        hoursToForm: 48
     },
     'Cake': {
-        lotSize: 1440,
+        lotSize: 72,        // Retail: ~1 case per lot
         unit: 'unit',
         perishable: true,
         shelfLifeDays: 4,
-        hoursToForm: 48  // ~30 units/hr * 48 hrs
+        hoursToForm: 48
     },
     'Candy': {
-        lotSize: 4800,
+        lotSize: 240,       // Retail: ~1 case per lot
         unit: 'bag',
         perishable: false,
-        hoursToForm: 48  // ~100 units/hr * 48 hrs
+        hoursToForm: 48
     },
     'Ice Cream': {
-        lotSize: 2880,
+        lotSize: 144,       // Retail: ~1 case per lot
         unit: 'pint',
         perishable: true,
         shelfLifeDays: 30,
-        hoursToForm: 48  // ~60 units/hr * 48 hrs
+        hoursToForm: 48
     },
     'Soda': {
-        lotSize: 7200,
+        lotSize: 360,       // Retail: ~1 case per lot
         unit: 'can',
         perishable: false,
-        hoursToForm: 48  // ~150 units/hr * 48 hrs
+        hoursToForm: 48
     },
     'Alcohol': {
-        lotSize: 2400,
+        lotSize: 120,       // Retail: ~1 case per lot
         unit: 'bottle',
         perishable: false,
-        hoursToForm: 48  // ~50 units/hr * 48 hrs
+        hoursToForm: 48
     },
     'Canned Goods': {
-        lotSize: 3840,
+        lotSize: 192,       // Retail: ~1 case per lot
         unit: 'can',
         perishable: false,
-        hoursToForm: 48  // ~80 units/hr * 48 hrs
+        hoursToForm: 48
     },
     'Cooking Oil': {
-        lotSize: 3360,
+        lotSize: 168,       // Retail: ~1 case per lot
         unit: 'bottle',
         perishable: false,
-        hoursToForm: 48  // ~70 units/hr * 48 hrs
+        hoursToForm: 48
     },
 
     // ==================
-    // MANUFACTURED Products - Clothing & Accessories (48hr lot formation)
+    // MANUFACTURED Products - Clothing & Accessories (retail-friendly lot sizes)
     // ==================
     'Shirts': {
-        lotSize: 1920,
+        lotSize: 96,        // Retail: ~1 case per lot
         unit: 'unit',
         perishable: false,
-        hoursToForm: 48  // ~40 units/hr * 48 hrs
+        hoursToForm: 48
     },
     'Jackets': {
-        lotSize: 960,
+        lotSize: 48,        // Retail: ~1 case per lot
         unit: 'unit',
         perishable: false,
-        hoursToForm: 48  // ~20 units/hr * 48 hrs
+        hoursToForm: 48
     },
     'Jeans': {
-        lotSize: 1440,
+        lotSize: 72,        // Retail: ~1 case per lot
         unit: 'pair',
         perishable: false,
-        hoursToForm: 48  // ~30 units/hr * 48 hrs
+        hoursToForm: 48
     },
     'Sweaters': {
-        lotSize: 1200,
+        lotSize: 60,        // Retail: ~1 case per lot
         unit: 'unit',
         perishable: false,
-        hoursToForm: 48  // ~25 units/hr * 48 hrs
+        hoursToForm: 48
     },
     'Shoes': {
-        lotSize: 1200,
+        lotSize: 60,        // Retail: ~1 case per lot
         unit: 'pair',
         perishable: false,
-        hoursToForm: 48  // ~25 units/hr * 48 hrs
+        hoursToForm: 48
     },
     'Socks': {
-        lotSize: 3840,
+        lotSize: 192,       // Retail: ~1 case per lot
         unit: 'pair',
         perishable: false,
-        hoursToForm: 48  // ~80 units/hr * 48 hrs
+        hoursToForm: 48
     },
     'Watches': {
-        lotSize: 720,
+        lotSize: 36,        // Retail: ~1 case per lot
         unit: 'unit',
         perishable: false,
-        hoursToForm: 48  // ~15 units/hr * 48 hrs
+        hoursToForm: 48
     },
     'Jewelry': {
-        lotSize: 480,
+        lotSize: 24,        // Retail: ~1 case per lot
         unit: 'piece',
         perishable: false,
-        hoursToForm: 48  // ~10 units/hr * 48 hrs
+        hoursToForm: 48
     },
     'Belts': {
-        lotSize: 1920,
+        lotSize: 96,        // Retail: ~1 case per lot
         unit: 'unit',
         perishable: false,
-        hoursToForm: 48  // ~40 units/hr * 48 hrs
+        hoursToForm: 48
     },
     'Bags': {
-        lotSize: 1440,
+        lotSize: 72,        // Retail: ~1 case per lot
         unit: 'unit',
         perishable: false,
-        hoursToForm: 48  // ~30 units/hr * 48 hrs
+        hoursToForm: 48
     },
 
     // ==================
-    // MANUFACTURED Products - Baby (48hr lot formation)
+    // MANUFACTURED Products - Baby (retail-friendly lot sizes)
     // ==================
     'Diapers': {
-        lotSize: 2880,
+        lotSize: 144,       // Retail: ~1 case per lot
         unit: 'pack',
         perishable: false,
-        hoursToForm: 48  // ~60 units/hr * 48 hrs
+        hoursToForm: 48
     },
     'Formula': {
-        lotSize: 2400,
+        lotSize: 120,       // Retail: ~1 case per lot
         unit: 'can',
         perishable: false,
-        hoursToForm: 48  // ~50 units/hr * 48 hrs
+        hoursToForm: 48
     },
     'Car Seats': {
-        lotSize: 720,
+        lotSize: 36,        // Retail: ~1 case per lot
         unit: 'unit',
         perishable: false,
-        hoursToForm: 48  // ~15 units/hr * 48 hrs
+        hoursToForm: 48
     },
     'Strollers': {
-        lotSize: 576,
+        lotSize: 24,        // Retail: ~1 case per lot
         unit: 'unit',
         perishable: false,
-        hoursToForm: 48  // ~12 units/hr * 48 hrs
+        hoursToForm: 48
     },
 
     // ==================
-    // MANUFACTURED Products - Health & Beauty (48hr lot formation)
+    // MANUFACTURED Products - Health & Beauty (retail-friendly lot sizes)
     // ==================
     'Cold Medicine': {
-        lotSize: 2880,
+        lotSize: 144,       // Retail: ~1 case per lot
         unit: 'box',
         perishable: false,
-        hoursToForm: 48  // ~60 units/hr * 48 hrs
+        hoursToForm: 48
     },
     'Pain Killers': {
-        lotSize: 3360,
+        lotSize: 168,       // Retail: ~1 case per lot
         unit: 'bottle',
         perishable: false,
-        hoursToForm: 48  // ~70 units/hr * 48 hrs
+        hoursToForm: 48
     },
     'Vitamins': {
-        lotSize: 2400,
+        lotSize: 120,       // Retail: ~1 case per lot
         unit: 'bottle',
         perishable: false,
-        hoursToForm: 48  // ~50 units/hr * 48 hrs
+        hoursToForm: 48
     },
     'Shampoo': {
-        lotSize: 3360,
+        lotSize: 168,       // Retail: ~1 case per lot
         unit: 'bottle',
         perishable: false,
-        hoursToForm: 48  // ~70 units/hr * 48 hrs
+        hoursToForm: 48
     },
     'Deodorant': {
-        lotSize: 3840,
+        lotSize: 192,       // Retail: ~1 case per lot
         unit: 'unit',
         perishable: false,
-        hoursToForm: 48  // ~80 units/hr * 48 hrs
+        hoursToForm: 48
     },
     'Soap': {
-        lotSize: 4800,
+        lotSize: 240,       // Retail: ~1 case per lot
         unit: 'bar',
         perishable: false,
-        hoursToForm: 48  // ~100 units/hr * 48 hrs
+        hoursToForm: 48
     },
     'Toothpaste': {
-        lotSize: 4320,
+        lotSize: 216,       // Retail: ~1 case per lot
         unit: 'tube',
         perishable: false,
-        hoursToForm: 48  // ~90 units/hr * 48 hrs
+        hoursToForm: 48
     },
     'Makeup': {
-        lotSize: 1920,
+        lotSize: 96,        // Retail: ~1 case per lot
         unit: 'kit',
         perishable: false,
-        hoursToForm: 48  // ~40 units/hr * 48 hrs
+        hoursToForm: 48
     },
     'Perfume': {
-        lotSize: 1440,
+        lotSize: 72,        // Retail: ~1 case per lot
         unit: 'bottle',
         perishable: false,
-        hoursToForm: 48  // ~30 units/hr * 48 hrs
+        hoursToForm: 48
     },
     'Glasses': {
-        lotSize: 1200,
+        lotSize: 60,        // Retail: ~1 case per lot
         unit: 'pair',
         perishable: false,
-        hoursToForm: 48  // ~25 units/hr * 48 hrs
+        hoursToForm: 48
     },
 
     // ==================
-    // MANUFACTURED Products - Auto & Hardware (48hr lot formation)
+    // MANUFACTURED Products - Auto & Hardware (retail-friendly lot sizes)
     // ==================
     'Tools': {
-        lotSize: 1680,
+        lotSize: 84,        // Retail: ~1 case per lot
         unit: 'set',
         perishable: false,
-        hoursToForm: 48  // ~35 units/hr * 48 hrs
+        hoursToForm: 48
     },
     'Tires': {
-        lotSize: 1200,
+        lotSize: 60,        // Retail: ~1 case per lot
         unit: 'unit',
         perishable: false,
-        hoursToForm: 48  // ~25 units/hr * 48 hrs
+        hoursToForm: 48
     },
     'Auto Parts': {
-        lotSize: 1440,
+        lotSize: 72,        // Retail: ~1 case per lot
         unit: 'unit',
         perishable: false,
-        hoursToForm: 48  // ~30 units/hr * 48 hrs
+        hoursToForm: 48
     },
     'Oil & Fluids': {
-        lotSize: 2880,
+        lotSize: 144,       // Retail: ~1 case per lot
         unit: 'gallon',
         perishable: false,
-        hoursToForm: 48  // ~60 units/hr * 48 hrs
+        hoursToForm: 48
     },
     'Car Battery': {
-        lotSize: 960,
+        lotSize: 48,        // Retail: ~1 case per lot
         unit: 'unit',
         perishable: false,
-        hoursToForm: 48  // ~20 units/hr * 48 hrs
+        hoursToForm: 48
     },
 
     // ==================
-    // MANUFACTURED Products - Cleaning (48hr lot formation)
+    // MANUFACTURED Products - Cleaning (retail-friendly lot sizes)
     // ==================
     'Cleaning Supplies': {
-        lotSize: 3360,
+        lotSize: 168,       // Retail: ~1 case per lot
         unit: 'unit',
         perishable: false,
-        hoursToForm: 48  // ~70 units/hr * 48 hrs
+        hoursToForm: 48
     },
     'Vacuums': {
-        lotSize: 864,
+        lotSize: 36,        // Retail: ~1 case per lot
         unit: 'unit',
         perishable: false,
-        hoursToForm: 48  // ~18 units/hr * 48 hrs
+        hoursToForm: 48
     },
     'Paper Towels': {
-        lotSize: 4320,
+        lotSize: 216,       // Retail: ~1 case per lot
         unit: 'pack',
         perishable: false,
-        hoursToForm: 48  // ~90 units/hr * 48 hrs
+        hoursToForm: 48
     },
     'Trash Bags': {
-        lotSize: 3840,
+        lotSize: 192,       // Retail: ~1 case per lot
         unit: 'box',
         perishable: false,
-        hoursToForm: 48  // ~80 units/hr * 48 hrs
+        hoursToForm: 48
     },
 
     // ==================
-    // MANUFACTURED Products - Furniture (48hr lot formation)
+    // MANUFACTURED Products - Furniture (retail-friendly lot sizes)
     // ==================
     'Sofa': {
-        lotSize: 288,
+        lotSize: 12,        // Retail: small furniture lot
         unit: 'unit',
         perishable: false,
-        hoursToForm: 48  // ~6 units/hr * 48 hrs
+        hoursToForm: 48
     },
     'Dresser': {
-        lotSize: 480,
+        lotSize: 24,        // Retail: small furniture lot
         unit: 'unit',
         perishable: false,
-        hoursToForm: 48  // ~10 units/hr * 48 hrs
+        hoursToForm: 48
     },
     'Beds': {
-        lotSize: 384,
+        lotSize: 18,        // Retail: small furniture lot
         unit: 'unit',
         perishable: false,
-        hoursToForm: 48  // ~8 units/hr * 48 hrs
+        hoursToForm: 48
     },
     'Tables': {
-        lotSize: 576,
+        lotSize: 24,        // Retail: small furniture lot
         unit: 'unit',
         perishable: false,
-        hoursToForm: 48  // ~12 units/hr * 48 hrs
+        hoursToForm: 48
     },
 
     // ==================
-    // MANUFACTURED Products - Appliances (48hr lot formation)
+    // MANUFACTURED Products - Appliances (retail-friendly lot sizes)
     // ==================
     'Microwave': {
-        lotSize: 960,
+        lotSize: 48,        // Retail: ~1 case per lot
         unit: 'unit',
         perishable: false,
-        hoursToForm: 48  // ~20 units/hr * 48 hrs
+        hoursToForm: 48
     },
     'Air Conditioner': {
-        lotSize: 576,
+        lotSize: 24,        // Retail: ~1 case per lot
         unit: 'unit',
         perishable: false,
-        hoursToForm: 48  // ~12 units/hr * 48 hrs
+        hoursToForm: 48
     },
     'Washing Machine': {
-        lotSize: 480,
+        lotSize: 24,        // Retail: ~1 case per lot
         unit: 'unit',
         perishable: false,
-        hoursToForm: 48  // ~10 units/hr * 48 hrs
+        hoursToForm: 48
     },
     'Dryer': {
-        lotSize: 480,
+        lotSize: 24,        // Retail: ~1 case per lot
         unit: 'unit',
         perishable: false,
-        hoursToForm: 48  // ~10 units/hr * 48 hrs
+        hoursToForm: 48
     },
     'Bikes': {
-        lotSize: 720,
+        lotSize: 36,        // Retail: ~1 case per lot
         unit: 'unit',
         perishable: false,
-        hoursToForm: 48  // ~15 units/hr * 48 hrs
+        hoursToForm: 48
     },
 
     // ==================
-    // MANUFACTURED Products - Electronics (48hr lot formation)
+    // MANUFACTURED Products - Electronics (retail-friendly lot sizes)
     // ==================
     'Laptops': {
-        lotSize: 480,
+        lotSize: 24,        // Retail: ~1 case per lot
         unit: 'unit',
         perishable: false,
-        hoursToForm: 48  // ~10 units/hr * 48 hrs
+        hoursToForm: 48
     },
     'Personal Computer': {
-        lotSize: 576,
+        lotSize: 24,        // Retail: ~1 case per lot
         unit: 'unit',
         perishable: false,
-        hoursToForm: 48  // ~12 units/hr * 48 hrs
+        hoursToForm: 48
     },
     'Tablets': {
-        lotSize: 864,
+        lotSize: 36,        // Retail: ~1 case per lot
         unit: 'unit',
         perishable: false,
-        hoursToForm: 48  // ~18 units/hr * 48 hrs
+        hoursToForm: 48
     },
     'Monitors': {
-        lotSize: 960,
+        lotSize: 48,        // Retail: ~1 case per lot
         unit: 'unit',
         perishable: false,
-        hoursToForm: 48  // ~20 units/hr * 48 hrs
+        hoursToForm: 48
     },
     'Cellphone': {
-        lotSize: 720,
+        lotSize: 36,        // Retail: ~1 case per lot
         unit: 'unit',
         perishable: false,
-        hoursToForm: 48  // ~15 units/hr * 48 hrs
+        hoursToForm: 48
     },
     'TV': {
-        lotSize: 720,
+        lotSize: 36,        // Retail: ~1 case per lot
         unit: 'unit',
         perishable: false,
-        hoursToForm: 48  // ~15 units/hr * 48 hrs
+        hoursToForm: 48
     },
     'Console': {
-        lotSize: 864,
+        lotSize: 36,        // Retail: ~1 case per lot
         unit: 'unit',
         perishable: false,
-        hoursToForm: 48  // ~18 units/hr * 48 hrs
+        hoursToForm: 48
     },
     'Headphones': {
-        lotSize: 1680,
+        lotSize: 84,        // Retail: ~1 case per lot
         unit: 'unit',
         perishable: false,
-        hoursToForm: 48  // ~35 units/hr * 48 hrs
+        hoursToForm: 48
     },
     'Printers': {
-        lotSize: 864,
+        lotSize: 36,        // Retail: ~1 case per lot
         unit: 'unit',
         perishable: false,
-        hoursToForm: 48  // ~18 units/hr * 48 hrs
+        hoursToForm: 48
     },
     'Cameras': {
-        lotSize: 960,
+        lotSize: 48,        // Retail: ~1 case per lot
         unit: 'unit',
         perishable: false,
-        hoursToForm: 48  // ~20 units/hr * 48 hrs
+        hoursToForm: 48
     },
     'Batteries': {
-        lotSize: 4800,
+        lotSize: 240,       // Retail: ~1 case per lot
         unit: 'pack',
         perishable: false,
-        hoursToForm: 48  // ~100 units/hr * 48 hrs
+        hoursToForm: 48
     },
     'Drones': {
-        lotSize: 576,
+        lotSize: 24,        // Retail: ~1 case per lot
         unit: 'unit',
         perishable: false,
-        hoursToForm: 48  // ~12 units/hr * 48 hrs
+        hoursToForm: 48
     },
     'Toys': {
-        lotSize: 2400,
+        lotSize: 120,       // Retail: ~1 case per lot
         unit: 'unit',
         perishable: false,
-        hoursToForm: 48  // ~50 units/hr * 48 hrs
+        hoursToForm: 48
     },
 
     // ==================
-    // MANUFACTURED Products - Vehicles (48hr lot formation)
+    // MANUFACTURED Products - Vehicles (retail-friendly lot sizes)
     // ==================
     'Cars': {
-        lotSize: 96,
+        lotSize: 6,         // Retail: small dealer lot
         unit: 'unit',
         perishable: false,
-        hoursToForm: 48  // ~2 units/hr * 48 hrs
+        hoursToForm: 48
     },
     'Motorcycles': {
-        lotSize: 240,
+        lotSize: 12,        // Retail: small dealer lot
         unit: 'unit',
         perishable: false,
-        hoursToForm: 48  // ~5 units/hr * 48 hrs
+        hoursToForm: 48
     },
 
     // ==================
-    // MANUFACTURED Products - Construction (48hr lot formation)
+    // MANUFACTURED Products - Construction (retail-friendly lot sizes)
     // ==================
     'Cement': {
-        lotSize: 2400,
+        lotSize: 120,       // Retail: ~1 pallet per lot
         unit: 'bag',
         perishable: false,
-        hoursToForm: 48  // ~50 units/hr * 48 hrs
+        hoursToForm: 48
     }
 };
 
@@ -946,7 +946,7 @@ export function getDefaultLotConfig(tier, unit) {
         };
     } else if (tier === 'MANUFACTURED') {
         return {
-            lotSize: 1440,  // ~30 units/hr * 48 hrs
+            lotSize: 72,    // Retail-friendly default (~1 case)
             unit: unit || 'unit',
             perishable: false,
             hoursToForm: 48

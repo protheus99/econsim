@@ -127,7 +127,8 @@ export class ContractManager {
         const relevantContracts = this.getActiveContractsForBuyer(buyer.id, productName);
 
         if (relevantContracts.length === 0) {
-            console.log(`📦 ${buyerName}: No contracts found for "${productName}"`);
+            const reason = this.diagnoseNoContract(buyer, productName);
+            console.log(`📦 ${buyerName}: No contracts found for "${productName}" - ${reason}`);
             return 0;
         }
 
@@ -844,6 +845,82 @@ export class ContractManager {
         this.stats.totalValue = activeValue;
 
         return { ...this.stats };
+    }
+
+    /**
+     * Diagnose why no contracts exist for a buyer and product
+     * @param {Firm} buyer - The buying firm
+     * @param {string} productName - Product name
+     * @returns {string} Diagnostic reason
+     */
+    diagnoseNoContract(buyer, productName) {
+        // Check 1: Are there any inactive/expired contracts for this buyer+product?
+        const buyerContracts = this.byBuyer.get(buyer.id) || new Set();
+        for (const contractId of buyerContracts) {
+            const contract = this.contracts.get(contractId);
+            if (contract && contract.product === productName && !contract.isActive()) {
+                const status = contract.status || 'inactive';
+                return `CONTRACT_EXPIRED (status: ${status})`;
+            }
+        }
+
+        // Check 2: Does any supplier produce this product?
+        const suppliers = this.findSuppliersForProduct(productName);
+        if (suppliers.length === 0) {
+            return `NO_SUPPLIER_EXISTS (no firm produces "${productName}")`;
+        }
+
+        // Check 3: Are all suppliers at capacity?
+        const retailPurchaseManager = this.engine.purchaseManager?.retailPurchaseManager;
+        if (retailPurchaseManager) {
+            let allAtCapacity = true;
+            for (const supplier of suppliers) {
+                const maxCapacity = retailPurchaseManager.getSupplierWeeklyCapacity(supplier);
+                const committed = retailPurchaseManager.supplierCommitments.get(supplier.id) || 0;
+                if (committed < maxCapacity) {
+                    allAtCapacity = false;
+                    break;
+                }
+            }
+            if (allAtCapacity) {
+                return `SUPPLIER_AT_CAPACITY (${suppliers.length} supplier(s) fully committed)`;
+            }
+        }
+
+        // Check 4: Contract creation must have failed for other reasons
+        // (lot size requirements, minimum volume, etc.)
+        return `CONTRACT_CREATION_FAILED (supplier exists but contract not viable - check lot sizes/volumes)`;
+    }
+
+    /**
+     * Find all firms that can supply a product
+     * @param {string} productName - Product name to find suppliers for
+     * @returns {Firm[]} Array of supplier firms
+     */
+    findSuppliersForProduct(productName) {
+        const suppliers = [];
+        const firms = this.engine.firms;
+
+        if (!firms) return suppliers;
+
+        for (const firm of firms.values()) {
+            // Check if firm produces this product
+            const produces =
+                // Manufacturing plants
+                (firm.product?.name === productName) ||
+                (firm.outputProduct === productName) ||
+                // Mining/Logging/Farms - check output
+                (firm.produces === productName) ||
+                (firm.productName === productName) ||
+                // Check lotInventory for existing stock
+                (firm.lotInventory?.getAvailableQuantity(productName) > 0);
+
+            if (produces) {
+                suppliers.push(firm);
+            }
+        }
+
+        return suppliers;
     }
 
     /**

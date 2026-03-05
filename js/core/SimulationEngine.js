@@ -892,119 +892,23 @@ export class SimulationEngine {
         console.log(`   📊 ${noSupplierCount} inputs had no supplier, ${capacityLimitedCount} limited by supplier capacity`);
 
         // === RETAIL CONTRACTS ===
-        // Create contracts for retail stores to purchase from manufacturers/wholesalers
-        let retailContractsCreated = 0;
-        let retailNoSupplierCount = 0;
-        let retailCapacityLimitedCount = 0;
+        // Delegate retail contract creation to RetailPurchaseManager
+        const retailPurchaseManager = this.purchaseManager.retailPurchaseManager;
+        if (retailPurchaseManager) {
+            let retailContractsCreated = 0;
 
-        // Get all retail firms
-        const retailers = Array.from(this.firms.values()).filter(firm =>
-            firm.type === 'RETAIL' && firm.productInventory?.size > 0
-        );
+            const retailers = Array.from(this.firms.values()).filter(firm =>
+                firm.type === 'RETAIL' && firm.productInventory?.size > 0
+            );
 
-        console.log(`📋 Contract init: Found ${retailers.length} retailers with inventory`);
+            console.log(`📋 Contract init: Found ${retailers.length} retailers with inventory`);
 
-        for (const retailer of retailers) {
-            // Iterate through products this retailer sells
-            for (const [productId, invData] of retailer.productInventory) {
-                const productName = invData.productName;
-                if (!productName) continue;
-
-                // Get lot size for this product to ensure contract volume is compatible
-                const lotSize = getLotSizeForProduct(productName, this.productRegistry);
-
-                // Estimate weekly sales need based on store metrics
-                // Formula: dailyFootTraffic * conversionRate * avgItemsPerTransaction * 7 days
-                const dailyCustomers = (retailer.dailyFootTraffic || 500) * (retailer.conversionRate || 0.4);
-                const avgItemsPerProduct = 2; // Average units per product per purchasing customer
-                const productShareFactor = 1 / Math.max(1, retailer.productInventory.size); // Share of basket
-                const weeklyEstimatedSales = dailyCustomers * avgItemsPerProduct * productShareFactor * 7;
-
-                // Request 60% coverage via contracts (rest from spot market)
-                let requestedVolume = Math.floor(weeklyEstimatedSales * 0.6);
-
-                // Ensure minimum contract volume meets lot size requirements
-                // Contract should be at least 2 lots so there's room for fulfillment
-                const minVolume = lotSize > 0 ? Math.max(lotSize * 2, 50) : 50;
-                if (requestedVolume < minVolume) {
-                    requestedVolume = minVolume;
-                }
-
-                // Find best supplier (manufacturer that produces this product)
-                const selection = supplierSelector.selectBest({
-                    buyer: retailer,
-                    productName: productName,
-                    quantity: requestedVolume,
-                    considerPrice: true,
-                    considerTransport: true,
-                    considerRelationship: true,
-                    requireInventory: false,
-                    forSpotPurchase: false
-                });
-
-                if (!selection?.supplier) {
-                    retailNoSupplierCount++;
-                    continue; // No supplier found for this product
-                }
-
-                const supplier = selection.supplier;
-                const supplierId = supplier.id;
-
-                // Check supplier's available capacity
-                const maxWeeklyCapacity = getSupplierWeeklyCapacity(supplier);
-                const currentCommitment = supplierCommitments.get(supplierId) || 0;
-                const availableCapacity = maxWeeklyCapacity - currentCommitment;
-
-                if (availableCapacity <= 0) {
-                    retailCapacityLimitedCount++;
-                    continue; // Supplier fully committed
-                }
-
-                // Limit contract volume to available capacity
-                let contractVolume = Math.min(requestedVolume, Math.floor(availableCapacity));
-
-                // Align to lot boundaries and ensure minimum viable contract
-                if (lotSize > 0) {
-                    const wholeLots = Math.floor(contractVolume / lotSize);
-                    if (wholeLots < 2) {
-                        retailCapacityLimitedCount++;
-                        continue; // Less than 2 lots per week - not viable for contract
-                    }
-                    contractVolume = wholeLots * lotSize;
-                } else if (contractVolume < 50) {
-                    retailCapacityLimitedCount++;
-                    continue; // Too small to be worth a contract
-                }
-
-                // Get base price - use wholesale price from inventory or product registry
-                const product = this.productRegistry.getProduct(productId) ||
-                               this.productRegistry.getProductByName(productName);
-                const basePrice = invData.wholesalePrice || product?.basePrice || 50;
-                const contractPrice = basePrice * 0.95; // 5% discount for retail contracts
-
-                // Create the contract
-                const contract = contractManager.createContract({
-                    supplierId: supplierId,
-                    buyerId: retailer.id,
-                    product: productName,
-                    type: 'fixed_volume',
-                    volumePerPeriod: contractVolume,
-                    periodType: 'weekly',
-                    pricePerUnit: contractPrice,
-                    priceType: 'fixed',
-                    minQuality: 0.5
-                });
-
-                if (contract) {
-                    retailContractsCreated++;
-                    // Track the commitment
-                    supplierCommitments.set(supplierId, currentCommitment + contractVolume);
-                }
+            for (const retailer of retailers) {
+                retailContractsCreated += retailPurchaseManager.initializeRetailerContracts(retailer);
             }
-        }
 
-        console.log(`✅ Auto-created ${retailContractsCreated} supply contracts for ${retailers.length} retailers`);
-        console.log(`   📊 ${retailNoSupplierCount} products had no supplier, ${retailCapacityLimitedCount} limited by capacity`);
+            console.log(`✅ Auto-created ${retailContractsCreated} supply contracts for retailers`);
+        }
     }
 
     setupIntervals() {
@@ -1126,37 +1030,20 @@ export class SimulationEngine {
 
     /**
      * Hourly critical check for retail inventory
+     * NOTE: Retail stores only purchase through contracts, not spot purchases
+     * This method now triggers contract fulfillment via PurchaseManager
      */
     checkCriticalRetailInventory(retailer, thresholdPct) {
         if (!retailer.productInventory || retailer.productInventory.size === 0) return;
 
-        const retailConfig = this.config.retail?.inventory || {};
-        const storeType = retailer.storeType || 'DEPARTMENT';
-        const capacityByType = retailConfig.capacityByStoreType?.[storeType] || {};
-
-        retailer.productInventory.forEach((inventory, productId) => {
-            const product = this.productRegistry?.getProduct(productId);
-            const productName = inventory.productName || product?.name || productId;
-            const productCategory = product?.category || 'default';
-
-            // Get capacity
-            const capacity = capacityByType[productCategory] || capacityByType.default || inventory.capacity || 500;
-            const criticalThreshold = capacity * thresholdPct;
-
-            if (inventory.quantity < criticalThreshold) {
-                // Urgent restock
-                const urgentQuantity = Math.floor(capacity * 0.3); // Restock 30% of capacity
-                if (urgentQuantity <= 0) return;
-
-                // Check affordability
-                const unitPrice = product?.basePrice || 100;
-                const estimatedCost = urgentQuantity * unitPrice * 2;
-                if (retailer.cash < estimatedCost * 0.3) return;
-
-                // Try local purchase only (no global market fallback)
-                this.tryLocalRetailPurchase(retailer, productId, productName, urgentQuantity);
-            }
-        });
+        // Retail stores only purchase through contracts
+        // Critical inventory needs are handled by the contract system
+        // The PurchaseManager.processRetailRestocking() handles contract fulfillment
+        if (this.purchaseManager) {
+            // Contract fulfillment is already processed hourly by PurchaseManager
+            // No spot purchases for retail stores
+            return;
+        }
     }
 
     checkManufacturingInventory(firm) {
@@ -1199,60 +1086,21 @@ export class SimulationEngine {
         });
     }
 
+    /**
+     * Check retail inventory levels
+     * NOTE: Retail stores only purchase through contracts, not spot purchases
+     * Inventory replenishment is handled by the contract system via PurchaseManager
+     */
     checkRetailInventory(retailer) {
         if (!retailer.productInventory || retailer.productInventory.size === 0) return;
 
-        const retailConfig = this.config.retail?.inventory || {};
-        const storeType = retailer.storeType || 'DEPARTMENT';
-        const capacityByType = retailConfig.capacityByStoreType?.[storeType] || {};
-
-        // Collect all products needing restock for bulk ordering
-        const ordersNeeded = [];
-
-        // Check each product in inventory
-        retailer.productInventory.forEach((inventory, productId) => {
-            const product = this.productRegistry?.getProduct(productId);
-            const productName = inventory.productName || product?.name || productId;
-            const productCategory = product?.category || 'default';
-
-            // Get capacity based on store type and product category
-            const capacity = capacityByType[productCategory] || capacityByType.default || inventory.capacity || 500;
-
-            // Config-based thresholds
-            const reorderThresholdPct = retailConfig.reorderThresholdPct || 0.25;
-            const targetStockPct = retailConfig.targetStockPct || 0.85;
-            const urgentThresholdPct = retailConfig.urgentThresholdPct || 0.10;
-
-            const reorderThreshold = capacity * reorderThresholdPct;
-            const targetStock = capacity * targetStockPct;
-            const urgentThreshold = capacity * urgentThresholdPct;
-
-            if (inventory.quantity < reorderThreshold) {
-                // Calculate order quantity capped by reorderQuantityWeeks equivalent
-                const maxOrderQty = capacity * 0.5; // Max 50% of capacity per order
-                const orderQuantity = Math.floor(Math.min(targetStock - inventory.quantity, maxOrderQty));
-
-                if (orderQuantity > 0) {
-                    ordersNeeded.push({
-                        productId,
-                        productName,
-                        product,
-                        quantity: orderQuantity,
-                        currentStock: inventory.quantity,
-                        capacity,
-                        isUrgent: inventory.quantity < urgentThreshold,
-                        priority: inventory.quantity / reorderThreshold // Lower = more urgent
-                    });
-                }
-            }
-        });
-
-        // Sort by priority (most urgent first) and process orders
-        ordersNeeded.sort((a, b) => a.priority - b.priority);
-
-        for (const order of ordersNeeded) {
-            // Try to buy from local manufacturers only (no global market fallback)
-            this.tryLocalRetailPurchase(retailer, order.productId, order.productName, order.quantity);
+        // Retail stores only purchase through contracts
+        // Inventory needs are fulfilled by PurchaseManager.processRetailRestocking()
+        // which triggers contract fulfillment - no spot purchases for retail
+        if (this.purchaseManager) {
+            // Contract fulfillment is already processed hourly by PurchaseManager
+            // No spot purchases for retail stores
+            return;
         }
     }
 
@@ -1325,14 +1173,17 @@ export class SimulationEngine {
     }
 
     /**
-     * Try to purchase finished goods from local manufacturers for retail
-     * @param {Firm} buyer - The retail firm buying products
-     * @param {number} productId - Product ID to buy
-     * @param {string} productName - Name of the product
-     * @param {number} quantity - Desired quantity
-     * @returns {number} Actual quantity fulfilled
+     * @deprecated Retail stores now only purchase through contracts.
+     * This method is no longer used - retail purchasing is handled by
+     * PurchaseManager.processRetailRestocking() via the contract system.
+     * Kept for backwards compatibility but always returns 0.
      */
     tryLocalRetailPurchase(buyer, productId, productName, quantity) {
+        // DEPRECATED: Retail stores only purchase through contracts
+        console.warn('tryLocalRetailPurchase is deprecated - retail uses contracts only');
+        return 0;
+
+        // Legacy code below - no longer executed
         let totalFulfilled = 0;
         let remainingQuantity = quantity;
 
@@ -1672,24 +1523,10 @@ export class SimulationEngine {
             });
         });
 
-        // TIER 3: MANUFACTURED manufacturers sell to retailers
-        retailers.forEach(retailer => {
-            // Find final manufacturers with finished goods (not semi-raw)
-            const suppliersWithGoods = finalManufacturers.filter(m =>
-                m.finishedGoodsInventory && m.finishedGoodsInventory.quantity > 0
-            );
-
-            suppliersWithGoods.forEach(manufacturer => {
-                const buyQuantity = Math.floor(Math.min(
-                    manufacturer.finishedGoodsInventory.quantity * 0.5,
-                    200 // Max purchase per hour
-                ));
-
-                if (buyQuantity > 0) {
-                    this.executeRetailPurchase(manufacturer, retailer, buyQuantity);
-                }
-            });
-        });
+        // TIER 3: Retail purchasing handled by contracts only
+        // NOTE: Retail stores only purchase through contracts, not spot purchases
+        // This is now handled by PurchaseManager.processRetailRestocking() via contracts
+        // No spot purchases from manufacturers to retailers
     }
 
     /**

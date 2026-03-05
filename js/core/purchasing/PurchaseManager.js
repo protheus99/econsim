@@ -3,6 +3,7 @@
 
 import { SupplierSelector } from './SupplierSelector.js';
 import { ContractManager } from './ContractManager.js';
+import { RetailPurchaseManager } from './RetailPurchaseManager.js';
 import { TransportCost } from './TransportCost.js';
 import { Lot } from '../Lot.js';
 
@@ -13,6 +14,10 @@ export class PurchaseManager {
         // Initialize sub-managers
         this.supplierSelector = new SupplierSelector(simulationEngine);
         this.contractManager = new ContractManager(simulationEngine);
+        this.retailPurchaseManager = new RetailPurchaseManager(simulationEngine);
+
+        // Wire managers together
+        this.retailPurchaseManager.setManagers(this.contractManager, this.supplierSelector);
 
         // Reference to existing managers (created elsewhere)
         this.retailDemandManager = null;  // Set by SimulationEngine
@@ -72,8 +77,8 @@ export class PurchaseManager {
         // 2. Process manufacturer and processor supply chain
         this.processManufacturerPurchasing();
 
-        // 3. Process retail store restocking
-        this.processRetailPurchasing();
+        // 3. Process retail store restocking (delegated to RetailPurchaseManager)
+        this.retailPurchaseManager.processRetailPurchasing();
 
         // 4. Process competitive retail sales (consumer demand)
         if (this.config.enableCompetitiveRetail && this.retailDemandManager) {
@@ -397,96 +402,8 @@ export class PurchaseManager {
         return removed;
     }
 
-    /**
-     * Process retail store restocking from manufacturers/wholesalers
-     */
-    processRetailPurchasing() {
-        const retailers = this.getRetailers();
-
-        for (const retailer of retailers) {
-            this.processRetailRestocking(retailer);
-        }
-    }
-
-    /**
-     * Process restocking for a single retail store
-     * Retail stores ONLY purchase through contracts - no spot purchases
-     */
-    processRetailRestocking(retailer) {
-        // Get products this retailer sells
-        let products = [];
-
-        // Check various ways products might be stored
-        if (retailer.productInventory instanceof Map) {
-            // RetailStore uses productInventory Map - get product names from inventory data
-            retailer.productInventory.forEach((invData, productId) => {
-                const productName = invData.productName || invData.name ||
-                    this.engine.productRegistry?.getProduct(productId)?.name;
-                if (productName) products.push(productName);
-            });
-        } else if (retailer.products) {
-            products = retailer.products;
-        } else if (retailer.productsSold) {
-            products = retailer.productsSold;
-        }
-
-        for (const productName of products) {
-            const needed = this.calculateRetailNeeded(retailer, productName);
-
-            if (needed < this.config.minOrderQuantity) continue;
-
-            // Retail stores ONLY use contracts for inventory purchases
-            // No spot purchasing fallback - if no contract, retailer must wait
-            if (this.config.enableContracts) {
-                this.contractManager.fulfillFromContracts(
-                    retailer,
-                    productName,
-                    needed
-                );
-            }
-            // No spot purchase fallback for retail stores
-        }
-    }
-
-    /**
-     * Calculate how much a retailer needs for restocking
-     * Uses product-specific demand data (purchaseFrequency, publicDemand) and city population
-     */
-    calculateRetailNeeded(retailer, productName) {
-        const current = this.getFirmInventory(retailer, productName);
-        const retailerName = retailer.getDisplayName?.() || retailer.id;
-
-        // Get product-specific demand characteristics
-        const product = this.engine.productRegistry?.getProductByName(productName);
-        const purchaseFrequency = product?.purchaseFrequency || 1;  // purchases per hour per 1000 pop
-        const publicDemand = product?.publicDemand || 0.5;          // demand modifier 0-1
-
-        // Get city population (default to 100k if unknown)
-        const cityPopulation = retailer.city?.population || 100000;
-        const pop1000 = cityPopulation / 1000;
-
-        // Calculate expected daily sales for this retailer
-        // Formula: purchaseFrequency * pop1000 * publicDemand * hoursOpen * retailerMarketShare
-        const hoursOpenPerDay = 12;  // Assume 12 hours of business per day
-        const numRetailersInCity = this.getRetailersInCity(retailer.city?.id)?.length || 10;
-        const marketShare = 1 / Math.max(1, numRetailersInCity);  // Split demand among retailers
-
-        const avgDailySales = Math.max(10, Math.floor(
-            purchaseFrequency * pop1000 * publicDemand * hoursOpenPerDay * marketShare
-        ));
-
-        const target = avgDailySales * this.config.targetInventoryDays;
-        const reorderThreshold = target * this.config.reorderPoint;
-
-        if (current > reorderThreshold) {
-            console.log(`📦 ${retailerName} doesn't need "${productName}": ${current} > ${reorderThreshold.toFixed(0)} (threshold) [dailySales=${avgDailySales}]`);
-            return 0;
-        }
-
-        const needed = Math.floor(Math.max(0, target - current));
-        console.log(`📦 ${retailerName} needs ${needed} "${productName}": current=${current}, target=${target.toFixed(0)}, dailySales=${avgDailySales} (freq=${purchaseFrequency}, demand=${publicDemand})`);
-        return needed;
-    }
+    // NOTE: processRetailPurchasing(), processRetailRestocking(), and calculateRetailNeeded()
+    // have been moved to RetailPurchaseManager.js
 
     /**
      * Process competitive retail sales
@@ -899,6 +816,7 @@ export class PurchaseManager {
         return {
             ...this.stats,
             contractStats: this.contractManager.getStats(),
+            retailStats: this.retailPurchaseManager.getStats(),
             activeContracts: this.contractManager.getAllActive().length
         };
     }
@@ -922,7 +840,8 @@ export class PurchaseManager {
         return {
             config: this.config,
             stats: this.stats,
-            contractManager: this.contractManager.toJSON()
+            contractManager: this.contractManager.toJSON(),
+            retailPurchaseManager: this.retailPurchaseManager.toJSON()
         };
     }
 
@@ -939,5 +858,15 @@ export class PurchaseManager {
         if (data.contractManager) {
             this.contractManager.fromJSON(data.contractManager);
         }
+        if (data.retailPurchaseManager) {
+            this.retailPurchaseManager.fromJSON(data.retailPurchaseManager);
+        }
+    }
+
+    /**
+     * Get retail purchase manager for external access
+     */
+    getRetailPurchaseManager() {
+        return this.retailPurchaseManager;
     }
 }
