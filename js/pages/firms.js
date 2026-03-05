@@ -1147,23 +1147,23 @@ function renderContracts(firm) {
         return pendingDeliveries.filter(d => d.contractId === contractId);
     };
 
-    // Helper to format game time from hours
-    const formatGameTime = (totalHours) => {
-        if (!totalHours && totalHours !== 0) return 'Never';
+    // Helper to format game time from game hours
+    const formatGameTime = (gameHours) => {
+        if (gameHours === null || gameHours === undefined) return null;
         const currentHour = simulation.clock?.totalHours || 0;
-        const hoursAgo = currentHour - totalHours;
+        const hoursDiff = currentHour - gameHours;
 
-        if (hoursAgo < 0) {
+        if (hoursDiff < 0) {
             // Future time
-            const hoursUntil = Math.abs(hoursAgo);
+            const hoursUntil = Math.abs(hoursDiff);
             if (hoursUntil < 24) return `in ${Math.ceil(hoursUntil)}h`;
             const days = Math.floor(hoursUntil / 24);
             return `in ${days}d`;
         }
 
-        if (hoursAgo < 1) return 'Just now';
-        if (hoursAgo < 24) return `${Math.floor(hoursAgo)}h ago`;
-        const daysAgo = Math.floor(hoursAgo / 24);
+        if (hoursDiff < 1) return 'just now';
+        if (hoursDiff < 24) return `${Math.floor(hoursDiff)}h ago`;
+        const daysAgo = Math.floor(hoursDiff / 24);
         return `${daysAgo}d ago`;
     };
 
@@ -1201,8 +1201,9 @@ function renderContracts(firm) {
         const lastDelivery = contract.fulfillmentHistory?.length > 0
             ? contract.fulfillmentHistory[contract.fulfillmentHistory.length - 1]
             : null;
-        const lastDeliveryTime = lastDelivery?.date
-            ? formatGameTime(lastDelivery.date / (1000 * 60 * 60)) // Convert ms to hours approximation
+        // Use gameHour if available, otherwise show nothing (legacy data)
+        const lastDeliveryTime = lastDelivery?.gameHour !== undefined
+            ? formatGameTime(lastDelivery.gameHour)
             : null;
 
         // Check for pending deliveries
@@ -1235,7 +1236,7 @@ function renderContracts(firm) {
                         ${lastDelivery ? `
                             <span class="delivery-status-item">
                                 <span class="delivery-label">Last Received:</span>
-                                <span class="delivery-value">${lastDelivery.deliveredQuantity} units ${lastDeliveryTime || ''}</span>
+                                <span class="delivery-value">${lastDelivery.deliveredQuantity} units${lastDeliveryTime ? ` (${lastDeliveryTime})` : ''}</span>
                             </span>
                         ` : `
                             <span class="delivery-status-item">
@@ -1409,24 +1410,50 @@ function renderSales(firm) {
     const transactions = simulation.transactionLog?.transactions || [];
     const sales = transactions.filter(t => t.seller?.id === firm.id).slice(-20).reverse();
 
-    // Count contract vs spot sales
+    // For retail stores: all sales are spot (to consumers), no contracts
+    // For other firms: count contract vs spot sales
+    const isRetail = firm.type === 'RetailStore' || firm.type === 'RETAIL';
     const contractSales = sales.filter(t => t.contractId).length;
     const spotSales = sales.length - contractSales;
-    document.getElementById('firm-sales-count').textContent = `${sales.length} Sales (${contractSales} contract, ${spotSales} spot)`;
+
+    if (isRetail) {
+        document.getElementById('firm-sales-count').textContent = `${sales.length} Customer Sales`;
+    } else {
+        document.getElementById('firm-sales-count').textContent = `${sales.length} Sales (${contractSales} contract, ${spotSales} spot)`;
+    }
 
     tbody.innerHTML = sales.length === 0 ? '<tr><td colspan="7" class="no-data">No sales</td></tr>' :
         sales.map(t => {
             const productName = getProductName(t.productName || t.product || t.material);
-            const saleType = t.contractId
-                ? '<span class="sale-type-badge contract">Contract</span>'
-                : '<span class="sale-type-badge spot">Spot</span>';
+
+            // Determine buyer name - for consumer sales, show city consumers
+            let buyerName;
+            if (t.buyer?.type === 'CONSUMERS' || t.type === 'CONSUMER_SALE') {
+                const city = t.buyer?.city || t.cityName || firm.city?.name || 'Local';
+                buyerName = `${city} Consumers`;
+            } else {
+                buyerName = t.buyer?.name || 'Unknown';
+            }
+
+            // For retail, all sales are spot (customer sales)
+            // For other firms, show contract vs spot
+            let saleType;
+            if (isRetail || t.buyer?.type === 'CONSUMERS' || t.type === 'CONSUMER_SALE') {
+                saleType = '<span class="sale-type-badge spot">Customer</span>';
+            } else if (t.contractId) {
+                saleType = '<span class="sale-type-badge contract">Contract</span>';
+            } else {
+                saleType = '<span class="sale-type-badge spot">Spot</span>';
+            }
+
+            const qty = t.quantity ? Math.floor(t.quantity) : '-';
             return `
             <tr>
                 <td>${new Date(t.timestamp).toLocaleTimeString()}</td>
                 <td>${saleType}</td>
-                <td>${t.buyer?.name || 'Unknown'}</td>
+                <td>${buyerName}</td>
                 <td>${productName}</td>
-                <td>${t.quantity || '-'}</td>
+                <td>${qty}</td>
                 <td>${formatCurrency(t.unitPrice || 0)}</td>
                 <td class="${moneyClass(t.totalRevenue || t.totalCost || 0)}">${formatCurrencyFull(t.totalRevenue || t.totalCost || 0)}</td>
             </tr>
@@ -1463,7 +1490,13 @@ function renderPurchases(firm) {
         .slice(-20)
         .reverse();
 
-    document.getElementById('firm-purchases-count').textContent = `${purchases.length} Purchases`;
+    // For retail stores: all purchases are via contracts (no spot purchases)
+    const isRetail = firm.type === 'RetailStore' || firm.type === 'RETAIL';
+    if (isRetail) {
+        document.getElementById('firm-purchases-count').textContent = `${purchases.length} Contract Deliveries`;
+    } else {
+        document.getElementById('firm-purchases-count').textContent = `${purchases.length} Purchases`;
+    }
 
     tbody.innerHTML = purchases.length === 0 ? '<tr><td colspan="6" class="no-data">No purchases</td></tr>' :
         purchases.map(t => {
@@ -1472,12 +1505,13 @@ function renderPurchases(firm) {
             const statusBadge = t.status && t.status !== 'COMPLETED' && t.status !== 'DELIVERED'
                 ? `<span class="status-badge status-${t.status.toLowerCase().replace(/_/g, '-')}">${t.status.replace(/_/g, ' ')}</span>`
                 : '';
+            const qty = t.quantity ? Math.floor(t.quantity) : '-';
             return `
             <tr>
                 <td>${new Date(t.timestamp).toLocaleTimeString()}</td>
                 <td>${sellerName} ${statusBadge}</td>
                 <td>${productName}</td>
-                <td>${t.quantity || '-'}</td>
+                <td>${qty}</td>
                 <td>${formatCurrency(t.unitPrice || 0)}</td>
                 <td class="${moneyClass(t.totalCost || 0)}">${formatCurrency(t.totalCost || 0)}</td>
             </tr>

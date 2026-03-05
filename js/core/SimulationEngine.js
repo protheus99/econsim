@@ -910,6 +910,9 @@ export class SimulationEngine {
                 const productName = invData.productName;
                 if (!productName) continue;
 
+                // Get lot size for this product to ensure contract volume is compatible
+                const lotSize = getLotSizeForProduct(productName, this.productRegistry);
+
                 // Estimate weekly sales need based on store metrics
                 // Formula: dailyFootTraffic * conversionRate * avgItemsPerTransaction * 7 days
                 const dailyCustomers = (retailer.dailyFootTraffic || 500) * (retailer.conversionRate || 0.4);
@@ -920,9 +923,11 @@ export class SimulationEngine {
                 // Request 60% coverage via contracts (rest from spot market)
                 let requestedVolume = Math.floor(weeklyEstimatedSales * 0.6);
 
-                // Minimum contract volume
-                if (requestedVolume < 50) {
-                    requestedVolume = 50;
+                // Ensure minimum contract volume meets lot size requirements
+                // Contract should be at least 2 lots so there's room for fulfillment
+                const minVolume = lotSize > 0 ? Math.max(lotSize * 2, 50) : 50;
+                if (requestedVolume < minVolume) {
+                    requestedVolume = minVolume;
                 }
 
                 // Find best supplier (manufacturer that produces this product)
@@ -958,7 +963,15 @@ export class SimulationEngine {
                 // Limit contract volume to available capacity
                 let contractVolume = Math.min(requestedVolume, Math.floor(availableCapacity));
 
-                if (contractVolume < 20) {
+                // Align to lot boundaries and ensure minimum viable contract
+                if (lotSize > 0) {
+                    const wholeLots = Math.floor(contractVolume / lotSize);
+                    if (wholeLots < 2) {
+                        retailCapacityLimitedCount++;
+                        continue; // Less than 2 lots per week - not viable for contract
+                    }
+                    contractVolume = wholeLots * lotSize;
+                } else if (contractVolume < 50) {
                     retailCapacityLimitedCount++;
                     continue; // Too small to be worth a contract
                 }

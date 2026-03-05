@@ -188,8 +188,8 @@ export class PurchaseManager {
             return 0;
         }
 
-        // Order enough to reach target
-        return Math.max(0, target - current);
+        // Order enough to reach target (ensure integer quantity)
+        return Math.floor(Math.max(0, target - current));
     }
 
     /**
@@ -236,6 +236,8 @@ export class PurchaseManager {
      * Execute a purchase from a specific supplier
      */
     executePurchase(buyer, supplier, productName, quantity, unitPrice, transportCost = 0) {
+        // Ensure quantity is an integer
+        quantity = Math.floor(quantity);
         if (quantity <= 0) return 0;
 
         const totalCost = (quantity * unitPrice) + transportCost;
@@ -250,7 +252,7 @@ export class PurchaseManager {
         }
 
         // Check supplier has inventory
-        const available = this.supplierSelector.getInventory(supplier, productName);
+        const available = Math.floor(this.supplierSelector.getInventory(supplier, productName));
         if (available < quantity) {
             quantity = available;
         }
@@ -303,7 +305,13 @@ export class PurchaseManager {
      * Transfer goods from supplier to buyer
      */
     transferGoods(supplier, buyer, productName, quantity) {
-        // Prefer lot-based transfer
+        // Ensure quantity is an integer
+        quantity = Math.floor(quantity);
+        if (quantity <= 0) return 0;
+
+        let removed = 0;
+
+        // Case 1: Both have lot-based inventory
         if (supplier.lotInventory && buyer.lotInventory) {
             const result = supplier.lotInventory.removeLots(productName, quantity);
             if (result && result.totalRemoved > 0) {
@@ -316,9 +324,46 @@ export class PurchaseManager {
             }
         }
 
-        // Fallback to simple inventory
-        let removed = 0;
+        // Case 2: Supplier has lots, buyer has productInventory (retail spot purchase)
+        if (supplier.lotInventory && buyer.productInventory instanceof Map) {
+            const result = supplier.lotInventory.removeLots(productName, quantity);
+            if (result && result.totalRemoved > 0) {
+                removed = result.totalRemoved;
 
+                // Add to retail's productInventory
+                let added = false;
+                for (const [productId, invData] of buyer.productInventory) {
+                    const name = invData.productName || invData.name;
+                    if (name === productName) {
+                        invData.quantity = (invData.quantity || 0) + removed;
+                        added = true;
+                        console.log(`📦 Retail spot: Added ${removed} "${productName}" to ${buyer.getDisplayName?.() || buyer.id} inventory (now ${invData.quantity})`);
+                        break;
+                    }
+                }
+
+                // If product not found in inventory, try to add via product registry
+                if (!added && this.engine.productRegistry) {
+                    const product = this.engine.productRegistry.getProductByName(productName);
+                    if (product) {
+                        const existing = buyer.productInventory.get(product.id);
+                        if (existing) {
+                            existing.quantity = (existing.quantity || 0) + removed;
+                            console.log(`📦 Retail spot: Added ${removed} "${productName}" via product ID to ${buyer.getDisplayName?.() || buyer.id}`);
+                            added = true;
+                        }
+                    }
+                }
+
+                if (!added) {
+                    console.warn(`⚠️ Retail spot: Could not add ${removed} "${productName}" to ${buyer.getDisplayName?.() || buyer.id} - product not in inventory`);
+                }
+
+                return removed;
+            }
+        }
+
+        // Case 3: Fallback to simple inventory systems
         // Remove from supplier
         if (supplier.inventory && typeof supplier.inventory.quantity === 'number') {
             const available = supplier.inventory.quantity;
@@ -335,6 +380,15 @@ export class PurchaseManager {
             if (buyer.rawMaterialInventory) {
                 const current = buyer.rawMaterialInventory.get(productName)?.quantity || 0;
                 buyer.rawMaterialInventory.set(productName, { quantity: current + removed });
+            } else if (buyer.productInventory instanceof Map) {
+                // Retail store - find product and add
+                for (const [productId, invData] of buyer.productInventory) {
+                    const name = invData.productName || invData.name;
+                    if (name === productName) {
+                        invData.quantity = (invData.quantity || 0) + removed;
+                        break;
+                    }
+                }
             } else if (buyer.inventory) {
                 buyer.inventory.quantity = (buyer.inventory.quantity || 0) + removed;
             }
@@ -356,6 +410,7 @@ export class PurchaseManager {
 
     /**
      * Process restocking for a single retail store
+     * Retail stores ONLY purchase through contracts - no spot purchases
      */
     processRetailRestocking(retailer) {
         // Get products this retailer sells
@@ -380,56 +435,57 @@ export class PurchaseManager {
 
             if (needed < this.config.minOrderQuantity) continue;
 
-            let remaining = needed;
-
-            // Try contracts first
+            // Retail stores ONLY use contracts for inventory purchases
+            // No spot purchasing fallback - if no contract, retailer must wait
             if (this.config.enableContracts) {
-                const contractFulfilled = this.contractManager.fulfillFromContracts(
+                this.contractManager.fulfillFromContracts(
                     retailer,
                     productName,
-                    remaining
-                );
-                remaining -= contractFulfilled;
-            }
-
-            if (remaining <= 0) continue;
-
-            // Find manufacturer supplier
-            const selection = this.supplierSelector.selectBest({
-                buyer: retailer,
-                productName: productName,
-                quantity: remaining,
-                considerPrice: true,
-                considerTransport: true,
-                considerRelationship: true
-            });
-
-            if (selection && selection.supplier) {
-                this.executePurchase(
-                    retailer,
-                    selection.supplier,
-                    productName,
-                    Math.min(remaining, selection.availableQty),
-                    selection.effectiveUnitPrice,
-                    selection.transportCost
+                    needed
                 );
             }
+            // No spot purchase fallback for retail stores
         }
     }
 
     /**
      * Calculate how much a retailer needs for restocking
+     * Uses product-specific demand data (purchaseFrequency, publicDemand) and city population
      */
     calculateRetailNeeded(retailer, productName) {
         const current = this.getFirmInventory(retailer, productName);
-        const avgDailySales = retailer.getDailySales?.(productName) || 50;
-        const target = avgDailySales * this.config.targetInventoryDays;
+        const retailerName = retailer.getDisplayName?.() || retailer.id;
 
-        if (current > target * this.config.reorderPoint) {
+        // Get product-specific demand characteristics
+        const product = this.engine.productRegistry?.getProductByName(productName);
+        const purchaseFrequency = product?.purchaseFrequency || 1;  // purchases per hour per 1000 pop
+        const publicDemand = product?.publicDemand || 0.5;          // demand modifier 0-1
+
+        // Get city population (default to 100k if unknown)
+        const cityPopulation = retailer.city?.population || 100000;
+        const pop1000 = cityPopulation / 1000;
+
+        // Calculate expected daily sales for this retailer
+        // Formula: purchaseFrequency * pop1000 * publicDemand * hoursOpen * retailerMarketShare
+        const hoursOpenPerDay = 12;  // Assume 12 hours of business per day
+        const numRetailersInCity = this.getRetailersInCity(retailer.city?.id)?.length || 10;
+        const marketShare = 1 / Math.max(1, numRetailersInCity);  // Split demand among retailers
+
+        const avgDailySales = Math.max(10, Math.floor(
+            purchaseFrequency * pop1000 * publicDemand * hoursOpenPerDay * marketShare
+        ));
+
+        const target = avgDailySales * this.config.targetInventoryDays;
+        const reorderThreshold = target * this.config.reorderPoint;
+
+        if (current > reorderThreshold) {
+            console.log(`📦 ${retailerName} doesn't need "${productName}": ${current} > ${reorderThreshold.toFixed(0)} (threshold) [dailySales=${avgDailySales}]`);
             return 0;
         }
 
-        return Math.max(0, target - current);
+        const needed = Math.floor(Math.max(0, target - current));
+        console.log(`📦 ${retailerName} needs ${needed} "${productName}": current=${current}, target=${target.toFixed(0)}, dailySales=${avgDailySales} (freq=${purchaseFrequency}, demand=${publicDemand})`);
+        return needed;
     }
 
     /**
@@ -638,10 +694,15 @@ export class PurchaseManager {
             arrivalHour  // totalHours when delivery arrives
         } = deliveryData;
 
+        const currentHour = this.engine.clock?.totalHours || 0;
+        const transitTime = arrivalHour - currentHour;
+        const sellerName = seller.name || seller.getDisplayName?.() || seller.id;
+        const buyerName = buyer.name || buyer.getDisplayName?.() || buyer.id;
+
         const delivery = {
             id: `DEL_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
-            seller: { id: seller.id, name: seller.name || seller.getDisplayName?.() },
-            buyer: { id: buyer.id, name: buyer.name || buyer.getDisplayName?.() },
+            seller: { id: seller.id, name: sellerName },
+            buyer: { id: buyer.id, name: buyerName },
             productName,
             quantity,
             quality: quality || 1.0,
@@ -649,12 +710,14 @@ export class PurchaseManager {
             totalCost: quantity * unitPrice,
             transportCost: transportCost || 0,
             contractId: contractId || null,
-            createdAt: this.engine.clock?.totalHours || 0,
+            createdAt: currentHour,
             arrivalHour,
             status: 'in_transit'
         };
 
         this.pendingDeliveries.push(delivery);
+        console.log(`📤 Created pending delivery: ${quantity} "${productName}" from ${sellerName} to ${buyerName}, ETA hour ${arrivalHour} (${transitTime}h transit)`);
+        console.log(`   📋 Total pending deliveries: ${this.pendingDeliveries.length}`);
         return delivery;
     }
 
@@ -696,15 +759,20 @@ export class PurchaseManager {
     completeDelivery(delivery) {
         const buyer = this.engine.firms?.get(delivery.buyer.id);
         if (!buyer) {
-            console.warn(`PurchaseManager: Buyer ${delivery.buyer.id} not found for delivery`);
+            console.warn(`📬 Delivery FAILED: Buyer ${delivery.buyer.id} not found`);
             return false;
         }
+
+        const buyerName = buyer.getDisplayName?.() || buyer.id;
+        const sellerName = delivery.seller?.name || delivery.seller?.id || 'Unknown';
+        console.log(`📬 Completing delivery: ${delivery.quantity} "${delivery.productName}" from ${sellerName} to ${buyerName}`);
 
         // Add goods to buyer's inventory
         const transferred = this.addToBuyerInventory(buyer, delivery.productName, delivery.quantity, delivery.quality);
 
         if (transferred > 0) {
             delivery.status = 'delivered';
+            console.log(`   ✅ Delivered ${transferred} units to ${buyerName}'s inventory`);
 
             // Log the completed transaction
             if (this.engine.transactionLog) {
@@ -726,6 +794,7 @@ export class PurchaseManager {
             return true;
         }
 
+        console.log(`   ❌ FAILED to add ${delivery.quantity} "${delivery.productName}" to ${buyerName}'s inventory (transferred=0)`);
         return false;
     }
 

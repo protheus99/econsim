@@ -163,14 +163,16 @@ export class Contract {
      * @param {number} quantity - Quantity delivered
      * @param {number} quality - Quality of delivered goods
      * @param {number} priceUsed - Actual price per unit used
+     * @param {number} gameHour - Current game hour (totalHours from clock)
      */
-    recordDelivery(quantity, quality = 1.0, priceUsed = null) {
+    recordDelivery(quantity, quality = 1.0, priceUsed = null, gameHour = null) {
         const actualPrice = priceUsed || this.calculateUnitPrice(quality);
         const totalValue = quantity * actualPrice;
 
         const delivery = {
             id: `DEL_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
             date: Date.now(),
+            gameHour: gameHour,  // Store game time for proper display
             expectedQuantity: this.volumePerPeriod,
             deliveredQuantity: quantity,
             quality,

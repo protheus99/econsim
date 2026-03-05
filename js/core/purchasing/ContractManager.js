@@ -118,14 +118,20 @@ export class ContractManager {
             return 0;
         }
 
+        const buyerName = buyer.getDisplayName?.() || buyer.name || buyer.id;
+        console.log(`📦 fulfillFromContracts: ${buyerName} needs ${needed} "${productName}"`);
+
         let fulfilled = 0;
 
         // Get all active contracts for this buyer and product
         const relevantContracts = this.getActiveContractsForBuyer(buyer.id, productName);
 
         if (relevantContracts.length === 0) {
+            console.log(`📦 ${buyerName}: No contracts found for "${productName}"`);
             return 0;
         }
+
+        console.log(`📦 ${buyerName}: Found ${relevantContracts.length} contract(s) for "${productName}"`);
 
         // Sort by priority: exclusive first, then by fulfillment rate
         relevantContracts.sort((a, b) => {
@@ -137,16 +143,39 @@ export class ContractManager {
         for (const contract of relevantContracts) {
             if (fulfilled >= needed) break;
 
+            const supplierName = this.engine.firms?.get(contract.supplierId)?.getDisplayName?.() || contract.supplierId;
+            console.log(`📦 Evaluating contract ${contract.id.slice(-8)}: supplier=${supplierName}, product="${contract.product}"`);
+
             const supplier = this.engine.firms?.get(contract.supplierId);
-            if (!supplier) continue;
+            if (!supplier) {
+                console.log(`   ❌ Supplier ${contract.supplierId} not found in firms map`);
+                continue;
+            }
 
             // Check how much can be ordered under this contract
             const maxOrderable = contract.getMaxOrderableVolume();
-            if (maxOrderable <= 0) continue;
+            console.log(`   📊 Period status: ${contract.currentPeriodFulfilled}/${contract.volumePerPeriod} fulfilled, maxOrderable=${maxOrderable}`);
+            if (maxOrderable <= 0) {
+                console.log(`   ❌ Period maxed out - no more volume available this period`);
+                continue;
+            }
 
             // Check supplier inventory
             const available = this.getSupplierInventory(supplier, productName);
-            if (available <= 0) continue;
+            console.log(`   📊 Supplier inventory for "${productName}": ${available}`);
+            if (available <= 0) {
+                // Also check what products the supplier DOES have
+                if (supplier.lotInventory) {
+                    const allProducts = [];
+                    supplier.lotInventory.lots?.forEach((lot, id) => {
+                        if (!allProducts.includes(lot.productName)) allProducts.push(lot.productName);
+                    });
+                    console.log(`   ❌ No inventory for "${productName}". Supplier has: [${allProducts.join(', ')}]`);
+                } else {
+                    console.log(`   ❌ No inventory for "${productName}" (no lotInventory)`);
+                }
+                continue;
+            }
 
             // Determine delivery quantity (aligned to lot sizes)
             let toDeliver = Math.floor(Math.min(
@@ -154,6 +183,7 @@ export class ContractManager {
                 maxOrderable,
                 needed - fulfilled
             ));
+            console.log(`   📊 Calculated toDeliver: min(available=${available}, maxOrderable=${maxOrderable}, stillNeeded=${needed - fulfilled}) = ${toDeliver}`);
 
             // Align to lot boundaries for efficiency
             const lotSize = getLotSizeForProduct(productName, this.engine.productRegistry);
@@ -161,15 +191,20 @@ export class ContractManager {
                 // Round down to whole lots
                 const wholeLots = Math.floor(toDeliver / lotSize);
                 toDeliver = wholeLots * lotSize;
+                console.log(`   📊 Aligned to lot size ${lotSize}: ${wholeLots} lots = ${toDeliver} units`);
+            } else if (lotSize > 0 && toDeliver < lotSize) {
+                console.log(`   ❌ Quantity ${toDeliver} below lot size ${lotSize}, skipping`);
+                continue;
             }
 
             if (toDeliver > 0) {
                 // Get quality from lots if available
                 const quality = this.getDeliveryQuality(supplier, productName, toDeliver);
+                console.log(`   📊 Quality check: supplier quality=${quality.toFixed(2)}, contract minimum=${contract.minQuality}`);
 
                 // Check quality meets minimum
                 if (quality < contract.minQuality) {
-                    console.log(`ContractManager: Supplier ${supplier.name} quality ${quality.toFixed(2)} below contract minimum ${contract.minQuality}`);
+                    console.log(`   ❌ Quality ${quality.toFixed(2)} below contract minimum ${contract.minQuality}`);
                     continue;
                 }
 
@@ -177,8 +212,11 @@ export class ContractManager {
                 const marketPrice = this.engine.commodityMarket?.get(productName) ||
                                    this.engine.productRegistry?.getProductByName(productName)?.basePrice;
                 const unitPrice = contract.calculateUnitPrice(quality, marketPrice);
+                const totalCost = toDeliver * unitPrice;
+                console.log(`   📊 Price: $${unitPrice.toFixed(2)}/unit, total=$${totalCost.toFixed(2)}, buyer cash=$${(buyer.cash || 0).toFixed(2)}`);
 
                 // Execute the trade
+                console.log(`   🚀 Attempting executeContractTrade for ${toDeliver} units...`);
                 const success = this.executeContractTrade(
                     supplier,
                     buyer,
@@ -190,12 +228,17 @@ export class ContractManager {
                 );
 
                 if (success) {
-                    contract.recordDelivery(toDeliver, quality, unitPrice);
+                    const gameHour = this.engine.clock?.totalHours || 0;
+                    contract.recordDelivery(toDeliver, quality, unitPrice, gameHour);
                     fulfilled += toDeliver;
+                    console.log(`   ✅ SUCCESS: Dispatched ${toDeliver} units, delivery pending`);
+                } else {
+                    console.log(`   ❌ FAILED: executeContractTrade returned false`);
                 }
             }
         }
 
+        console.log(`📦 fulfillFromContracts complete: fulfilled ${fulfilled}/${needed} for ${buyerName}`);
         return fulfilled;
     }
 
@@ -218,12 +261,16 @@ export class ContractManager {
         // Check buyer can afford (product + transport)
         const buyerCash = buyer.cash || 0;
         if (buyerCash < totalCost) {
+            const buyerName = buyer.getDisplayName?.() || buyer.name || buyer.id;
+            console.log(`📦 Contract blocked: ${buyerName} can't afford $${totalCost.toFixed(2)} (has $${buyerCash.toFixed(2)})`);
             return false;
         }
 
         // Remove goods from supplier inventory immediately
         const removed = this.removeFromSupplierInventory(supplier, product, quantity);
         if (removed <= 0) {
+            const supplierName = supplier.getDisplayName?.() || supplier.name || supplier.id;
+            console.log(`📦 Contract blocked: Failed to remove ${quantity} ${product} from ${supplierName} inventory`);
             return false;
         }
 

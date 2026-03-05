@@ -119,7 +119,7 @@ export class RetailStore extends Firm {
     }
     
     initialize() {
-        this.cash = 8000000;
+        this.cash = 800000000;
         this.totalAssets = 1500000;
 
         // Initialize with starter inventory based on store type
