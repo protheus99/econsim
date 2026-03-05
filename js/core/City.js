@@ -283,6 +283,12 @@ export class City {
             costOfLiving: this.costOfLiving,
             localPreference: this.localPreference,
             infrastructureQuality: this.infrastructureQuality,
+            coordinates: { ...this.coordinates },
+            climate: this.climate,
+            isCoastal: this.isCoastal,
+            hasAirport: this.hasAirport,
+            hasSeaport: this.hasSeaport,
+            hasRailway: this.hasRailway,
             monthlyStats: { ...this.monthlyStats }
         };
     }
@@ -300,6 +306,16 @@ export class City {
         this.costOfLiving = state.costOfLiving ?? this.costOfLiving;
         this.localPreference = state.localPreference ?? this.localPreference;
         this.infrastructureQuality = state.infrastructureQuality ?? this.infrastructureQuality;
+
+        // Restore location and infrastructure
+        if (state.coordinates) {
+            this.coordinates = { ...state.coordinates };
+        }
+        this.climate = state.climate ?? this.climate;
+        this.isCoastal = state.isCoastal ?? this.isCoastal;
+        this.hasAirport = state.hasAirport ?? this.hasAirport;
+        this.hasSeaport = state.hasSeaport ?? this.hasSeaport;
+        this.hasRailway = state.hasRailway ?? this.hasRailway;
 
         if (state.monthlyStats) {
             this.monthlyStats = { ...this.monthlyStats, ...state.monthlyStats };
