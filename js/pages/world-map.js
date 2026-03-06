@@ -39,9 +39,12 @@ function renderMap(countries) {
     countries.forEach(country => {
         country.cities.forEach(city => {
             const size = city.population > 1000000 ? 'large' : city.population > 500000 ? 'medium' : 'small';
+            // Coordinates are in 0-1000 range, convert to percentage
+            const leftPct = (city.coordinates?.x || 0) / 10;  // 0-1000 -> 0-100%
+            const topPct = (city.coordinates?.y || 0) / 10;   // 0-1000 -> 0-100%
             mapHTML += `
                 <div class="map-city ${size}"
-                     style="left: ${(city.coordinates?.lng + 180) / 360 * 100}%; top: ${(90 - city.coordinates?.lat) / 180 * 100}%"
+                     style="left: ${leftPct}%; top: ${topPct}%"
                      data-city-name="${city.name}"
                      title="${city.name}, ${country.name}">
                     <span class="city-dot"></span>
@@ -112,9 +115,9 @@ function showCityDetail(cityName) {
 
     document.getElementById('city-infrastructure-detail').innerHTML = `
         <div class="stats-grid">
-            <div class="stat-item"><span class="stat-label">Airport</span><span class="stat-value">${city.infrastructure?.hasAirport ? 'Yes' : 'No'}</span></div>
-            <div class="stat-item"><span class="stat-label">Seaport</span><span class="stat-value">${city.infrastructure?.hasSeaport ? 'Yes' : 'No'}</span></div>
-            <div class="stat-item"><span class="stat-label">Railway</span><span class="stat-value">${city.infrastructure?.hasRailway ? 'Yes' : 'No'}</span></div>
+            <div class="stat-item"><span class="stat-label">Airport</span><span class="stat-value">${city.hasAirport ? 'Yes' : 'No'}</span></div>
+            <div class="stat-item"><span class="stat-label">Seaport</span><span class="stat-value">${city.hasSeaport ? 'Yes' : 'No'}</span></div>
+            <div class="stat-item"><span class="stat-label">Railway</span><span class="stat-value">${city.hasRailway ? 'Yes' : 'No'}</span></div>
         </div>
     `;
 

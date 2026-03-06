@@ -80,20 +80,17 @@ function calculateRoute() {
         return;
     }
 
-    // Calculate distance (simplified)
-    const lat1 = originCity.coordinates?.lat || 0;
-    const lng1 = originCity.coordinates?.lng || 0;
-    const lat2 = destCity.coordinates?.lat || 0;
-    const lng2 = destCity.coordinates?.lng || 0;
+    // Calculate distance using x,y coordinates (0-1000 range)
+    // Each unit represents approximately 10km (1000 units = 10,000 km map)
+    const x1 = originCity.coordinates?.x || 0;
+    const y1 = originCity.coordinates?.y || 0;
+    const x2 = destCity.coordinates?.x || 0;
+    const y2 = destCity.coordinates?.y || 0;
 
-    const R = 6371; // Earth radius in km
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLng = (lng2 - lng1) * Math.PI / 180;
-    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-              Math.sin(dLng/2) * Math.sin(dLng/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    const distance = R * c;
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const distanceUnits = Math.sqrt(dx * dx + dy * dy);
+    const distance = distanceUnits * 10; // Convert to km (10 km per unit)
 
     // Calculate routes for different modes
     const routes = [];
@@ -109,7 +106,7 @@ function calculateRoute() {
     });
 
     // Rail
-    const hasRail = originCity.infrastructure?.hasRailway && destCity.infrastructure?.hasRailway;
+    const hasRail = originCity.hasRailway && destCity.hasRailway;
     routes.push({
         mode: 'Rail',
         distance: distance * 1.1,
@@ -120,7 +117,7 @@ function calculateRoute() {
     });
 
     // Sea
-    const hasSea = originCity.infrastructure?.hasSeaport && destCity.infrastructure?.hasSeaport;
+    const hasSea = originCity.hasSeaport && destCity.hasSeaport;
     routes.push({
         mode: 'Sea',
         distance: distance * 1.5,
@@ -131,7 +128,7 @@ function calculateRoute() {
     });
 
     // Air
-    const hasAir = originCity.infrastructure?.hasAirport && destCity.infrastructure?.hasAirport;
+    const hasAir = originCity.hasAirport && destCity.hasAirport;
     routes.push({
         mode: 'Air',
         distance: distance,
