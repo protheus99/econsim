@@ -95,14 +95,23 @@ export class CityManager {
         const city = new City(name, Math.floor(population), baseSalaryLevel, country, this.config);
 
         // Random location on country's territory
-        // Each country gets a region of the map
-        const countryIndex = Array.from(this.countries.values()).indexOf(country);
-        const regionX = (countryIndex % 5) * 200;
-        const regionY = Math.floor(countryIndex / 5) * 200;
+        // Spread cities across the full 0-1000 coordinate range
+        const countriesArray = Array.from(this.countries.values());
+        const countryIndex = countriesArray.indexOf(country);
+        const numCountries = countriesArray.length;
+
+        // Divide map into grid based on number of countries
+        const gridCols = Math.ceil(Math.sqrt(numCountries));
+        const gridRows = Math.ceil(numCountries / gridCols);
+        const regionWidth = 1000 / gridCols;
+        const regionHeight = 1000 / gridRows;
+
+        const regionX = (countryIndex % gridCols) * regionWidth;
+        const regionY = Math.floor(countryIndex / gridCols) * regionHeight;
 
         city.coordinates = {
-            x: regionX + this.random() * 200,
-            y: regionY + this.random() * 200
+            x: regionX + this.random() * regionWidth * 0.8 + regionWidth * 0.1,
+            y: regionY + this.random() * regionHeight * 0.8 + regionHeight * 0.1
         };
 
         // Climate based on coordinates
@@ -115,6 +124,57 @@ export class CityManager {
         }
 
         return city;
+    }
+
+    /**
+     * Regenerate coordinates for cities that have invalid (0,0) coordinates
+     * Called after state restore to fix cities saved without coordinates
+     */
+    regenerateMissingCoordinates() {
+        const countriesArray = Array.from(this.countries.values());
+        const numCountries = countriesArray.length;
+
+        // Divide map into grid based on number of countries
+        const gridCols = Math.ceil(Math.sqrt(numCountries));
+        const gridRows = Math.ceil(numCountries / gridCols);
+        const regionWidth = 1000 / gridCols;
+        const regionHeight = 1000 / gridRows;
+
+        let regeneratedCount = 0;
+
+        for (const city of this.cities.values()) {
+            // Check if coordinates are missing or invalid
+            if (city.coordinates.x === 0 && city.coordinates.y === 0) {
+                // Find the country index for this city
+                const countryIndex = countriesArray.indexOf(city.country);
+                const regionX = (countryIndex % gridCols) * regionWidth;
+                const regionY = Math.floor(countryIndex / gridCols) * regionHeight;
+
+                city.coordinates = {
+                    x: regionX + this.random() * regionWidth * 0.8 + regionWidth * 0.1,
+                    y: regionY + this.random() * regionHeight * 0.8 + regionHeight * 0.1
+                };
+
+                // Set climate based on coordinates
+                if (city.coordinates.y < 200) {
+                    city.climate = 'COLD';
+                } else if (city.coordinates.y > 800) {
+                    city.climate = 'TROPICAL';
+                } else {
+                    city.climate = 'TEMPERATE';
+                }
+
+                regeneratedCount++;
+            }
+        }
+
+        if (regeneratedCount > 0) {
+            console.log(`📍 Regenerated coordinates for ${regeneratedCount} cities`);
+            // Re-run coastal designation
+            this.designateCoastalCities();
+        }
+
+        return regeneratedCount;
     }
 
     designateCoastalCities() {

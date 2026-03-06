@@ -234,6 +234,8 @@ export class SimulationEngine {
         const stateRestored = this.restoreState();
         if (stateRestored) {
             console.log('♻️ Game state restored from previous page');
+            // Regenerate any missing city coordinates (for saves before coordinates were persisted)
+            this.cityManager.regenerateMissingCoordinates();
         }
 
         // Initialize statistics before first render
