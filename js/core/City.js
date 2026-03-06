@@ -328,4 +328,49 @@ export class City {
         this.totalPurchasingPower = this.calculateTotalPurchasingPower();
         this.marketSize = this.calculateMarketSize();
     }
+
+    // ============= DEPRECATION GETTERS =============
+    // These provide backward compatibility while warning about incorrect property usage
+
+    /**
+     * @deprecated Use city.totalPurchasingPower instead. Cities don't have GDP.
+     */
+    get gdp() {
+        if (!City._gdpWarningShown) {
+            console.warn('City.gdp is deprecated. Use city.totalPurchasingPower instead.');
+            City._gdpWarningShown = true;
+        }
+        return this.totalPurchasingPower;
+    }
+
+    /**
+     * @deprecated Use city.hasAirport, city.hasSeaport, city.hasRailway directly.
+     */
+    get infrastructure() {
+        if (!City._infrastructureWarningShown) {
+            console.warn('city.infrastructure is deprecated. Use city.hasAirport, city.hasSeaport, city.hasRailway directly.');
+            City._infrastructureWarningShown = true;
+        }
+        return {
+            hasAirport: this.hasAirport,
+            hasSeaport: this.hasSeaport,
+            hasRailway: this.hasRailway
+        };
+    }
+
+    /**
+     * @deprecated Use city.demographics.employed instead.
+     */
+    get employed() {
+        if (!City._employedWarningShown) {
+            console.warn('city.employed is deprecated. Use city.demographics.employed instead.');
+            City._employedWarningShown = true;
+        }
+        return this.demographics?.employed || 0;
+    }
 }
+
+// Static flags for one-time deprecation warnings
+City._gdpWarningShown = false;
+City._infrastructureWarningShown = false;
+City._employedWarningShown = false;

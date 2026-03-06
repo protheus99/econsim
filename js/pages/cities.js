@@ -97,7 +97,7 @@ function renderSummary(cities) {
     if (!container) return;
 
     const totalPop = cities.reduce((sum, c) => sum + c.population, 0);
-    const totalGDP = cities.reduce((sum, c) => sum + c.gdp, 0);
+    const totalGDP = cities.reduce((sum, c) => sum + (c.totalPurchasingPower || 0), 0);
     const avgSalary = cities.reduce((sum, c) => sum + c.salaryLevel, 0) / cities.length;
 
     const countries = Array.from(simulation.countries.values());
@@ -132,9 +132,9 @@ function renderCities() {
     if (infraFilter !== 'all') {
         cities = cities.filter(c => {
             switch (infraFilter) {
-                case 'airport': return c.infrastructure?.hasAirport;
-                case 'seaport': return c.infrastructure?.hasSeaport;
-                case 'railway': return c.infrastructure?.hasRailway;
+                case 'airport': return c.hasAirport;
+                case 'seaport': return c.hasSeaport;
+                case 'railway': return c.hasRailway;
                 case 'coastal': return c.isCoastal;
                 default: return true;
             }
@@ -151,7 +151,7 @@ function renderCities() {
         let aVal, bVal;
         switch (field) {
             case 'population': aVal = a.population; bVal = b.population; break;
-            case 'gdp': aVal = a.gdp; bVal = b.gdp; break;
+            case 'gdp': aVal = a.totalPurchasingPower || 0; bVal = b.totalPurchasingPower || 0; break;
             case 'firms': aVal = a.firms?.length || 0; bVal = b.firms?.length || 0; break;
             case 'salary': aVal = a.salaryLevel; bVal = b.salaryLevel; break;
             case 'name': aVal = a.name; bVal = b.name; break;
@@ -169,13 +169,13 @@ function renderCities() {
             </div>
             <div class="city-card-stats">
                 <div class="stat-item"><span class="stat-label">Population</span><span class="stat-value">${formatNumber(city.population)}</span></div>
-                <div class="stat-item"><span class="stat-label">GDP</span><span class="stat-value">${formatCurrency(city.gdp)}</span></div>
+                <div class="stat-item"><span class="stat-label">Purchasing Power</span><span class="stat-value">${formatCurrency(city.totalPurchasingPower || 0)}</span></div>
                 <div class="stat-item"><span class="stat-label">Firms</span><span class="stat-value">${city.firms?.length || 0}</span></div>
             </div>
             <div class="city-infra">
-                ${city.infrastructure?.hasAirport ? '<span class="infra-badge">Airport</span>' : ''}
-                ${city.infrastructure?.hasSeaport ? '<span class="infra-badge">Seaport</span>' : ''}
-                ${city.infrastructure?.hasRailway ? '<span class="infra-badge">Railway</span>' : ''}
+                ${city.hasAirport ? '<span class="infra-badge">Airport</span>' : ''}
+                ${city.hasSeaport ? '<span class="infra-badge">Seaport</span>' : ''}
+                ${city.hasRailway ? '<span class="infra-badge">Railway</span>' : ''}
             </div>
         </div>
     `).join('');
@@ -273,14 +273,14 @@ function showCityDetail(cityName) {
     document.getElementById('city-overview-stats').innerHTML = `
         <div class="stats-grid">
             <div class="stat-item"><span class="stat-label">Population</span><span class="stat-value">${formatNumber(city.population)}</span></div>
-            <div class="stat-item"><span class="stat-label">GDP</span><span class="stat-value">${formatCurrency(city.gdp)}</span></div>
+            <div class="stat-item"><span class="stat-label">Purchasing Power</span><span class="stat-value">${formatCurrency(city.totalPurchasingPower || 0)}</span></div>
         </div>
     `;
 
     document.getElementById('city-infrastructure-detail').innerHTML = `
         <div class="stats-grid">
-            <div class="stat-item"><span class="stat-label">Airport</span><span class="stat-value">${city.infrastructure?.hasAirport ? 'Yes' : 'No'}</span></div>
-            <div class="stat-item"><span class="stat-label">Seaport</span><span class="stat-value">${city.infrastructure?.hasSeaport ? 'Yes' : 'No'}</span></div>
+            <div class="stat-item"><span class="stat-label">Airport</span><span class="stat-value">${city.hasAirport ? 'Yes' : 'No'}</span></div>
+            <div class="stat-item"><span class="stat-label">Seaport</span><span class="stat-value">${city.hasSeaport ? 'Yes' : 'No'}</span></div>
         </div>
     `;
 

@@ -3,7 +3,11 @@
     "allow": [
       "Bash(wc -l:*)",
       "Bash(find:*)",
-      "WebFetch(domain:htsremoval.com)"
+      "WebFetch(domain:htsremoval.com)",
+      "Bash(git check-ignore:*)",
+      "Bash(findstr:*)",
+      "Bash(cmd /c \"node tests/run-t0-tests.js\")",
+      "Bash(powershell -Command \"Get-ChildItem -Path ''C:\\\\Users\\\\Jay\\\\Documents\\\\Github\\\\econsim\\\\js\\\\core\\\\firms\\\\ManufacturingPlant.js'' | Select-Object Length\")"
     ]
   }
 }

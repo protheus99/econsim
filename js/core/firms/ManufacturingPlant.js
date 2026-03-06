@@ -15,8 +15,10 @@ export class ManufacturingPlant extends Firm {
             throw new Error(`Product ${productType} not found in registry`);
         }
         
-        // Production line
-        this.productionLine = this.setupProductionLine();
+        // Production lines - support multiple production lines for scaling
+        this.productionLines = [this.setupProductionLine()];
+        this.productionLine = this.productionLines[0]; // Legacy compatibility
+        this.maxProductionLines = 5; // Maximum production lines per factory
         this.technologyLevel = this.product.technologyRequired;
         this.qualityControl = 50;
         this.productionEfficiency = 1.0;
@@ -96,7 +98,95 @@ export class ManufacturingPlant extends Firm {
             requiredTech: this.product.technologyRequired
         };
     }
-    
+
+    /**
+     * Get total output per hour across all production lines
+     * @returns {number} Combined output per hour
+     */
+    getTotalOutputPerHour() {
+        return this.productionLines.reduce((sum, line) => sum + line.outputPerHour, 0);
+    }
+
+    /**
+     * Calculate the cost to add a new production line
+     * Based on product complexity and existing infrastructure
+     * @returns {number} Cost in dollars
+     */
+    calculateProductionLineCost() {
+        const baseCost = this.engine?.config?.manufacturing?.productionLineCostMultiplier ?? 500000;
+        const complexityMultiplier = Math.sqrt(this.product.technologyRequired || 1);
+        const scaleMultiplier = 1 + (this.productionLines.length * 0.2); // Each new line costs 20% more
+        return Math.floor(baseCost * complexityMultiplier * scaleMultiplier);
+    }
+
+    /**
+     * Add a new production line to scale up capacity
+     * @returns {boolean} True if line was added successfully
+     */
+    addProductionLine() {
+        // Check if at max capacity
+        const maxLines = this.engine?.config?.manufacturing?.maxProductionLines ?? this.maxProductionLines;
+        if (this.productionLines.length >= maxLines) {
+            return false;
+        }
+
+        // Calculate cost
+        const lineCost = this.calculateProductionLineCost();
+
+        // Check if can afford
+        if (this.cash < lineCost) {
+            return false;
+        }
+
+        // Deduct cost and add new line
+        this.cash -= lineCost;
+        this.expenses += lineCost;
+
+        const newLine = this.setupProductionLine();
+        this.productionLines.push(newLine);
+
+        // Update legacy reference to first line
+        this.productionLine = this.productionLines[0];
+
+        // Update production capacity
+        this.productionCapacity = this.getTotalOutputPerHour();
+
+        console.log(`🏭 ${this.getDisplayName()} added production line ${this.productionLines.length} (cost: $${lineCost.toLocaleString()})`);
+
+        return true;
+    }
+
+    /**
+     * Check if demand exceeds capacity and auto-scale if needed
+     * Called during produceHourly to dynamically add capacity
+     */
+    checkAutoScaling() {
+        if (!this.contractManager) return;
+
+        const productName = this.product?.name || this.productType;
+        const contractedDemand = this.contractManager.getContractedDemandForSupplier?.(this.id, productName);
+
+        if (!contractedDemand) return;
+
+        const weeklyDemand = contractedDemand.weeklyDemand || 0;
+        const weeklyCapacity = this.getTotalOutputPerHour() * 168; // 168 hours/week
+        const autoScaleThreshold = this.engine?.config?.manufacturing?.autoScaleThreshold ?? 0.9;
+
+        // If demand exceeds threshold of capacity, consider adding a line
+        if (weeklyDemand > weeklyCapacity * autoScaleThreshold) {
+            const maxLines = this.engine?.config?.manufacturing?.maxProductionLines ?? this.maxProductionLines;
+            if (this.productionLines.length < maxLines) {
+                // Only scale if profitable and have sufficient cash reserves
+                const lineCost = this.calculateProductionLineCost();
+                const minCashReserve = lineCost * 2; // Keep 2x line cost as reserve
+
+                if (this.cash >= lineCost + minCashReserve) {
+                    this.addProductionLine();
+                }
+            }
+        }
+    }
+
     initializeRawMaterialStorage() {
         this.product.inputs.forEach(input => {
             // Quantity-based tracking (for backward compatibility and quick checks)
@@ -415,6 +505,9 @@ export class ManufacturingPlant extends Firm {
             }
         }
 
+        // Check if we should add production capacity based on demand
+        this.checkAutoScaling();
+
         // Check if we can produce
         if (!this.checkRawMaterials()) {
             this.actualProductionRate = 0;
@@ -462,19 +555,20 @@ export class ManufacturingPlant extends Firm {
             };
         }
 
-        // Calculate production (with throttle applied)
+        // Calculate production (with throttle applied) - aggregate across all production lines
         const techBonus = (this.technologyLevel - this.product.technologyRequired) * 0.1;
         const efficiencyFactor = this.productionEfficiency;
         const workerSkillBonus = this.laborStructure.productionWorkers.count / 100;
 
-        const actualOutput = this.productionLine.outputPerHour *
+        const baseOutputPerHour = this.getTotalOutputPerHour();
+        const actualOutput = baseOutputPerHour *
                             (1 + techBonus) *
                             efficiencyFactor *
                             (1 + workerSkillBonus) *
                             throttleMultiplier;
 
-        // Consume materials
-        this.consumeRawMaterials(actualOutput / this.productionLine.outputPerHour);
+        // Consume materials proportional to actual output
+        this.consumeRawMaterials(actualOutput / baseOutputPerHour);
 
         // Calculate quality
         const productQuality = this.calculateQuality();
@@ -858,7 +952,10 @@ export class ManufacturingPlant extends Firm {
             product: this.productType,
             isSemiRawProducer: this.isSemiRawProducer || false,
             production: {
-                outputPerHour: this.productionLine.outputPerHour.toFixed(2),
+                productionLines: this.productionLines.length,
+                maxProductionLines: this.engine?.config?.manufacturing?.maxProductionLines ?? this.maxProductionLines,
+                outputPerHour: this.getTotalOutputPerHour().toFixed(2),
+                outputPerLine: this.productionLine.outputPerHour.toFixed(2),
                 finishedGoods: this.finishedGoodsInventory.quantity.toFixed(0),
                 quality: this.finishedGoodsInventory.quality.toFixed(0),
                 defectRate: (this.defectRate * 100).toFixed(2) + '%',
@@ -943,6 +1040,12 @@ export class ManufacturingPlant extends Firm {
             qualityControl: this.qualityControl,
             downtimePercentage: this.downtimePercentage,
             accumulatedProduction: this.accumulatedProduction,
+            // Serialize all production lines
+            productionLines: this.productionLines.map(line => ({
+                outputPerHour: line.outputPerHour,
+                baseProductionRate: line.baseProductionRate
+            })),
+            // Legacy field for backward compatibility
             productionLine: {
                 outputPerHour: this.productionLine.outputPerHour,
                 inputsPerHour: this.productionLine.inputsPerHour
@@ -968,9 +1071,23 @@ export class ManufacturingPlant extends Firm {
         this.downtimePercentage = state.downtimePercentage ?? this.downtimePercentage;
         this.accumulatedProduction = state.accumulatedProduction ?? this.accumulatedProduction;
 
-        if (state.productionLine) {
+        // Restore production lines (new format) or fallback to single line (legacy)
+        if (state.productionLines && Array.isArray(state.productionLines)) {
+            // Restore multiple production lines
+            this.productionLines = state.productionLines.map(lineData => ({
+                ...this.setupProductionLine(), // Get base structure
+                outputPerHour: lineData.outputPerHour,
+                baseProductionRate: lineData.baseProductionRate
+            }));
+            this.productionLine = this.productionLines[0]; // Legacy compatibility
+        } else if (state.productionLine) {
+            // Legacy: single production line
             this.productionLine.outputPerHour = state.productionLine.outputPerHour ?? this.productionLine.outputPerHour;
+            this.productionLines = [this.productionLine];
         }
+
+        // Update production capacity
+        this.productionCapacity = this.getTotalOutputPerHour();
 
         if (state.finishedGoodsInventory) {
             this.finishedGoodsInventory.quantity = state.finishedGoodsInventory.quantity ?? this.finishedGoodsInventory.quantity;

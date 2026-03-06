@@ -3,12 +3,6 @@ import { GameClock } from '../core/GameClock.js';
 import { CityManager } from '../core/CityManager.js';
 import { ProductRegistry } from '../core/Product.js';
 import { Country, FICTIONAL_COUNTRIES } from '../core/Country.js';
-import { MiningCompany } from '../core/firms/MiningCompany.js';
-import { LoggingCompany } from '../core/firms/LoggingCompany.js';
-import { Farm } from '../core/firms/Farm.js';
-import { ManufacturingPlant } from '../core/firms/ManufacturingPlant.js';
-import { RetailStore } from '../core/firms/RetailStore.js';
-import { Bank } from '../core/firms/Bank.js';
 // GlobalMarket removed - local suppliers only
 import { TransactionLog } from '../core/TransactionLog.js';
 import { ProductCostCalculator } from '../core/ProductCostCalculator.js';
@@ -18,6 +12,11 @@ import { PurchaseManager } from './purchasing/PurchaseManager.js';
 import { getLotSizeForProduct } from '../core/LotSizings.js';
 import { Contract } from './purchasing/Contract.js';
 
+// Extracted modules for smaller file size
+import { FirmGenerator } from './generators/FirmGenerator.js';
+import { DeliveryManager } from './managers/DeliveryManager.js';
+import { TradeExecutor } from './trading/TradeExecutor.js';
+
 export class SimulationEngine {
     constructor() {
         this.clock = new GameClock();
@@ -26,6 +25,10 @@ export class SimulationEngine {
         this.cityManager = null;
         this.firms = new Map();
         this.corporations = [];
+
+        // City product coverage tracking - prevents retailer convergence on same products
+        // Map<cityId, Map<productId, Set<retailerId>>>
+        this.cityProductRetailers = new Map();
         this.corporationsById = new Map(); // O(1) lookup by corporation ID
         this.events = [];
         this.marketHistory = [];
@@ -43,8 +46,13 @@ export class SimulationEngine {
 
         // Global Market System - REMOVED (local suppliers only)
 
-        // Pending local deliveries (for transport time simulation)
-        this.pendingLocalDeliveries = [];
+        // Extracted modules for cleaner architecture
+        this.firmGenerator = new FirmGenerator(this);
+        this.deliveryManager = new DeliveryManager(this);
+        this.tradeExecutor = new TradeExecutor(this);
+
+        // Legacy alias for backward compatibility
+        this.pendingLocalDeliveries = this.deliveryManager.pendingDeliveries;
 
         // Transaction Log for detailed activity tracking
         this.transactionLog = new TransactionLog(1000);
@@ -300,418 +308,28 @@ export class SimulationEngine {
     }
 
     generateCorporations() {
-        const names = [
-            // Tech & Electronics
-            'TechCorp Global', 'DigiSystems Inc', 'CyberNex Holdings', 'QuantumTech Ltd', 'NovaSoft International',
-            // Retail & Consumer
-            'MegaRetail Group', 'GlobalMart Corp', 'ValueChain Industries', 'PrimeGoods Inc', 'ShopWorld Holdings',
-            // Industrial & Manufacturing
-            'IndustrialGiant Corp', 'SteelWorks International', 'MetalForge Industries', 'HeavyMach Group', 'BuildPro Holdings',
-            // Food & Agriculture
-            'FoodCo International', 'AgriGlobal Corp', 'FreshFarms Holdings', 'NutriCorp Industries', 'HarvestKing Group',
-            // Automotive & Transport
-            'AutoMakers Global', 'MotorCraft Industries', 'SpeedTrans Holdings', 'VehiclePro Corp', 'DriveForce International',
-            // Pharma & Healthcare
-            'PharmaTech Global', 'MediCare Holdings', 'HealthFirst Corp', 'BioGen Industries', 'CureWell International',
-            // Energy & Resources
-            'PowerGen Holdings', 'EnergyMax Corp', 'FuelCorp International', 'ResourceOne Group', 'MineralEx Industries',
-            // Finance & Banking
-            'CapitalBank Holdings', 'WealthTrust Corp', 'InvestCo Global', 'FinanceHub International', 'MoneyWise Group',
-            // Diversified Conglomerates
-            'Apex Holdings', 'Titan Enterprises', 'Meridian Group', 'Vanguard International', 'Summit Industries',
-            'Horizon Corp', 'Pinnacle Holdings', 'Atlas Global', 'Nexus Industries', 'Stellar Enterprises'
-        ];
-        const characters = ['CONSERVATIVE', 'MODERATE', 'AGGRESSIVE', 'VERY_AGGRESSIVE'];
-
-        // Derive corporation count from expected total firms and firmsPerCorp config
-        const firmsPerCity = this.config.firms?.perCity ?? { min: 5, max: 10 };
-        const avgFirmsPerCity = (firmsPerCity.min + firmsPerCity.max) / 2;
-        const totalCities = this.config.cities?.initial ?? 8;
-        const expectedTotalFirms = totalCities * avgFirmsPerCity;
-        const firmsPerCorp = this.config.corporations?.firmsPerCorp ?? 4;
-        const corpCount = Math.min(Math.max(Math.round(expectedTotalFirms / firmsPerCorp), 2), names.length);
-
-        console.log(`📊 Corporations: ${corpCount} (from ~${expectedTotalFirms} expected firms, ${firmsPerCorp} firms/corp)`);
-
-        // Generate 3-letter abbreviation from name
-        const generateAbbreviation = (name) => {
-            const words = name.replace(/[^a-zA-Z\s]/g, '').split(/\s+/).filter(w => w.length > 0);
-            if (words.length >= 3) {
-                // Take first letter of first 3 significant words
-                return (words[0][0] + words[1][0] + words[2][0]).toUpperCase();
-            } else if (words.length === 2) {
-                // Take first letter of first word + first two letters of second
-                return (words[0][0] + words[1].substring(0, 2)).toUpperCase();
-            } else {
-                // Single word - take first 3 letters
-                return words[0].substring(0, 3).toUpperCase();
-            }
-        };
-
-        // Shuffle names using seeded RNG to get variety across different configs
-        const shuffled = [...names];
-        for (let i = shuffled.length - 1; i > 0; i--) {
-            const j = Math.floor(this.random() * (i + 1));
-            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-        }
-
-        const selectedNames = shuffled.slice(0, corpCount);
-        const colorStep = 360 / corpCount;
-
-        return selectedNames.map((name, i) => ({
-            id: i + 1,
-            name: name,
-            abbreviation: generateAbbreviation(name),
-            character: characters[Math.floor(this.random() * characters.length)],
-            cash: 0,
-            revenue: 0,
-            expenses: 0,
-            profit: 0,
-            monthlyRevenue: 0,
-            monthlyExpenses: 0,
-            monthlyProfit: 0,
-            employees: 0,
-            facilities: [],
-            color: `hsl(${(i * colorStep) % 360}, 70%, 60%)`
-        }));
+        // Delegated to FirmGenerator module
+        return this.firmGenerator.generateCorporations();
     }
 
     generateFirms() {
-        // Get firm generation config
-        const firmsPerCityConfig = this.config.firms?.perCity ?? { min: 5, max: 10 };
-        const distributionConfig = this.config.firms?.distribution ?? {
-            MINING: 0.15, LOGGING: 0.10, FARM: 0.20, MANUFACTURING: 0.25, RETAIL: 0.20, BANK: 0.10
-        };
-
-        // Calculate average firms per city for distribution targets
-        const avgFirmsPerCity = (firmsPerCityConfig.min + firmsPerCityConfig.max) / 2;
-        const totalFirmsTarget = this.cities.length * avgFirmsPerCity;
-
-        // Distribution targets by type (using config)
-        // Support both combined MANUFACTURING (split 50/50) or separate MANUFACTURING_SEMI/MANUFACTURING
-        const mfgSemiPct = distributionConfig.MANUFACTURING_SEMI ?? (distributionConfig.MANUFACTURING ?? 0.25) / 2;
-        const mfgFinalPct = distributionConfig.MANUFACTURING ?? (distributionConfig.MANUFACTURING_SEMI ? 0.15 : 0.25 / 2);
-
-        const firmTypeTargets = {
-            'MINING': Math.floor(totalFirmsTarget * (distributionConfig.MINING ?? 0.12)),
-            'LOGGING': Math.floor(totalFirmsTarget * (distributionConfig.LOGGING ?? 0.08)),
-            'FARM': Math.floor(totalFirmsTarget * (distributionConfig.FARM ?? 0.15)),
-            'MANUFACTURING_SEMI': Math.floor(totalFirmsTarget * mfgSemiPct),
-            'MANUFACTURING': Math.floor(totalFirmsTarget * (distributionConfig.MANUFACTURING_SEMI ? (distributionConfig.MANUFACTURING ?? 0.15) : mfgFinalPct)),
-            'RETAIL': Math.floor(totalFirmsTarget * (distributionConfig.RETAIL ?? 0.25)),
-            'BANK': Math.floor(totalFirmsTarget * (distributionConfig.BANK ?? 0.10))
-        };
-
-        let totalCreated = 0;
-        let corpIndex = 0;
-
-        // Create firms for each city using config min/max
-        const minFirms = firmsPerCityConfig.min;
-        const maxFirms = firmsPerCityConfig.max;
-        const firmRange = maxFirms - minFirms + 1;
-
-        for (const city of this.cities) {
-            const country = city.country;
-            const firmsForThisCity = minFirms + Math.floor(this.random() * firmRange);
-
-            for (let i = 0; i < firmsForThisCity; i++) {
-                // Cycle through corporations
-                const corp = this.corporations[corpIndex % this.corporations.length];
-                corpIndex++;
-
-                try {
-                    this.generateRandomFirm(city, country, corp);
-                    totalCreated++;
-                } catch (error) {
-                    console.error(`Error creating firm in ${city.name}:`, error);
-                }
-            }
-        }
-
-        console.log(`✅ Generated ${this.firms.size} firms across ${this.cities.length} cities`);
-
-        // Ensure product coverage - create firms for any products without producers
-        this.ensureProductCoverage();
-
-        // Log distribution
-        const typeCount = {};
-        this.firms.forEach(firm => {
-            typeCount[firm.type] = (typeCount[firm.type] || 0) + 1;
-        });
-        console.log('📊 Firm distribution:', typeCount);
-
-        // Debug: Log corporation facility counts
-        console.log('📊 Corporation facility counts:');
-        this.corporations.forEach(corp => {
-            if (corp.facilities.length > 0) {
-                console.log(`  - ${corp.name}: ${corp.facilities.length} facilities`);
-            }
-        });
-        const totalFacilities = this.corporations.reduce((sum, c) => sum + (c.facilities?.length || 0), 0);
-        console.log(`📊 Total facilities across all corporations: ${totalFacilities}`);
+        // Delegated to FirmGenerator module
+        this.firmGenerator.generateFirms();
     }
 
     ensureProductCoverage() {
-        // Get all products that need producers
-        const semiRawProducts = this.productRegistry.getProductsByTier('SEMI_RAW');
-        const manufacturedProducts = this.productRegistry.getProductsByTier('MANUFACTURED');
-
-        // Find which products are already being produced
-        const producedProducts = new Set();
-        this.firms.forEach(firm => {
-            if (firm.type === 'MANUFACTURING' && firm.product) {
-                producedProducts.add(firm.product.id);
-            }
-        });
-
-        // Create firms for missing SEMI_RAW products
-        const missingSemiRaw = semiRawProducts.filter(p => !producedProducts.has(p.id));
-        // Create firms for missing MANUFACTURED products
-        const missingManufactured = manufacturedProducts.filter(p => !producedProducts.has(p.id));
-
-        if (missingSemiRaw.length > 0 || missingManufactured.length > 0) {
-            console.log(`⚠️ Missing product coverage: ${missingSemiRaw.length} SEMI_RAW, ${missingManufactured.length} MANUFACTURED`);
-
-            const citiesArray = Array.from(this.cities);
-            let cityIndex = 0;
-
-            // Create SEMI_RAW manufacturers for missing products
-            missingSemiRaw.forEach(product => {
-                const city = citiesArray[cityIndex % citiesArray.length];
-                cityIndex++;
-                const corp = this.corporations[Math.floor(this.random() * this.corporations.length)];
-                const firmId = this.generateDeterministicId('FIRM', this.firmCreationIndex++);
-
-                const firm = new ManufacturingPlant({ city: city }, city.country, product.id, this.productRegistry, firmId);
-                firm.isSemiRawProducer = true;
-                firm.corporationId = corp.id;
-                firm.corporationAbbreviation = corp.abbreviation;
-                firm.retailConfig = this.config.retail || { maxRetailQuantity: 3, purchaseChance: 0.3 };
-                firm.lotRegistry = this.lotRegistry; // Connect to global lot registry
-                firm.initializeLotSystem(); // Initialize lot-based inventory
-
-                // Initialize inventory
-                const weeklyHours = 24 * 7 * (this.config.inventory?.initialStockWeeks ?? 1);
-                if (firm.product?.inputs) {
-                    firm.product.inputs.forEach(input => {
-                        const inventory = firm.rawMaterialInventory.get(input.material);
-                        if (inventory) {
-                            const hourlyUsage = input.quantity * (firm.productionLine?.outputPerHour || 10);
-                            inventory.quantity = hourlyUsage * weeklyHours;
-                            inventory.minRequired = hourlyUsage * 24 * 7 * (this.config.inventory?.reorderThresholdWeeks ?? 4);
-                            inventory.capacity = Math.max(inventory.capacity, inventory.quantity * 2);
-                        }
-                    });
-                }
-
-                this.firms.set(firm.id, firm);
-                corp.facilities.push(firm);
-                console.log(`  + Created SEMI_RAW producer for: ${product.name}`);
-            });
-
-            // Create MANUFACTURED manufacturers for missing products
-            missingManufactured.forEach(product => {
-                const city = citiesArray[cityIndex % citiesArray.length];
-                cityIndex++;
-                const corp = this.corporations[Math.floor(this.random() * this.corporations.length)];
-                const firmId = this.generateDeterministicId('FIRM', this.firmCreationIndex++);
-
-                const firm = new ManufacturingPlant({ city: city }, city.country, product.id, this.productRegistry, firmId);
-                firm.isSemiRawProducer = false;
-                firm.corporationId = corp.id;
-                firm.corporationAbbreviation = corp.abbreviation;
-                firm.retailConfig = this.config.retail || { maxRetailQuantity: 3, purchaseChance: 0.3 };
-                firm.lotRegistry = this.lotRegistry; // Connect to global lot registry
-                firm.initializeLotSystem(); // Initialize lot-based inventory
-
-                // Initialize inventory
-                const weeklyHours = 24 * 7 * (this.config.inventory?.initialStockWeeks ?? 1);
-                if (firm.product?.inputs) {
-                    firm.product.inputs.forEach(input => {
-                        const inventory = firm.rawMaterialInventory.get(input.material);
-                        if (inventory) {
-                            const hourlyUsage = input.quantity * (firm.productionLine?.outputPerHour || 10);
-                            inventory.quantity = hourlyUsage * weeklyHours;
-                            inventory.minRequired = hourlyUsage * 24 * 7 * (this.config.inventory?.reorderThresholdWeeks ?? 4);
-                            inventory.capacity = Math.max(inventory.capacity, inventory.quantity * 2);
-                        }
-                    });
-                }
-
-                this.firms.set(firm.id, firm);
-                corp.facilities.push(firm);
-                console.log(`  + Created MANUFACTURED producer for: ${product.name}`);
-            });
-
-            console.log(`✅ Product coverage complete. Added ${missingSemiRaw.length + missingManufactured.length} firms.`);
-        } else {
-            console.log('✅ All products have at least one producer');
-        }
+        // Delegated to FirmGenerator module
+        this.firmGenerator.ensureProductCoverage();
     }
 
     generateRandomFirm(city, country, corporation = null) {
-        // Generate a random firm based on weighted probabilities
-        const firmTypes = ['MINING', 'LOGGING', 'FARM', 'MANUFACTURING_SEMI', 'MANUFACTURING', 'RETAIL', 'BANK'];
-        const weights = [0.15, 0.10, 0.20, 0.15, 0.15, 0.15, 0.10]; // Probability weights
-
-        const type = this.weightedRandomChoice(firmTypes, weights);
-        let firm = null;
-
-        // Generate deterministic ID for this firm
-        const firmId = this.generateDeterministicId('FIRM', this.firmCreationIndex++);
-
-        try {
-            switch (type) {
-                case 'MINING':
-                    // Filter to only valid mining resources (not agricultural)
-                    const validMiningResources = ['Iron Ore', 'Copper Ore', 'Coal', 'Gold Ore', 'Silver Ore',
-                                                  'Aluminum Ore', 'Limestone', 'Salt', 'Crude Oil', 'Natural Gas'];
-                    const miningResources = country.resources.filter(r => validMiningResources.includes(r));
-                    if (miningResources.length > 0) {
-                        const resource = miningResources[Math.floor(this.random() * miningResources.length)];
-                        firm = new MiningCompany({ city: city }, country, resource, firmId, this.productRegistry);
-                    }
-                    break;
-
-                case 'LOGGING':
-                    const timberTypes = ['Softwood Logs', 'Hardwood Logs', 'Bamboo'];
-                    const timberType = timberTypes[Math.floor(this.random() * timberTypes.length)];
-                    firm = new LoggingCompany({ city: city }, country, timberType, firmId, this.productRegistry);
-                    break;
-
-                case 'FARM':
-                    const farmType = this.random() < 0.6 ? 'CROP' : 'LIVESTOCK';
-                    firm = new Farm({ city: city }, country, farmType, firmId, this.productRegistry);
-                    break;
-
-                case 'MANUFACTURING_SEMI':
-                    // Create manufacturers for SEMI_RAW products (Steel, Copper Wire, etc.)
-                    const semiRawProducts = this.productRegistry.getProductsByTier('SEMI_RAW');
-                    if (semiRawProducts.length > 0) {
-                        const product = semiRawProducts[Math.floor(this.random() * semiRawProducts.length)];
-                        firm = new ManufacturingPlant({ city: city }, country, product.id, this.productRegistry, firmId);
-                        firm.isSemiRawProducer = true; // Mark as semi-raw producer
-                        firm.lotRegistry = this.lotRegistry; // Connect to global lot registry
-                        firm.initializeLotSystem(); // Initialize lot-based inventory
-
-                        // Initialize with 1 week worth of raw materials (168 hours)
-                        const weeklyHours = 24 * 7 * this.config.inventory.initialStockWeeks;
-                        if (firm && firm.product && firm.product.inputs) {
-                            firm.product.inputs.forEach(input => {
-                                const inventory = firm.rawMaterialInventory.get(input.material);
-                                if (inventory) {
-                                    const hourlyUsage = input.quantity * (firm.productionLine?.outputPerHour || 10);
-                                    inventory.quantity = hourlyUsage * weeklyHours;
-                                    inventory.minRequired = hourlyUsage * 24 * 7 * this.config.inventory.reorderThresholdWeeks;
-                                    inventory.capacity = Math.max(inventory.capacity, inventory.quantity * 2);
-                                }
-                            });
-                        }
-                    }
-                    break;
-
-                case 'MANUFACTURING':
-                    const manufacturedProducts = this.productRegistry.getProductsByTier('MANUFACTURED');
-                    if (manufacturedProducts.length > 0) {
-                        const product = manufacturedProducts[Math.floor(this.random() * manufacturedProducts.length)];
-                        firm = new ManufacturingPlant({ city: city }, country, product.id, this.productRegistry, firmId);
-                        firm.isSemiRawProducer = false;
-                        firm.lotRegistry = this.lotRegistry; // Connect to global lot registry
-                        firm.initializeLotSystem(); // Initialize lot-based inventory
-
-                        // Initialize with 1 week worth of semi-raw materials (168 hours)
-                        const weeklyHoursFinal = 24 * 7 * this.config.inventory.initialStockWeeks;
-                        if (firm && firm.product && firm.product.inputs) {
-                            firm.product.inputs.forEach(input => {
-                                const inventory = firm.rawMaterialInventory.get(input.material);
-                                if (inventory) {
-                                    const hourlyUsage = input.quantity * (firm.productionLine?.outputPerHour || 10);
-                                    inventory.quantity = hourlyUsage * weeklyHoursFinal;
-                                    inventory.minRequired = hourlyUsage * 24 * 7 * this.config.inventory.reorderThresholdWeeks;
-                                    inventory.capacity = Math.max(inventory.capacity, inventory.quantity * 2);
-                                }
-                            });
-                        }
-                    }
-                    break;
-
-                case 'RETAIL':
-                    const storeTypes = ['SUPERMARKET', 'DEPARTMENT', 'ELECTRONICS', 'FURNITURE', 'FASHION', 'HARDWARE', 'AUTO'];
-                    const storeType = storeTypes[Math.floor(this.random() * storeTypes.length)];
-                    firm = new RetailStore({ city: city }, country, storeType, firmId);
-                    firm.retailConfig = this.config.retail || { maxRetailQuantity: 3, purchaseChance: 0.3 };
-                    firm.productRegistry = this.productRegistry; // For necessityIndex lookups
-
-                    // Initialize with products matching the store's allowed categories
-                    if (firm) {
-                        const allProducts = this.productRegistry.getAllProducts();
-                        // Filter to only products this store type can sell
-                        const allowedProducts = allProducts.filter(p => firm.canSellProduct(p.category));
-
-                        if (allowedProducts.length > 0) {
-                            const numProducts = Math.min(5 + Math.floor(this.random() * 10), allowedProducts.length);
-                            const selectedProducts = new Set();
-
-                            while (selectedProducts.size < numProducts) {
-                                const product = allowedProducts[Math.floor(this.random() * allowedProducts.length)];
-                                if (!selectedProducts.has(product.id)) {
-                                    selectedProducts.add(product.id);
-                                    const quantity = 50 + Math.floor(this.random() * 150);
-                                    const wholesalePrice = product.basePrice * 0.7;
-                                    firm.purchaseInventory(product.id, quantity, wholesalePrice, product.name);
-                                }
-                            }
-                        }
-                    }
-                    break;
-
-                case 'BANK':
-                    const bankTypes = ['COMMERCIAL', 'INVESTMENT'];
-                    const bankType = bankTypes[Math.floor(this.random() * bankTypes.length)];
-                    firm = new Bank({ city: city }, country, bankType, firmId);
-                    break;
-            }
-
-            if (firm) {
-                // Assign firm to specified corporation or random one
-                const corp = corporation || this.corporations[Math.floor(this.random() * this.corporations.length)];
-                firm.corporationId = corp.id;
-                firm.corporationAbbreviation = corp.abbreviation;
-                corp.facilities.push(firm);
-                corp.employees += firm.totalEmployees;
-
-                this.firms.set(firm.id, firm);
-
-                // Add firm to city's firms array
-                city.firms.push(firm);
-
-                // Track industry presence in city
-                const industryType = firm.type;
-                if (!city.industries.has(industryType)) {
-                    city.industries.set(industryType, []);
-                }
-                city.industries.get(industryType).push(firm);
-
-                // Add employment to city
-                city.addEmployment(firm.totalEmployees, firm.calculateLaborCosts() / firm.totalEmployees);
-            }
-        } catch (error) {
-            console.error(`Error creating ${type} firm:`, error);
-        }
+        // Delegated to FirmGenerator module
+        this.firmGenerator.generateRandomFirm(city, country, corporation);
     }
 
     weightedRandomChoice(items, weights) {
-        const total = weights.reduce((sum, w) => sum + w, 0);
-        let random = this.random() * total;
-
-        for (let i = 0; i < items.length; i++) {
-            random -= weights[i];
-            if (random <= 0) {
-                return items[i];
-            }
-        }
-
-        return items[0];
+        // Delegated to FirmGenerator module
+        return this.firmGenerator.weightedRandomChoice(items, weights);
     }
 
     /**
@@ -1994,150 +1612,26 @@ export class SimulationEngine {
 
     /**
      * Create a pending local delivery for transport time simulation
+     * Delegated to DeliveryManager module
      */
     createPendingLocalDelivery(deliveryData) {
-        const delivery = {
-            id: `LOCAL_DEL_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-            ...deliveryData,
-            status: 'IN_TRANSIT',
-            createdAt: this.clock.totalHours
-        };
-        this.pendingLocalDeliveries.push(delivery);
-        return delivery;
+        return this.deliveryManager.createPendingDelivery(deliveryData);
     }
 
     /**
      * Process pending local deliveries - called each hour
-     * Completes deliveries when their transit time has elapsed
+     * Delegated to DeliveryManager module
      */
     processLocalDeliveries() {
-        const currentHour = this.clock.totalHours;
-        const delivered = [];
-        const failed = [];
-
-        this.pendingLocalDeliveries = this.pendingLocalDeliveries.filter(delivery => {
-            // Check for stuck deliveries (NaN or invalid deliveryHour)
-            if (isNaN(delivery.deliveryHour) || delivery.deliveryHour === undefined) {
-                console.error(`Stuck delivery detected: invalid deliveryHour`, delivery.id);
-                delivery.status = 'FAILED';
-                delivery.failureReason = 'INVALID_DELIVERY_HOUR';
-                failed.push(delivery);
-                return false;
-            }
-
-            // Check for excessively old deliveries (stuck for > 720 hours / 30 days)
-            const age = currentHour - (delivery.createdAt || 0);
-            if (age > 720 && currentHour < delivery.deliveryHour) {
-                console.warn(`Delivery stuck for ${age} hours, forcing completion`, delivery.id);
-                delivery.deliveryHour = currentHour; // Force completion
-            }
-
-            if (currentHour >= delivery.deliveryHour) {
-                try {
-                    this.completeLocalDelivery(delivery);
-                    delivered.push(delivery);
-                } catch (error) {
-                    console.error(`Error completing delivery ${delivery.id}:`, error);
-                    delivery.status = 'FAILED';
-                    delivery.failureReason = error.message;
-                    failed.push(delivery);
-                }
-                return false;
-            }
-            return true;
-        });
-
-        return { delivered, failed };
+        return this.deliveryManager.processDeliveries();
     }
 
     /**
      * Complete a local delivery - transfer inventory to buyer
+     * Delegated to DeliveryManager module
      */
     completeLocalDelivery(delivery) {
-        const { buyer, materialName, quantity, type, productId, productName, wholesalePrice, lots, lotObjects, avgQuality } = delivery;
-
-        // Validate buyer still exists
-        if (!buyer || !this.firms.has(buyer.id)) {
-            console.warn(`Delivery failed: buyer ${buyer?.id || 'unknown'} no longer exists`);
-            delivery.status = 'FAILED';
-            delivery.failureReason = 'BUYER_NOT_FOUND';
-            // Release lots back to available if possible
-            if (lots && lots.length > 0) {
-                lots.forEach(lotId => {
-                    const lot = this.lotRegistry.getLot(lotId);
-                    if (lot) {
-                        lot.releaseReservation();
-                    }
-                });
-            }
-            return;
-        }
-
-        if (type === 'RAW_TO_SEMI' || type === 'SEMI_TO_MANUFACTURED') {
-            // B2B trade - transfer lots or quantity to buyer's raw material inventory
-
-            // Mark lots as delivered
-            if (lots && lots.length > 0) {
-                lots.forEach(lotId => {
-                    const lot = this.lotRegistry.getLot(lotId);
-                    if (lot) {
-                        lot.markDelivered();
-                    }
-                });
-            }
-
-            // Transfer using lot-based system if buyer supports it
-            if (lotObjects && lotObjects.length > 0 && buyer.receiveLots) {
-                // Lot-based transfer - pass actual lots to buyer
-                buyer.receiveLots(materialName, lotObjects);
-            } else if (buyer.rawMaterialInventory && buyer.rawMaterialInventory.has(materialName)) {
-                // Fallback to quantity-based transfer
-                const buyerInv = buyer.rawMaterialInventory.get(materialName);
-                buyerInv.quantity += quantity;
-                // Update average quality if available
-                if (avgQuality && buyer.receiveQuantity) {
-                    buyer.receiveQuantity(materialName, quantity, avgQuality);
-                }
-            }
-        } else if (type === 'RETAIL_PURCHASE') {
-            // Retail purchase - add to retailer's inventory
-            // Note: Cash was already deducted at order time, so we just add inventory
-
-            // Mark lots as delivered
-            if (lots && lots.length > 0) {
-                lots.forEach(lotId => {
-                    const lot = this.lotRegistry.getLot(lotId);
-                    if (lot) {
-                        lot.markDelivered();
-                    }
-                });
-            }
-
-            // Transfer using lot-based system if buyer supports it
-            if (lotObjects && lotObjects.length > 0 && buyer.receiveLots) {
-                // Lot-based transfer to retailer
-                buyer.receiveLots(productId, productName, lotObjects, wholesalePrice);
-            } else if (buyer.productInventory) {
-                // Fallback: use productInventory Map (RetailStore)
-                buyer.receiveDelivery(productId, quantity, wholesalePrice, productName);
-            } else if (buyer.inventory) {
-                // Legacy fallback: use inventory array
-                const existingItem = buyer.inventory.find(item => item.productId === productId);
-                if (existingItem) {
-                    existingItem.quantity += quantity;
-                } else {
-                    buyer.inventory.push({
-                        productId: productId,
-                        productName: productName,
-                        quantity: quantity,
-                        purchasePrice: wholesalePrice
-                    });
-                }
-            }
-        }
-
-        delivery.status = 'DELIVERED';
-        delivery.deliveredAt = this.clock.totalHours;
+        return this.deliveryManager.completeDelivery(delivery);
     }
 
     updateMarketHistory() {
@@ -2471,6 +1965,86 @@ export class SimulationEngine {
 
     getTransactionSummary() {
         return this.transactionLog.getSummary();
+    }
+
+    /**
+     * Get city product coverage statistics
+     * Shows how many retailers sell each product in each city
+     * @param {string} cityId - Optional city ID to filter
+     * @returns {Object} Coverage statistics
+     */
+    getCityProductCoverage(cityId = null) {
+        const result = {};
+
+        const cities = cityId
+            ? [cityId]
+            : Array.from(this.cityProductRetailers.keys());
+
+        for (const cId of cities) {
+            const cityProductMap = this.cityProductRetailers.get(cId);
+            if (!cityProductMap) continue;
+
+            const cityName = this.cities?.find(c => c.id === cId)?.name || cId;
+            result[cityName] = {};
+
+            for (const [productId, retailers] of cityProductMap) {
+                const product = this.productRegistry.getProduct(productId);
+                const productName = product?.name || `Product ${productId}`;
+                result[cityName][productName] = {
+                    retailerCount: retailers.size,
+                    retailers: Array.from(retailers)
+                };
+            }
+        }
+
+        return result;
+    }
+
+    /**
+     * Get products with too many or too few retailers in a city
+     * Useful for diagnosing supply/demand imbalances
+     * @param {string} cityId - City ID to analyze
+     * @returns {Object} Analysis results
+     */
+    analyzeRetailProductDistribution(cityId) {
+        const maxRetailers = this.config.retail?.maxRetailersPerProductPerCity ?? 3;
+        const cityProductMap = this.cityProductRetailers.get(cityId);
+
+        if (!cityProductMap) {
+            return { error: 'City not found or no retailers' };
+        }
+
+        const saturated = [];
+        const undersupplied = [];
+        const balanced = [];
+
+        for (const [productId, retailers] of cityProductMap) {
+            const product = this.productRegistry.getProduct(productId);
+            const productName = product?.name || `Product ${productId}`;
+            const count = retailers.size;
+
+            if (count >= maxRetailers) {
+                saturated.push({ productName, count, maxAllowed: maxRetailers });
+            } else if (count === 1) {
+                undersupplied.push({ productName, count, minRecommended: 2 });
+            } else {
+                balanced.push({ productName, count });
+            }
+        }
+
+        return {
+            cityId,
+            maxRetailersPerProduct: maxRetailers,
+            saturated,
+            undersupplied,
+            balanced,
+            summary: {
+                totalProducts: cityProductMap.size,
+                saturatedCount: saturated.length,
+                undersuppliedCount: undersupplied.length,
+                balancedCount: balanced.length
+            }
+        };
     }
 
     getPendingGlobalOrders() {

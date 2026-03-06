@@ -66,40 +66,88 @@ export class RetailStore extends Firm {
 
     getAllowedCategories(storeType) {
         // Categories must match ProductRegistry categories
+        // Specializations have narrower focus to prevent all retailers converging on same products
         const categoryMap = {
+            // Supermarket specializations (narrowed from original 8 categories)
             'SUPERMARKET': [
-                // Food, beverages, health, beauty, cleaning
-                'FOOD_INGREDIENTS', 'DAIRY', 'MEAT', 'PACKAGED_FOOD',
-                'BEVERAGES', 'HEALTH', 'BEAUTY', 'CLEANING'
+                // General supermarket - food focused
+                'FOOD_INGREDIENTS', 'DAIRY', 'MEAT', 'PACKAGED_FOOD', 'BEVERAGES', 'CLEANING'
             ],
+            'SUPERMARKET_GROCERY': [
+                // Focused on groceries and fresh food
+                'FOOD_INGREDIENTS', 'DAIRY', 'MEAT', 'PACKAGED_FOOD', 'BEVERAGES'
+            ],
+            'SUPERMARKET_PHARMACY': [
+                // Drugstore-style with health/beauty focus
+                'HEALTH', 'BEAUTY', 'PACKAGED_FOOD', 'CLEANING'
+            ],
+
+            // Department store specializations (narrowed from original 12 categories)
             'DEPARTMENT': [
-                // General merchandise - wide variety
-                'CLOTHING', 'TEXTILES', 'FURNITURE', 'ELECTRONICS', 'PACKAGED_FOOD',
-                'BABY', 'ACCESSORIES', 'TOYS', 'APPLIANCES', 'HEALTH', 'BEAUTY', 'CLEANING'
+                // General department - reduced to 6 categories
+                'CLOTHING', 'ELECTRONICS', 'TOYS', 'APPLIANCES', 'BEAUTY', 'ACCESSORIES'
             ],
+            'DEPARTMENT_HOME': [
+                // Home-focused department store
+                'FURNITURE', 'APPLIANCES', 'CLEANING', 'TEXTILES'
+            ],
+            'DEPARTMENT_FASHION': [
+                // Fashion-focused department store
+                'CLOTHING', 'ACCESSORIES', 'BEAUTY', 'TEXTILES'
+            ],
+
+            // Electronics - unchanged
             'ELECTRONICS': [
-                // Electronics and appliances
                 'ELECTRONICS', 'APPLIANCES'
             ],
+
+            // Fashion specializations
             'FASHION': [
-                // Clothing, textiles, and accessories
-                'CLOTHING', 'TEXTILES', 'ACCESSORIES', 'BEAUTY'
+                // Clothing and accessories
+                'CLOTHING', 'ACCESSORIES', 'TEXTILES'
             ],
+            'FASHION_BOUTIQUE': [
+                // High-end fashion focus
+                'CLOTHING', 'ACCESSORIES', 'BEAUTY'
+            ],
+
+            // Hardware - slightly narrowed
             'HARDWARE': [
-                // Construction, tools, automotive parts
-                'CONSTRUCTION', 'LUMBER', 'REFINED_METALS', 'HARDWARE', 'AUTOMOTIVE', 'APPLIANCES'
+                'CONSTRUCTION', 'LUMBER', 'HARDWARE', 'AUTOMOTIVE'
             ],
+
+            // Furniture specializations (split from original 4 categories)
             'FURNITURE': [
-                // Furniture and home goods
-                'FURNITURE', 'LUMBER', 'TEXTILES', 'APPLIANCES'
+                // General furniture store
+                'FURNITURE', 'TEXTILES', 'APPLIANCES'
             ],
+            'FURNITURE_LIVING': [
+                // Living room/common area focus
+                'FURNITURE', 'TEXTILES'
+            ],
+            'FURNITURE_BEDROOM': [
+                // Bedroom and mattress focus
+                'FURNITURE', 'TEXTILES'
+            ],
+
+            // Auto - unchanged
             'AUTO': [
-                // Vehicles and automotive
-                'VEHICLES', 'FUELS', 'AUTOMOTIVE', 'RECREATION'
+                'VEHICLES', 'FUELS', 'AUTOMOTIVE'
             ],
+
+            // Pharmacy - unchanged
             'PHARMACY': [
-                // Health and beauty products
                 'HEALTH', 'BEAUTY', 'BABY'
+            ],
+
+            // New: Baby specialty store
+            'BABY': [
+                'BABY', 'TOYS', 'CLOTHING'
+            ],
+
+            // New: Toy store
+            'TOYS': [
+                'TOYS', 'ELECTRONICS', 'BABY'
             ]
         };
 
@@ -129,50 +177,100 @@ export class RetailStore extends Firm {
     initializeStarterInventory() {
         // Starter products based on store type - must match ProductRegistry categories
         const starterProducts = {
+            // Supermarket types
             'SUPERMARKET': [
-                // PACKAGED_FOOD, DAIRY, MEAT categories
                 { id: 209, name: 'Bread', price: 8, qty: 500, category: 'PACKAGED_FOOD' },
                 { id: 111, name: 'Pasteurized Milk', price: 8, qty: 400, category: 'DAIRY' },
                 { id: 112, name: 'Beef', price: 25, qty: 150, category: 'MEAT' },
-                { id: 113, name: 'Pork', price: 18, qty: 200, category: 'MEAT' },
                 { id: 114, name: 'Chicken', price: 12, qty: 300, category: 'MEAT' },
                 { id: 210, name: 'Canned Goods', price: 5, qty: 600, category: 'PACKAGED_FOOD' }
             ],
-            'DEPARTMENT': [
-                // CLOTHING, FURNITURE, ELECTRONICS categories
-                { id: 207, name: 'Shirts', price: 40, qty: 200, category: 'CLOTHING' },
-                { id: 208, name: 'Jeans', price: 60, qty: 150, category: 'CLOTHING' },
-                { id: 205, name: 'Tables', price: 200, qty: 50, category: 'FURNITURE' },
-                { id: 206, name: 'Beds', price: 500, qty: 30, category: 'FURNITURE' },
-                { id: 201, name: 'Smartphones', price: 800, qty: 50, category: 'ELECTRONICS' }
+            'SUPERMARKET_GROCERY': [
+                { id: 209, name: 'Bread', price: 8, qty: 600, category: 'PACKAGED_FOOD' },
+                { id: 111, name: 'Pasteurized Milk', price: 8, qty: 500, category: 'DAIRY' },
+                { id: 112, name: 'Beef', price: 25, qty: 200, category: 'MEAT' },
+                { id: 114, name: 'Chicken', price: 12, qty: 350, category: 'MEAT' }
             ],
+            'SUPERMARKET_PHARMACY': [
+                { id: 215, name: 'Medicine', price: 15, qty: 300, category: 'HEALTH' },
+                { id: 216, name: 'Cosmetics', price: 25, qty: 200, category: 'BEAUTY' },
+                { id: 210, name: 'Canned Goods', price: 5, qty: 300, category: 'PACKAGED_FOOD' }
+            ],
+
+            // Department store types
+            'DEPARTMENT': [
+                { id: 207, name: 'Shirts', price: 40, qty: 200, category: 'CLOTHING' },
+                { id: 201, name: 'Smartphones', price: 800, qty: 50, category: 'ELECTRONICS' },
+                { id: 216, name: 'Cosmetics', price: 25, qty: 100, category: 'BEAUTY' }
+            ],
+            'DEPARTMENT_HOME': [
+                { id: 205, name: 'Tables', price: 200, qty: 60, category: 'FURNITURE' },
+                { id: 206, name: 'Beds', price: 500, qty: 35, category: 'FURNITURE' },
+                { id: 110, name: 'Cotton Fabric', price: 45, qty: 80, category: 'TEXTILES' }
+            ],
+            'DEPARTMENT_FASHION': [
+                { id: 207, name: 'Shirts', price: 40, qty: 250, category: 'CLOTHING' },
+                { id: 208, name: 'Jeans', price: 60, qty: 200, category: 'CLOTHING' },
+                { id: 216, name: 'Cosmetics', price: 25, qty: 150, category: 'BEAUTY' }
+            ],
+
+            // Electronics
             'ELECTRONICS': [
-                // ELECTRONICS category only
                 { id: 201, name: 'Smartphones', price: 800, qty: 100, category: 'ELECTRONICS' },
                 { id: 202, name: 'Laptops', price: 1200, qty: 60, category: 'ELECTRONICS' }
             ],
+
+            // Fashion types
             'FASHION': [
-                // CLOTHING, TEXTILES categories
                 { id: 207, name: 'Shirts', price: 40, qty: 300, category: 'CLOTHING' },
-                { id: 208, name: 'Jeans', price: 60, qty: 250, category: 'CLOTHING' },
-                { id: 110, name: 'Cotton Fabric', price: 45, qty: 100, category: 'TEXTILES' }
+                { id: 208, name: 'Jeans', price: 60, qty: 250, category: 'CLOTHING' }
             ],
+            'FASHION_BOUTIQUE': [
+                { id: 207, name: 'Shirts', price: 55, qty: 150, category: 'CLOTHING' },
+                { id: 216, name: 'Cosmetics', price: 35, qty: 100, category: 'BEAUTY' }
+            ],
+
+            // Hardware
             'HARDWARE': [
-                // CONSTRUCTION, LUMBER, REFINED_METALS categories
                 { id: 211, name: 'Cement', price: 15, qty: 500, category: 'CONSTRUCTION' },
-                { id: 106, name: 'Plywood', price: 80, qty: 300, category: 'LUMBER' },
-                { id: 101, name: 'Steel', price: 200, qty: 200, category: 'REFINED_METALS' }
+                { id: 106, name: 'Plywood', price: 80, qty: 300, category: 'LUMBER' }
             ],
+
+            // Furniture types
             'FURNITURE': [
-                // FURNITURE category
                 { id: 205, name: 'Tables', price: 200, qty: 80, category: 'FURNITURE' },
                 { id: 206, name: 'Beds', price: 500, qty: 40, category: 'FURNITURE' }
             ],
+            'FURNITURE_LIVING': [
+                { id: 205, name: 'Tables', price: 200, qty: 100, category: 'FURNITURE' },
+                { id: 217, name: 'Sofas', price: 800, qty: 30, category: 'FURNITURE' }
+            ],
+            'FURNITURE_BEDROOM': [
+                { id: 206, name: 'Beds', price: 500, qty: 60, category: 'FURNITURE' },
+                { id: 218, name: 'Mattresses', price: 400, qty: 50, category: 'FURNITURE' }
+            ],
+
+            // Auto
             'AUTO': [
-                // VEHICLES, FUELS categories
                 { id: 203, name: 'Cars', price: 25000, qty: 10, category: 'VEHICLES' },
                 { id: 204, name: 'Motorcycles', price: 8000, qty: 20, category: 'VEHICLES' },
                 { id: 104, name: 'Gasoline', price: 4, qty: 1000, category: 'FUELS' }
+            ],
+
+            // Pharmacy
+            'PHARMACY': [
+                { id: 215, name: 'Medicine', price: 15, qty: 400, category: 'HEALTH' },
+                { id: 216, name: 'Cosmetics', price: 25, qty: 250, category: 'BEAUTY' }
+            ],
+
+            // New specialty stores
+            'BABY': [
+                { id: 219, name: 'Baby Products', price: 20, qty: 200, category: 'BABY' },
+                { id: 220, name: 'Toys', price: 30, qty: 150, category: 'TOYS' }
+            ],
+            'TOYS': [
+                { id: 220, name: 'Toys', price: 30, qty: 300, category: 'TOYS' },
+                { id: 201, name: 'Smartphones', price: 800, qty: 30, category: 'ELECTRONICS' }
             ]
         };
 
@@ -919,12 +1017,22 @@ export class RetailStore extends Firm {
         const abbr = this.corporationAbbreviation || '???';
         const storeTypeNames = {
             'SUPERMARKET': 'Supermarket',
+            'SUPERMARKET_GROCERY': 'Grocery Store',
+            'SUPERMARKET_PHARMACY': 'Drugstore',
             'DEPARTMENT': 'Department Store',
+            'DEPARTMENT_HOME': 'Home Store',
+            'DEPARTMENT_FASHION': 'Fashion Department',
             'ELECTRONICS': 'Electronics Store',
             'FURNITURE': 'Furniture Store',
-            'FASHION': 'Fashion Boutique',
+            'FURNITURE_LIVING': 'Living Room Store',
+            'FURNITURE_BEDROOM': 'Bedroom Store',
+            'FASHION': 'Fashion Store',
+            'FASHION_BOUTIQUE': 'Fashion Boutique',
             'HARDWARE': 'Hardware Store',
-            'AUTO': 'Auto Dealership'
+            'AUTO': 'Auto Dealership',
+            'PHARMACY': 'Pharmacy',
+            'BABY': 'Baby Store',
+            'TOYS': 'Toy Store'
         };
         const typeName = storeTypeNames[this.storeType] || this.storeType;
         return `${abbr} ${typeName}`;

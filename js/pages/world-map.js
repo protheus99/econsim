@@ -108,7 +108,7 @@ function showCityDetail(cityName) {
     document.getElementById('city-overview-stats').innerHTML = `
         <div class="stats-grid">
             <div class="stat-item"><span class="stat-label">Population</span><span class="stat-value">${formatNumber(city.population)}</span></div>
-            <div class="stat-item"><span class="stat-label">GDP</span><span class="stat-value">${formatCurrency(city.gdp)}</span></div>
+            <div class="stat-item"><span class="stat-label">Purchasing Power</span><span class="stat-value">${formatCurrency(city.totalPurchasingPower || 0)}</span></div>
             <div class="stat-item"><span class="stat-label">Salary Level</span><span class="stat-value">${(city.salaryLevel * 100).toFixed(0)}%</span></div>
         </div>
     `;
@@ -124,7 +124,7 @@ function showCityDetail(cityName) {
     document.getElementById('city-economy-stats').innerHTML = `
         <div class="stats-grid">
             <div class="stat-item"><span class="stat-label">Firms</span><span class="stat-value">${city.firms?.length || 0}</span></div>
-            <div class="stat-item"><span class="stat-label">Employed</span><span class="stat-value">${formatNumber(city.employed || 0)}</span></div>
+            <div class="stat-item"><span class="stat-label">Employed</span><span class="stat-value">${formatNumber(city.demographics?.employed || 0)}</span></div>
         </div>
     `;
 

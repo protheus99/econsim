@@ -109,9 +109,16 @@
       "max": 40
     }
   },
+  "manufacturing": {
+    "maxProductionLines": 5,
+    "productionLineCostMultiplier": 500000,
+    "autoScaleThreshold": 0.9
+  },
   "retail": {
     "maxRetailQuantity": 3,
     "purchaseChance": 0.3,
+    "maxRetailersPerProductPerCity": 3,
+    "unsaturatedProductPreference": 0.7,
     "demand": {
       "recessionImpactOnLuxury": 0.5,
       "boomImpactOnLuxury": 1.3,

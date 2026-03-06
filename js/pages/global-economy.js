@@ -27,9 +27,9 @@ function updateDisplay() {
     }, 0);
     document.getElementById('total-population').textContent = formatNumber(totalPop);
 
-    // GDP
+    // Total Purchasing Power (cities don't have GDP)
     const totalGDP = countries.reduce((sum, c) => {
-        return sum + c.cities.reduce((s, city) => s + city.gdp, 0);
+        return sum + c.cities.reduce((s, city) => s + (city.totalPurchasingPower || 0), 0);
     }, 0);
     document.getElementById('total-gdp').textContent = formatCurrency(totalGDP);
 
@@ -89,7 +89,7 @@ function renderCountryGDP(countries) {
 
     const countryData = countries.map(c => ({
         name: c.name,
-        gdp: c.cities.reduce((sum, city) => sum + city.gdp, 0),
+        gdp: c.cities.reduce((sum, city) => sum + (city.totalPurchasingPower || 0), 0),
         cities: c.cities.length,
         population: c.cities.reduce((sum, city) => sum + city.population, 0)
     })).sort((a, b) => b.gdp - a.gdp);

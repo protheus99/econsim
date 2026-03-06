@@ -236,6 +236,43 @@ debug.getLotReport()       // Lot system status
 4. **Clock.totalHours** is cumulative since year start, not reset daily
 5. **No global market** - All purchasing uses local suppliers only
 
+## Property Reference (Common Mistakes)
+
+See `js/core/types.js` for full JSDoc type definitions with IntelliSense support.
+
+### City Properties
+
+| Wrong | Correct | Notes |
+|-------|---------|-------|
+| `city.gdp` | `city.totalPurchasingPower` | Cities don't have GDP |
+| `city.infrastructure?.hasAirport` | `city.hasAirport` | Direct boolean property |
+| `city.infrastructure?.hasSeaport` | `city.hasSeaport` | Direct boolean property |
+| `city.infrastructure?.hasRailway` | `city.hasRailway` | Direct boolean property |
+| `city.coordinates.lat` | `city.coordinates.x` | Use x/y (0-1000 range) |
+| `city.coordinates.lng` | `city.coordinates.y` | Use x/y (0-1000 range) |
+| `city.employed` | `city.demographics.employed` | Nested in demographics object |
+
+### Firm Properties
+
+| Wrong | Correct | Notes |
+|-------|---------|-------|
+| `firm.lotInventory.getLots()` | `firm.lotInventory.getAvailableLots()` | Method name difference |
+| `firm.lotInventory.lots` | `firm.lotInventory.getStatus()` | Use methods, not direct Map access |
+| `firm.profit` (for monthly) | `firm.getCurrentProfit()` | Use method for real-time calculation |
+
+### GameClock Properties
+
+| Wrong | Correct | Notes |
+|-------|---------|-------|
+| `clock.hour + transitTime` | `clock.totalHours + transitTime` | hour resets daily (0-23) |
+
+### Lot System
+
+| Wrong | Correct | Notes |
+|-------|---------|-------|
+| `inventory.addLot({...})` | `inventory.addLot(new Lot({...}))` | Must be Lot instance |
+| `lot.getLots(product)` | `lot.getAvailableLots(product)` | Correct method name |
+
 ## Sprint Planning
 
 Active sprint docs in `sprints/` folder. Current priorities:
