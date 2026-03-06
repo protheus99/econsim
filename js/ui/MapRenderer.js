@@ -73,6 +73,8 @@ export class MapRenderer {
     createCityElements(city, width, height) {
         const x = (city.coordinates.x / 1000) * width;
         const y = (city.coordinates.y / 1000) * height;
+        console.log(`🗺️ MapRenderer: ${city.name} coords (${city.coordinates.x.toFixed(0)}, ${city.coordinates.y.toFixed(0)}) -> pixel (${x.toFixed(0)}, ${y.toFixed(0)})`);
+
 
         // Determine city dot size class
         let sizeClass = city.population > 2000000 ? 'large' : '';

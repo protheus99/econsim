@@ -114,6 +114,8 @@ export class CityManager {
             y: regionY + this.random() * regionHeight * 0.8 + regionHeight * 0.1
         };
 
+        console.log(`📍 Generated city ${city.name}: coords (${city.coordinates.x.toFixed(0)}, ${city.coordinates.y.toFixed(0)}) in country ${country.name} [idx=${countryIndex}, grid=${gridCols}x${gridRows}]`);
+
         // Climate based on coordinates
         if (city.coordinates.y < 200) {
             city.climate = 'COLD';
@@ -131,6 +133,7 @@ export class CityManager {
      * Called after state restore to fix cities saved without coordinates
      */
     regenerateMissingCoordinates() {
+        console.log(`📍 regenerateMissingCoordinates called, checking ${this.cities.size} cities...`);
         const countriesArray = Array.from(this.countries.values());
         const numCountries = countriesArray.length;
 
@@ -143,6 +146,7 @@ export class CityManager {
         let regeneratedCount = 0;
 
         for (const city of this.cities.values()) {
+            console.log(`   Checking ${city.name}: coords (${city.coordinates.x}, ${city.coordinates.y})`);
             // Check if coordinates are missing or invalid
             if (city.coordinates.x === 0 && city.coordinates.y === 0) {
                 // Find the country index for this city

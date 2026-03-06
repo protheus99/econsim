@@ -2621,10 +2621,13 @@ export class SimulationEngine {
             // Restore city states
             if (state.cities) {
                 const cities = this.cityManager?.getAllCities() || [];
+                console.log(`📍 Restoring state for ${cities.length} cities...`);
                 for (const city of cities) {
                     const cityState = state.cities[city.id];
                     if (cityState && city.restoreState) {
+                        console.log(`   ${city.name} before restore: (${city.coordinates.x.toFixed(0)}, ${city.coordinates.y.toFixed(0)}), saved coords: ${JSON.stringify(cityState.coordinates)}`);
                         city.restoreState(cityState);
+                        console.log(`   ${city.name} after restore: (${city.coordinates.x.toFixed(0)}, ${city.coordinates.y.toFixed(0)})`);
                     }
                 }
             }
