@@ -64,7 +64,8 @@ export class ManufacturingPlant extends Firm {
 
         // === SHIFT SYSTEM ===
         // Configurable shift system (1/2/3 shifts per day)
-        const defaultShiftCount = this.engine?.config?.manufacturing?.defaultShiftCount ?? 3;
+        // Default to 1 shift (8 hours/day), can be expanded to 2 or 3 shifts
+        const defaultShiftCount = this.engine?.config?.manufacturing?.defaultShiftCount ?? 1;
         this.shiftConfig = {
             shiftCount: defaultShiftCount,
             hoursPerShift: 8,
@@ -193,18 +194,26 @@ export class ManufacturingPlant extends Firm {
 
     /**
      * Calculate shift schedule based on number of shifts
+     * - 1 shift: 8:00-16:00 (main daytime shift)
+     * - 2 shifts: 8:00-16:00, 16:00-24:00 (day + evening)
+     * - 3 shifts: 8:00-16:00, 16:00-24:00, 0:00-8:00 (continuous 24h)
      * @param {number} shiftCount - Number of shifts (1, 2, or 3)
      * @returns {Array} Array of shift objects with start/end hours
      */
     calculateShiftSchedule(shiftCount) {
         const schedule = [];
-        const hoursPerShift = 8;
 
-        for (let i = 0; i < shiftCount; i++) {
-            schedule.push({
-                start: i * hoursPerShift,
-                end: (i + 1) * hoursPerShift
-            });
+        // Shift 1: Day shift (8:00-16:00) - always included
+        schedule.push({ start: 8, end: 16 });
+
+        if (shiftCount >= 2) {
+            // Shift 2: Evening shift (16:00-24:00)
+            schedule.push({ start: 16, end: 24 });
+        }
+
+        if (shiftCount >= 3) {
+            // Shift 3: Night shift (0:00-8:00)
+            schedule.push({ start: 0, end: 8 });
         }
 
         return schedule;

@@ -113,7 +113,7 @@
     "maxProductionLines": 5,
     "productionLineCostMultiplier": 500000,
     "autoScaleThreshold": 0.9,
-    "defaultShiftCount": 3,
+    "defaultShiftCount": 1,
     "lineSwitchingCostMultiplier": 1000,
     "lineSwitchingHours": 2,
     "maxProductsPerFactory": 5,
