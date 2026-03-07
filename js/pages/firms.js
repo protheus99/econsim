@@ -761,6 +761,25 @@ function renderSpecificDetails(firm) {
             const effectiveHours = firm.effectiveHoursPerDay || (shiftConfig.shiftCount * 8);
             const shiftSchedule = shiftConfig.shiftSchedule?.map(s => `${s.start}:00-${s.end}:00`).join(', ') || 'Continuous';
 
+            // === DEBUG INFO ===
+            const clockHour = simulation.clock?.hour ?? 'N/A';
+            const engineRef = firm.engine ? 'SET' : 'NOT SET';
+            const engineClockHour = firm.engine?.clock?.hour ?? 'N/A';
+            const isActive = typeof firm.isActiveHour === 'function' ? firm.isActiveHour(clockHour) : 'N/A';
+            const lastProdResult = firm.lastProductionResult || null;
+            const actualProdRate = firm.actualProductionRate ?? 'N/A';
+
+            console.log('=== MANUFACTURING DEBUG ===');
+            console.log('Firm ID:', firm.id);
+            console.log('firm.engine:', engineRef);
+            console.log('simulation.clock.hour:', clockHour);
+            console.log('firm.engine?.clock?.hour:', engineClockHour);
+            console.log('shiftConfig:', shiftConfig);
+            console.log('isActiveHour(' + clockHour + '):', isActive);
+            console.log('actualProductionRate:', actualProdRate);
+            console.log('lastProductionResult:', lastProdResult);
+            console.log('===========================');
+
             // Get multi-product info
             const productsCount = firm.products?.size || 1;
             const inputCategories = firm.productFamily?.inputCategories

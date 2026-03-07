@@ -517,7 +517,7 @@ export class ManufacturingPlant extends Firm {
         }
 
         // Set line to switching state
-        const totalHours = this.getGameTime?.()?.totalHours || 0;
+        const totalHours = this.engine?.clock?.totalHours || 0;
         line.status = 'SWITCHING';
         line.switchingUntilHour = totalHours + this.lineSwitchingHours;
 
@@ -606,7 +606,7 @@ export class ManufacturingPlant extends Firm {
      * Called each hour to complete line switches
      */
     updateLineSwitching() {
-        const totalHours = this.getGameTime?.()?.totalHours || 0;
+        const totalHours = this.engine?.clock?.totalHours || 0;
 
         for (const line of this.productionLines) {
             if (line.status === 'SWITCHING' && line.switchingUntilHour && totalHours >= line.switchingUntilHour) {
@@ -996,8 +996,8 @@ export class ManufacturingPlant extends Firm {
 
         // === SHIFT CHECK ===
         // Check if factory is active this hour (shift system)
-        const gameTime = this.getGameTime?.() || { hour: 0 };
-        const currentHourOfDay = gameTime.hour % 24;
+        // Access clock hour directly from engine (more reliable than getGameTime)
+        const currentHourOfDay = this.engine?.clock?.hour ?? 0;
 
         if (!this.isActiveHour(currentHourOfDay)) {
             this.actualProductionRate = 0;
@@ -1344,7 +1344,7 @@ export class ManufacturingPlant extends Firm {
         }
 
         const productName = product?.name || this.productType;
-        const gameTime = this.getGameTime?.() || { hour: 0, day: 1, month: 1, year: 2025 };
+        const gameTime = this.engine?.clock?.getGameTime?.() || { hour: 0, day: 1, month: 1, year: 2025 };
         const currentHour = gameTime.hour + (gameTime.day - 1) * 24 + (gameTime.month - 1) * 30 * 24;
         const currentDay = gameTime.day + (gameTime.month - 1) * 30 + (gameTime.year - 2025) * 365;
 
@@ -1394,7 +1394,7 @@ export class ManufacturingPlant extends Firm {
         const productName = this.product?.name || this.productType;
 
         // Get current game time (will be set by SimulationEngine)
-        const gameTime = this.getGameTime?.() || { hour: 0, day: 1, month: 1, year: 2025 };
+        const gameTime = this.engine?.clock?.getGameTime?.() || { hour: 0, day: 1, month: 1, year: 2025 };
         const currentHour = gameTime.hour + (gameTime.day - 1) * 24 + (gameTime.month - 1) * 30 * 24;
         const currentDay = gameTime.day + (gameTime.month - 1) * 30 + (gameTime.year - 2025) * 365;
 

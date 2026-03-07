@@ -216,6 +216,7 @@ export class FirmGenerator {
         const config = this.engine.config;
 
         const firm = new ManufacturingPlant({ city: city }, city.country, product.id, this.engine.productRegistry, firmId);
+        firm.engine = this.engine; // Set engine reference for clock access
         firm.isSemiRawProducer = isSemiRaw;
         firm.corporationId = corp.id;
         firm.corporationAbbreviation = corp.abbreviation;
@@ -300,7 +301,9 @@ export class FirmGenerator {
         const miningResources = country.resources.filter(r => validMiningResources.includes(r));
         if (miningResources.length > 0) {
             const resource = miningResources[Math.floor(this.random() * miningResources.length)];
-            return new MiningCompany({ city: city }, country, resource, firmId, this.engine.productRegistry);
+            const firm = new MiningCompany({ city: city }, country, resource, firmId, this.engine.productRegistry);
+            firm.engine = this.engine; // Set engine reference for clock access
+            return firm;
         }
         return null;
     }
@@ -308,12 +311,16 @@ export class FirmGenerator {
     createLoggingFirm(city, country, firmId) {
         const timberTypes = ['Softwood Logs', 'Hardwood Logs', 'Bamboo'];
         const timberType = timberTypes[Math.floor(this.random() * timberTypes.length)];
-        return new LoggingCompany({ city: city }, country, timberType, firmId, this.engine.productRegistry);
+        const firm = new LoggingCompany({ city: city }, country, timberType, firmId, this.engine.productRegistry);
+        firm.engine = this.engine; // Set engine reference for clock access
+        return firm;
     }
 
     createFarmFirm(city, country, firmId) {
         const farmType = this.random() < 0.6 ? 'CROP' : 'LIVESTOCK';
-        return new Farm({ city: city }, country, farmType, firmId, this.engine.productRegistry);
+        const firm = new Farm({ city: city }, country, farmType, firmId, this.engine.productRegistry);
+        firm.engine = this.engine; // Set engine reference for clock access
+        return firm;
     }
 
     createManufacturingFirm(city, country, firmId, isSemiRaw) {
@@ -325,6 +332,7 @@ export class FirmGenerator {
         if (products.length > 0) {
             const product = products[Math.floor(this.random() * products.length)];
             const firm = new ManufacturingPlant({ city: city }, country, product.id, productRegistry, firmId);
+            firm.engine = this.engine; // Set engine reference for clock access
             firm.isSemiRawProducer = isSemiRaw;
             firm.lotRegistry = this.engine.lotRegistry;
             firm.initializeLotSystem();
@@ -361,6 +369,7 @@ export class FirmGenerator {
         ];
         const storeType = storeTypes[Math.floor(this.random() * storeTypes.length)];
         const firm = new RetailStore({ city: city }, country, storeType, firmId);
+        firm.engine = this.engine; // Set engine reference for clock access
         firm.retailConfig = config.retail || { maxRetailQuantity: 3, purchaseChance: 0.3 };
         firm.productRegistry = productRegistry;
 
@@ -450,7 +459,9 @@ export class FirmGenerator {
     createBankFirm(city, country, firmId) {
         const bankTypes = ['COMMERCIAL', 'INVESTMENT'];
         const bankType = bankTypes[Math.floor(this.random() * bankTypes.length)];
-        return new Bank({ city: city }, country, bankType, firmId);
+        const firm = new Bank({ city: city }, country, bankType, firmId);
+        firm.engine = this.engine; // Set engine reference for clock access
+        return firm;
     }
 
     registerFirm(firm, city, corporation) {
