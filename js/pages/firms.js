@@ -755,13 +755,96 @@ function renderSpecificDetails(firm) {
             break;
         case 'MANUFACTURING':
             titleEl.textContent = 'Manufacturing Details';
+
+            // Get shift info
+            const shiftConfig = firm.shiftConfig || { shiftCount: 3, hoursPerShift: 8 };
+            const effectiveHours = firm.effectiveHoursPerDay || (shiftConfig.shiftCount * 8);
+            const shiftSchedule = shiftConfig.shiftSchedule?.map(s => `${s.start}:00-${s.end}:00`).join(', ') || 'Continuous';
+
+            // Get multi-product info
+            const productsCount = firm.products?.size || 1;
+            const inputCategories = firm.productFamily?.inputCategories
+                ? [...firm.productFamily.inputCategories].join(', ')
+                : 'Unknown';
+
+            // Get production lines info
+            const lineAssignments = firm.getLineAssignments?.() || [];
+            const activeLines = lineAssignments.filter(l => l.status === 'ACTIVE').length;
+            const switchingLines = lineAssignments.filter(l => l.status === 'SWITCHING').length;
+
+            let linesHtml = '';
+            if (lineAssignments.length > 0) {
+                linesHtml = `
+                    <div class="production-lines-section">
+                        <div class="production-lines-header">Production Lines (${lineAssignments.length})</div>
+                        <div class="production-lines-grid">
+                            ${lineAssignments.map(line => {
+                                const statusClass = line.status === 'ACTIVE' ? 'line-active' :
+                                                   line.status === 'SWITCHING' ? 'line-switching' : 'line-idle';
+                                return `
+                                    <div class="production-line-item ${statusClass}">
+                                        <div class="line-product">${line.productName || 'Unassigned'}</div>
+                                        <div class="line-output">${line.outputPerHour?.toFixed(2) || 0}/hr</div>
+                                        <div class="line-status">${line.status}</div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
             container.innerHTML = `
                 <div class="specific-details-grid">
-                    <div class="detail-item"><span class="label">Product:</span><span class="value">${firm.product?.name || 'Unknown'}</span></div>
+                    <div class="detail-item"><span class="label">Primary Product:</span><span class="value">${firm.product?.name || 'Unknown'}</span></div>
                     <div class="detail-item"><span class="label">Tier:</span><span class="value">${firm.product?.tier || 'Unknown'}</span></div>
                     <div class="detail-item"><span class="label">Defect Rate:</span><span class="value">${(firm.defectRate * 100)?.toFixed(1)}%</span></div>
-                    <div class="detail-item"><span class="label">Capacity:</span><span class="value">${firm.productionCapacity?.toFixed(2) || 0}/hr</span></div>
+                    <div class="detail-item"><span class="label">Total Capacity:</span><span class="value">${firm.productionCapacity?.toFixed(2) || 0}/hr</span></div>
                 </div>
+
+                <div class="shift-system-section">
+                    <div class="shift-system-header">Shift System</div>
+                    <div class="shift-details-grid">
+                        <div class="shift-detail-item">
+                            <span class="shift-label">Shifts:</span>
+                            <span class="shift-value shift-count-${shiftConfig.shiftCount}">${shiftConfig.shiftCount} shift${shiftConfig.shiftCount > 1 ? 's' : ''}</span>
+                        </div>
+                        <div class="shift-detail-item">
+                            <span class="shift-label">Hours/Day:</span>
+                            <span class="shift-value">${effectiveHours}h</span>
+                        </div>
+                        <div class="shift-detail-item">
+                            <span class="shift-label">Schedule:</span>
+                            <span class="shift-value">${shiftSchedule}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="multi-product-section">
+                    <div class="multi-product-header">Multi-Product Capability</div>
+                    <div class="multi-product-grid">
+                        <div class="multi-product-item">
+                            <span class="mp-label">Products Registered:</span>
+                            <span class="mp-value">${productsCount}</span>
+                        </div>
+                        <div class="multi-product-item">
+                            <span class="mp-label">Input Categories:</span>
+                            <span class="mp-value mp-categories">${inputCategories}</span>
+                        </div>
+                        <div class="multi-product-item">
+                            <span class="mp-label">Active Lines:</span>
+                            <span class="mp-value">${activeLines} / ${lineAssignments.length}</span>
+                        </div>
+                        ${switchingLines > 0 ? `
+                        <div class="multi-product-item">
+                            <span class="mp-label">Lines Switching:</span>
+                            <span class="mp-value mp-switching">${switchingLines}</span>
+                        </div>
+                        ` : ''}
+                    </div>
+                </div>
+
+                ${linesHtml}
             `;
             break;
         default:
@@ -951,6 +1034,69 @@ function renderProductsInfo(firm) {
             `;
         }
 
+        // Get compatible products that can be added to this factory
+        let compatibleProductsHtml = '';
+        if (simulation.productRegistry && firm.productFamily) {
+            const allProducts = simulation.productRegistry.getAllProducts?.() || [];
+            const registeredProductIds = firm.products ? [...firm.products.keys()] : [];
+
+            // Filter to MANUFACTURED tier products that are compatible
+            const compatibleProducts = allProducts.filter(product => {
+                if (product.tier !== 'MANUFACTURED' && product.tier !== 'SEMI_RAW') return false;
+                const productId = product.id || product.name;
+                if (registeredProductIds.includes(productId)) return false;
+
+                // Check compatibility using canAddProduct if available
+                if (typeof firm.canAddProduct === 'function') {
+                    const result = firm.canAddProduct(product);
+                    return result.compatible;
+                }
+                return false;
+            });
+
+            if (compatibleProducts.length > 0) {
+                compatibleProductsHtml = `
+                    <div class="compatible-products-section">
+                        <div class="compatible-products-header">Compatible Products (${compatibleProducts.length})</div>
+                        <div class="compatible-products-list">
+                            ${compatibleProducts.slice(0, 10).map(p => `
+                                <div class="compatible-product-item">
+                                    <span class="cp-name">${p.name}</span>
+                                    <span class="cp-tier">${p.tier}</span>
+                                    <span class="cp-price">${formatCurrency(p.basePrice || 0)}</span>
+                                </div>
+                            `).join('')}
+                            ${compatibleProducts.length > 10 ? `<div class="compatible-more">+${compatibleProducts.length - 10} more compatible products</div>` : ''}
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        // Show registered products if multi-product
+        let registeredProductsHtml = '';
+        if (firm.products && firm.products.size > 1) {
+            const products = [...firm.products.values()];
+            registeredProductsHtml = `
+                <div class="registered-products-section">
+                    <div class="registered-products-header">Registered Products (${products.length})</div>
+                    <div class="registered-products-list">
+                        ${products.map(p => {
+                            const linesForProduct = firm.getLinesForProduct?.(p.id || p.name) || [];
+                            const capacity = firm.getProductCapacity?.(p.id || p.name) || 0;
+                            return `
+                                <div class="registered-product-item">
+                                    <span class="rp-name">${p.name}</span>
+                                    <span class="rp-lines">${linesForProduct.length} line${linesForProduct.length !== 1 ? 's' : ''}</span>
+                                    <span class="rp-capacity">${capacity.toFixed(2)}/hr</span>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
         container.innerHTML = `
             <div class="product-info">
                 <div class="product-header">${firm.product?.name || 'Unknown Product'}</div>
@@ -959,6 +1105,7 @@ function renderProductsInfo(firm) {
                     <span>Production Rate: ${firm.productionLine?.outputPerHour?.toFixed(2) || 0}/hr</span>
                     <span class="product-necessity">Necessity: <span class="${productNecessityLabel.class}">${productNecessityLabel.text}</span></span>
                 </div>
+                ${registeredProductsHtml}
                 <div class="finished-inventory">
                     <div class="finished-inventory-header">Finished Goods</div>
                     <div class="inventory-item">
@@ -969,6 +1116,7 @@ function renderProductsInfo(firm) {
                 </div>
                 ${lotInfoHtml}
                 ${inputInventoryHtml}
+                ${compatibleProductsHtml}
             </div>
         `;
     } else {

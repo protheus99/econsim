@@ -112,7 +112,14 @@
   "manufacturing": {
     "maxProductionLines": 5,
     "productionLineCostMultiplier": 500000,
-    "autoScaleThreshold": 0.9
+    "autoScaleThreshold": 0.9,
+    "defaultShiftCount": 3,
+    "lineSwitchingCostMultiplier": 1000,
+    "lineSwitchingHours": 2,
+    "maxProductsPerFactory": 5,
+    "multiProductEnabled": true,
+    "requireInputSimilarity": true,
+    "minSharedCategoriesForCompatibility": 1
   },
   "retail": {
     "maxRetailQuantity": 3,
