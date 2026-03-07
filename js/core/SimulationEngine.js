@@ -362,7 +362,6 @@ export class SimulationEngine {
      */
     initializeSupplyContracts() {
         if (!this.config.purchasing?.enableContracts) {
-            console.log('⏭️ Contract auto-creation disabled in config');
             return;
         }
 
@@ -413,8 +412,6 @@ export class SimulationEngine {
         const manufacturers = Array.from(this.firms.values()).filter(firm =>
             firm.type === 'MANUFACTURING' && firm.product?.inputs?.length > 0
         );
-
-        console.log(`📋 Contract init: Found ${manufacturers.length} manufacturers with inputs`);
 
         for (const manufacturer of manufacturers) {
             for (const input of manufacturer.product.inputs) {
@@ -508,26 +505,17 @@ export class SimulationEngine {
             }
         }
 
-        console.log(`✅ Auto-created ${contractsCreated} supply contracts for ${manufacturers.length} manufacturers`);
-        console.log(`   📊 ${noSupplierCount} inputs had no supplier, ${capacityLimitedCount} limited by supplier capacity`);
-
         // === RETAIL CONTRACTS ===
         // Delegate retail contract creation to RetailPurchaseManager
         const retailPurchaseManager = this.purchaseManager.retailPurchaseManager;
         if (retailPurchaseManager) {
-            let retailContractsCreated = 0;
-
             const retailers = Array.from(this.firms.values()).filter(firm =>
                 firm.type === 'RETAIL' && firm.productInventory?.size > 0
             );
 
-            console.log(`📋 Contract init: Found ${retailers.length} retailers with inventory`);
-
             for (const retailer of retailers) {
-                retailContractsCreated += retailPurchaseManager.initializeRetailerContracts(retailer);
+                retailPurchaseManager.initializeRetailerContracts(retailer);
             }
-
-            console.log(`✅ Auto-created ${retailContractsCreated} supply contracts for retailers`);
         }
     }
 

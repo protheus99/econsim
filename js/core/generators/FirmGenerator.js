@@ -148,17 +148,6 @@ export class FirmGenerator {
         this.engine.firms.forEach(firm => {
             typeCount[firm.type] = (typeCount[firm.type] || 0) + 1;
         });
-        console.log('📊 Firm distribution:', typeCount);
-
-        // Log corporation facility counts
-        console.log('📊 Corporation facility counts:');
-        this.engine.corporations.forEach(corp => {
-            if (corp.facilities.length > 0) {
-                console.log(`  - ${corp.name}: ${corp.facilities.length} facilities`);
-            }
-        });
-        const totalFacilities = this.engine.corporations.reduce((sum, c) => sum + (c.facilities?.length || 0), 0);
-        console.log(`📊 Total facilities across all corporations: ${totalFacilities}`);
     }
 
     /**

@@ -167,7 +167,7 @@ export class ManufacturingPlant extends Firm {
 
         // Apply random 10-20% reduction to simulate equipment variability
         // This creates room for future efficiency improvements
-        const randomFn = this.engine?.random || Math.random;
+        const randomFn = this.engine?.random ? this.engine.random.bind(this.engine) : Math.random;
         const reductionPercent = 0.10 + (randomFn() * 0.10); // 10-20% reduction
         outputPerHour = outputPerHour * (1 - reductionPercent);
 
@@ -525,7 +525,7 @@ export class ManufacturingPlant extends Firm {
         const baseOutput = newProduct.baseProductionRate || 10;
         const complexity = newProduct.technologyRequired || 1;
         let outputPerHour = baseOutput / Math.sqrt(complexity);
-        const randomFn = this.engine?.random || Math.random;
+        const randomFn = this.engine?.random ? this.engine.random.bind(this.engine) : Math.random;
         const reductionPercent = 0.10 + (randomFn() * 0.10);
         outputPerHour = outputPerHour * (1 - reductionPercent);
 
@@ -1020,12 +1020,14 @@ export class ManufacturingPlant extends Firm {
 
         for (const line of this.productionLines) {
             // Skip lines that are switching or idle
-            if (line.status !== 'ACTIVE') {
+            // Default to ACTIVE for backward compatibility (old lines without status field)
+            const lineStatus = line.status || 'ACTIVE';
+            if (lineStatus !== 'ACTIVE') {
                 productionResults.push({
                     lineId: line.id,
                     productName: line.productName,
                     produced: false,
-                    reason: line.status === 'SWITCHING' ? 'LINE_SWITCHING' : 'LINE_IDLE'
+                    reason: lineStatus === 'SWITCHING' ? 'LINE_SWITCHING' : 'LINE_IDLE'
                 });
                 continue;
             }
@@ -1073,7 +1075,7 @@ export class ManufacturingPlant extends Firm {
             }
 
             // Account for downtime (per line)
-            const randomFn = this.engine?.random || Math.random;
+            const randomFn = this.engine?.random ? this.engine.random.bind(this.engine) : Math.random;
             if (randomFn() < this.downtimePercentage) {
                 productionResults.push({
                     lineId: line.id,
