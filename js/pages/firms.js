@@ -813,7 +813,25 @@ function renderSpecificDetails(firm) {
                 `;
             }
 
+            // Debug panel HTML
+            const debugPanelHtml = `
+                <div class="debug-panel" style="background: #1a1a2e; border: 2px solid #e74c3c; border-radius: 8px; padding: 12px; margin-bottom: 16px;">
+                    <div style="color: #e74c3c; font-weight: bold; margin-bottom: 8px;">DEBUG INFO</div>
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; font-family: monospace; font-size: 0.85rem;">
+                        <div><span style="color: #888;">firm.engine:</span> <span style="color: ${engineRef === 'SET' ? '#2ecc71' : '#e74c3c'};">${engineRef}</span></div>
+                        <div><span style="color: #888;">simulation.clock.hour:</span> <span style="color: #3498db;">${clockHour}</span></div>
+                        <div><span style="color: #888;">firm.engine.clock.hour:</span> <span style="color: #3498db;">${engineClockHour}</span></div>
+                        <div><span style="color: #888;">shiftConfig.shiftCount:</span> <span style="color: #f1c40f;">${shiftConfig.shiftCount}</span></div>
+                        <div><span style="color: #888;">shiftSchedule:</span> <span style="color: #f1c40f;">${shiftSchedule}</span></div>
+                        <div><span style="color: #888;">isActiveHour(${clockHour}):</span> <span style="color: ${isActive ? '#2ecc71' : '#e74c3c'};">${isActive}</span></div>
+                        <div><span style="color: #888;">actualProductionRate:</span> <span style="color: #9b59b6;">${actualProdRate}</span></div>
+                        <div><span style="color: #888;">finishedGoods:</span> <span style="color: #9b59b6;">${firm.finishedGoodsInventory?.quantity?.toFixed(2) || 0}</span></div>
+                    </div>
+                </div>
+            `;
+
             container.innerHTML = `
+                ${debugPanelHtml}
                 <div class="specific-details-grid">
                     <div class="detail-item"><span class="label">Primary Product:</span><span class="value">${firm.product?.name || 'Unknown'}</span></div>
                     <div class="detail-item"><span class="label">Tier:</span><span class="value">${firm.product?.tier || 'Unknown'}</span></div>
