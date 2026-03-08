@@ -17,6 +17,9 @@ import { FirmGenerator } from './generators/FirmGenerator.js';
 import { DeliveryManager } from './managers/DeliveryManager.js';
 import { TradeExecutor } from './trading/TradeExecutor.js';
 
+// Corporate organic growth system
+import { CorporationManager } from './corporations/CorporationManager.js';
+
 export class SimulationEngine {
     constructor() {
         this.clock = new GameClock();
@@ -50,6 +53,9 @@ export class SimulationEngine {
         this.firmGenerator = new FirmGenerator(this);
         this.deliveryManager = new DeliveryManager(this);
         this.tradeExecutor = new TradeExecutor(this);
+
+        // Corporation Manager for organic growth system
+        this.corporationManager = null; // Initialized after config load
 
         // Legacy alias for backward compatibility
         this.pendingLocalDeliveries = this.deliveryManager.pendingDeliveries;
@@ -130,8 +136,15 @@ export class SimulationEngine {
                 // Enable contract-based purchasing
                 enableContracts: true,
                 // Enable supplier scoring with transport costs
-                enableSupplierScoring: true,
-                // Global market premium multiplier
+                enableSupplierScoring: true
+            },
+            corporations: {
+                // Enable organic growth (firms created via board meetings)
+                organicGrowth: false,  // Set to true to enable organic growth
+                // Firms per corporation for generation
+                firmsPerCorp: 4,
+                // Initial firms created per corporation when organic growth is disabled
+                initialFirmsPerCorp: 0
             }
         };
 
@@ -181,7 +194,8 @@ export class SimulationEngine {
         // Merge each config section
         const sections = [
             'simulation', 'inventory', 'countries', 'cities',
-            'firms', 'products', 'transportation', 'labor', 'banking'
+            'firms', 'products', 'transportation', 'labor', 'banking',
+            'corporations', 'purchasing'
         ];
 
         for (const section of sections) {
@@ -225,18 +239,36 @@ export class SimulationEngine {
         this.cityManager = new CityManager(this.countries, this.config, () => this.random());
         this.cities = this.cityManager.generateInitialCities(); // Uses config.cities.initial
 
+        // Initialize Corporation Manager for organic growth
+        this.corporationManager = new CorporationManager(this);
+
         // Generate corporations and build lookup Map
-        this.corporations = this.generateCorporations();
+        if (this.config.corporations?.organicGrowth) {
+            // Use new organic growth system - corporations with personas
+            this.corporations = this.corporationManager.generateCorporations();
+            console.log('✅ Using organic growth system - firms created via board meetings');
+        } else {
+            // Legacy system - simple corporations
+            this.corporations = this.generateCorporations();
+        }
         this.corporations.forEach(corp => this.corporationsById.set(corp.id, corp));
 
         // Generate firms (mining, logging, farms, manufacturing, retail, banks)
-        this.generateFirms();
+        // In organic growth mode, firms are created via monthly board meetings
+        if (!this.config.corporations?.organicGrowth) {
+            this.generateFirms();
+        } else {
+            console.log('📋 Organic growth: Firms will be created via monthly board meetings');
+        }
 
         // Wire up ContractManager to firms for production throttling
-        this.wireContractManagerToFirms();
+        // In organic growth mode, firms are created later via board meetings
+        if (!this.config.corporations?.organicGrowth) {
+            this.wireContractManagerToFirms();
 
-        // Auto-create supply contracts for manufacturers
-        this.initializeSupplyContracts();
+            // Auto-create supply contracts for manufacturers
+            this.initializeSupplyContracts();
+        }
 
         // Restore saved state if available (for cross-page persistence)
         const stateRestored = this.restoreState();
@@ -826,29 +858,39 @@ export class SimulationEngine {
     updateCorporationStats() {
         // Reset and recalculate corporation stats from their firms
         this.corporations.forEach(corp => {
-            corp.employees = 0;
-            corp.revenue = 0;
-            corp.monthlyRevenue = 0;
-            corp.profit = 0;
-            corp.monthlyProfit = 0;
-            corp.cash = 0;
-            corp.expenses = 0;
-            corp.monthlyExpenses = 0;
-        });
-
-        this.firms.forEach(firm => {
-            const corp = this.corporationsById.get(firm.corporationId);
-            if (corp) {
-                corp.employees += firm.totalEmployees || 0;
-                corp.revenue += firm.revenue || 0;
-                corp.monthlyRevenue += firm.monthlyRevenue || 0;
-                corp.profit += firm.profit || 0;
-                corp.monthlyProfit += (firm.monthlyRevenue || 0) - (firm.monthlyExpenses || 0);
-                corp.cash += firm.cash || 0;
-                corp.expenses += firm.expenses || 0;
-                corp.monthlyExpenses += firm.monthlyExpenses || 0;
+            // Support both legacy objects and new Corporation class
+            if (typeof corp.updateStats === 'function') {
+                // New Corporation class - use its method
+                corp.updateStats();
+            } else {
+                // Legacy corporation object - manual update
+                corp.employees = 0;
+                corp.revenue = 0;
+                corp.monthlyRevenue = 0;
+                corp.profit = 0;
+                corp.monthlyProfit = 0;
+                corp.cash = 0;
+                corp.expenses = 0;
+                corp.monthlyExpenses = 0;
             }
         });
+
+        // For legacy corporations, aggregate from firms
+        if (!this.config.corporations?.organicGrowth) {
+            this.firms.forEach(firm => {
+                const corp = this.corporationsById.get(firm.corporationId);
+                if (corp && typeof corp.updateStats !== 'function') {
+                    corp.employees += firm.totalEmployees || 0;
+                    corp.revenue += firm.revenue || 0;
+                    corp.monthlyRevenue += firm.monthlyRevenue || 0;
+                    corp.profit += firm.profit || 0;
+                    corp.monthlyProfit += (firm.monthlyRevenue || 0) - (firm.monthlyExpenses || 0);
+                    corp.cash += firm.cash || 0;
+                    corp.expenses += firm.expenses || 0;
+                    corp.monthlyExpenses += firm.monthlyExpenses || 0;
+                }
+            });
+        }
     }
 
     processFirmOperations() {
@@ -1315,6 +1357,13 @@ export class SimulationEngine {
     updateMonthly() {
         console.log(`📅 Month ${this.clock.month}, Year ${this.clock.year}`);
 
+        // Conduct board meetings for organic growth
+        if (this.config.corporations?.organicGrowth && this.corporationManager) {
+            const gameTime = this.clock.getGameTime();
+            const meetingResults = this.corporationManager.conductBoardMeetings(gameTime);
+            console.log(`📊 Economic Phase: ${meetingResults.economicPhase}`);
+        }
+
         // Update all cities
         this.cityManager.updateAllCities('monthly', this.clock.getGameTime());
 
@@ -1633,6 +1682,59 @@ export class SimulationEngine {
     }
 
     // ============================================
+    // Corporation and Organic Growth Methods
+    // ============================================
+
+    /**
+     * Get organic growth status
+     */
+    getOrganicGrowthStatus() {
+        if (!this.corporationManager) {
+            return { enabled: false };
+        }
+
+        return {
+            enabled: this.config.corporations?.organicGrowth ?? false,
+            economicPhase: this.corporationManager.economicPhase,
+            monthsElapsed: this.corporationManager.monthsElapsed,
+            totalCorporations: this.corporationManager.corporations.size,
+            pendingFirmCreations: this.corporationManager.pendingFirmCreations.length
+        };
+    }
+
+    /**
+     * Get corporation summary for UI
+     */
+    getCorporationSummary() {
+        const corporations = this.corporationManager?.getAllCorporations() || this.corporations;
+
+        return corporations.map(corp => ({
+            id: corp.id,
+            name: corp.name,
+            abbreviation: corp.abbreviation,
+            type: corp.type,
+            primaryTier: corp.getPrimaryTier?.() || 'UNKNOWN',
+            firmCount: corp.firms?.length || corp.facilities?.length || 0,
+            employees: corp.employees || 0,
+            capital: corp.capital || 0,
+            phase: corp.goals?.phase || 0
+        }));
+    }
+
+    /**
+     * Manually trigger board meetings (for testing)
+     */
+    triggerBoardMeetings() {
+        if (!this.config.corporations?.organicGrowth || !this.corporationManager) {
+            console.warn('Board meetings only available with organic growth enabled');
+            return null;
+        }
+
+        const gameTime = this.clock.getGameTime();
+        return this.corporationManager.conductBoardMeetings(gameTime);
+    }
+
+    // ============================================
     // State Persistence for Cross-Page Navigation
     // ============================================
 
@@ -1675,8 +1777,27 @@ export class SimulationEngine {
                 pendingDeliveries: [],
 
                 // Transaction log (recent entries only to save space)
-                recentTransactions: this.transactionLog?.transactions?.slice(-100) || []
+                recentTransactions: this.transactionLog?.transactions?.slice(-100) || [],
+
+                // Corporation Manager state (organic growth)
+                corporationManager: null
             };
+
+            // Serialize corporation manager state (organic growth)
+            if (this.config.corporations?.organicGrowth && this.corporationManager) {
+                state.corporationManager = {
+                    monthsElapsed: this.corporationManager.monthsElapsed,
+                    economicPhase: this.corporationManager.economicPhase,
+                    pendingFirmCreations: this.corporationManager.pendingFirmCreations,
+                    corporations: {}
+                };
+
+                for (const [id, corp] of this.corporationManager.corporations) {
+                    if (corp.getSerializableState) {
+                        state.corporationManager.corporations[id] = corp.getSerializableState();
+                    }
+                }
+            }
 
             // Serialize firms
             for (const [id, firm] of this.firms) {
@@ -1773,6 +1894,23 @@ export class SimulationEngine {
             // Restore transaction log
             if (state.recentTransactions && this.transactionLog) {
                 this.transactionLog.transactions = state.recentTransactions;
+            }
+
+            // Restore corporation manager state (organic growth)
+            if (state.corporationManager && this.corporationManager) {
+                this.corporationManager.monthsElapsed = state.corporationManager.monthsElapsed || 0;
+                this.corporationManager.economicPhase = state.corporationManager.economicPhase || 'FOUNDATION';
+                this.corporationManager.pendingFirmCreations = state.corporationManager.pendingFirmCreations || [];
+
+                // Restore corporation states
+                if (state.corporationManager.corporations) {
+                    for (const [id, corpState] of Object.entries(state.corporationManager.corporations)) {
+                        const corp = this.corporationManager.corporations.get(id);
+                        if (corp && corp.restoreState) {
+                            corp.restoreState(corpState);
+                        }
+                    }
+                }
             }
 
             // Count how many were actually restored

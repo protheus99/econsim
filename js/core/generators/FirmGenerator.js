@@ -457,8 +457,17 @@ export class FirmGenerator {
         const corp = corporation || this.engine.corporations[Math.floor(this.random() * this.engine.corporations.length)];
         firm.corporationId = corp.id;
         firm.corporationAbbreviation = corp.abbreviation;
-        corp.facilities.push(firm);
-        corp.employees += firm.totalEmployees;
+
+        // Support both legacy corporation objects and new Corporation class
+        if (typeof corp.addFirm === 'function') {
+            // New Corporation class with organic growth
+            corp.addFirm(firm);
+        } else {
+            // Legacy corporation object
+            corp.facilities = corp.facilities || [];
+            corp.facilities.push(firm);
+            corp.employees = (corp.employees || 0) + firm.totalEmployees;
+        }
 
         this.engine.firms.set(firm.id, firm);
         city.firms.push(firm);

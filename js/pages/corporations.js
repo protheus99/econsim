@@ -343,6 +343,9 @@ function showCorpDetail(corpId) {
 
     // Orders section
     renderCorpOrders(corp);
+
+    // Board meeting section (organic growth)
+    renderBoardMeetingInfo(corp);
 }
 
 function renderCorpOrders(corp) {
@@ -393,6 +396,328 @@ function renderCorpOrders(corp) {
             `).join('')}
         </div>
     `;
+}
+
+/**
+ * Render board meeting and strategy information for organic growth corporations
+ */
+function renderBoardMeetingInfo(corp) {
+    const boardSection = document.getElementById('board-meeting-section');
+    const personaInfo = document.getElementById('corp-persona-info');
+    const goalsInfo = document.getElementById('corp-goals-info');
+    const activeProjects = document.getElementById('corp-active-projects');
+    const meetingSummary = document.getElementById('corp-meeting-summary');
+    const meetingHistory = document.getElementById('corp-meeting-history');
+    const phaseBadge = document.getElementById('corp-phase-badge');
+
+    // Check if organic growth is enabled and corporation has the new structure
+    const isOrganicGrowth = simulation.config?.corporations?.organicGrowth;
+    const hasPersona = corp.primaryPersona || corp.personas;
+
+    if (!isOrganicGrowth || !hasPersona) {
+        // Hide the section for legacy corporations
+        if (boardSection) {
+            boardSection.style.display = 'none';
+        }
+        return;
+    }
+
+    // Show the section
+    if (boardSection) {
+        boardSection.style.display = 'block';
+    }
+
+    // Update phase badge
+    const phase = corp.goals?.phase || 1;
+    const phaseNames = { 1: 'Establishment', 2: 'Growth', 3: 'Maturity' };
+    phaseBadge.textContent = `Phase ${phase}: ${phaseNames[phase] || 'Unknown'}`;
+    phaseBadge.className = `card-badge phase-${phase}`;
+
+    // Render Corporate Identity / Persona
+    const primaryPersona = corp.primaryPersona || {};
+    const secondaryPersonas = corp.secondaryPersonas || [];
+    const corpType = corp.type || 'SPECIALIST';
+    const integrationLevel = corp.integrationLevel || 0;
+
+    personaInfo.innerHTML = `
+        <div class="persona-grid">
+            <div class="persona-item">
+                <span class="persona-label">Corporation Type</span>
+                <span class="persona-value corp-type-badge ${corpType.toLowerCase()}">${formatCorpType(corpType)}</span>
+            </div>
+            <div class="persona-item">
+                <span class="persona-label">Integration Level</span>
+                <span class="persona-value">${integrationLevel} / 4</span>
+            </div>
+            <div class="persona-item">
+                <span class="persona-label">Primary Persona</span>
+                <span class="persona-value">${formatPersonaType(primaryPersona.type)}</span>
+            </div>
+            <div class="persona-item">
+                <span class="persona-label">Primary Tier</span>
+                <span class="persona-value tier-badge ${(primaryPersona.tier || '').toLowerCase()}">${primaryPersona.tier || 'Unknown'}</span>
+            </div>
+            ${primaryPersona.products ? `
+            <div class="persona-item full-width">
+                <span class="persona-label">Focus Products</span>
+                <span class="persona-value">${primaryPersona.products.join(', ')}</span>
+            </div>
+            ` : ''}
+            ${secondaryPersonas.length > 0 ? `
+            <div class="persona-item full-width">
+                <span class="persona-label">Secondary Personas</span>
+                <span class="persona-value">${secondaryPersonas.map(p => formatPersonaType(p.type)).join(', ')}</span>
+            </div>
+            ` : ''}
+        </div>
+        ${corp.attributes ? renderAttributes(corp.attributes) : ''}
+    `;
+
+    // Render Strategic Goals
+    const goals = corp.goals || {};
+    const currentGoal = goals.primary || 'ESTABLISH_OPERATIONS';
+    const targetFirms = goals.targetFirms || 3;
+    const completedGoals = goals.completedGoals || [];
+
+    goalsInfo.innerHTML = `
+        <div class="goals-grid">
+            <div class="goal-item current-goal">
+                <span class="goal-label">Current Goal</span>
+                <span class="goal-value">${formatGoalType(currentGoal)}</span>
+            </div>
+            <div class="goal-item">
+                <span class="goal-label">Target Firms</span>
+                <span class="goal-value">${corp.firms?.length || corp.facilities?.length || 0} / ${targetFirms}</span>
+            </div>
+            <div class="goal-item">
+                <span class="goal-label">Capital Available</span>
+                <span class="goal-value">${formatCurrency(corp.capital || 0)}</span>
+            </div>
+            ${completedGoals.length > 0 ? `
+            <div class="goal-item full-width">
+                <span class="goal-label">Completed Goals</span>
+                <span class="goal-value completed-goals">
+                    ${completedGoals.map(g => `<span class="completed-goal-badge">${formatGoalType(g)}</span>`).join(' ')}
+                </span>
+            </div>
+            ` : ''}
+        </div>
+    `;
+
+    // Render Active Projects
+    const projects = corp.boardMeeting?.activeProjects || [];
+    const corporationManager = simulation.corporationManager;
+    const pendingCreations = corporationManager?.pendingFirmCreations?.filter(p => p.corporationId === corp.id) || [];
+
+    if (projects.length > 0 || pendingCreations.length > 0) {
+        const allProjects = [...projects, ...pendingCreations];
+        activeProjects.innerHTML = `
+            <div class="projects-list">
+                ${allProjects.map(project => {
+                    const progress = project.completionMonth && corporationManager?.monthsElapsed
+                        ? Math.min(100, Math.round(((corporationManager.monthsElapsed - project.startMonth) / (project.completionMonth - project.startMonth)) * 100))
+                        : 0;
+                    return `
+                    <div class="project-item ${project.status?.toLowerCase() || 'in-progress'}">
+                        <div class="project-header">
+                            <span class="project-type">${formatDecisionType(project.type)}</span>
+                            <span class="project-status">${project.status || 'IN_PROGRESS'}</span>
+                        </div>
+                        <div class="project-details">
+                            ${project.persona ? `<span class="project-persona">${formatPersonaType(project.persona.type)}</span>` : ''}
+                            ${project.cost ? `<span class="project-cost">${formatCurrency(project.cost)}</span>` : ''}
+                            ${project.rationale ? `<span class="project-rationale">${project.rationale}</span>` : ''}
+                        </div>
+                        ${progress > 0 ? `
+                        <div class="project-progress">
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: ${progress}%"></div>
+                            </div>
+                            <span class="progress-text">${progress}% complete</span>
+                        </div>
+                        ` : ''}
+                    </div>
+                    `;
+                }).join('')}
+            </div>
+        `;
+    } else {
+        activeProjects.innerHTML = '<p class="empty-state">No active projects</p>';
+    }
+
+    // Render Last Board Meeting
+    const lastMeeting = corp.boardMeeting?.lastMeeting;
+    if (lastMeeting) {
+        const summary = lastMeeting.summary || {};
+        meetingSummary.innerHTML = `
+            <div class="meeting-summary-content">
+                <div class="meeting-date">
+                    Meeting Date: ${formatMeetingDate(lastMeeting.date)}
+                </div>
+                <div class="meeting-stats-grid">
+                    <div class="meeting-stat">
+                        <span class="stat-label">Options Generated</span>
+                        <span class="stat-value">${summary.optionsGenerated || 0}</span>
+                    </div>
+                    <div class="meeting-stat">
+                        <span class="stat-label">Approved</span>
+                        <span class="stat-value approved">${summary.approved || 0}</span>
+                    </div>
+                    <div class="meeting-stat">
+                        <span class="stat-label">Deferred</span>
+                        <span class="stat-value deferred">${summary.deferred || 0}</span>
+                    </div>
+                    <div class="meeting-stat">
+                        <span class="stat-label">Current Goal</span>
+                        <span class="stat-value">${formatGoalType(summary.currentGoal)}</span>
+                    </div>
+                </div>
+                ${lastMeeting.approvedProjects?.length > 0 ? `
+                <div class="approved-decisions">
+                    <h5>Approved Decisions</h5>
+                    <ul class="decisions-list">
+                        ${lastMeeting.approvedProjects.map(d => `
+                            <li class="decision-item approved">
+                                <span class="decision-type">${formatDecisionType(d.type)}</span>
+                                ${d.rationale ? `<span class="decision-rationale">${d.rationale}</span>` : ''}
+                            </li>
+                        `).join('')}
+                    </ul>
+                </div>
+                ` : ''}
+                ${lastMeeting.deferredProjects?.length > 0 ? `
+                <div class="deferred-decisions">
+                    <h5>Deferred Decisions</h5>
+                    <ul class="decisions-list">
+                        ${lastMeeting.deferredProjects.slice(0, 5).map(d => `
+                            <li class="decision-item deferred">
+                                <span class="decision-type">${formatDecisionType(d.type)}</span>
+                                ${d.reason ? `<span class="decision-reason">${d.reason}</span>` : ''}
+                            </li>
+                        `).join('')}
+                    </ul>
+                </div>
+                ` : ''}
+            </div>
+        `;
+    } else {
+        meetingSummary.innerHTML = '<p class="empty-state">No board meetings held yet</p>';
+    }
+
+    // Render Meeting History
+    const history = corp.boardMeeting?.meetingHistory || [];
+    if (history.length > 0) {
+        meetingHistory.innerHTML = `
+            <div class="meeting-history-list">
+                ${history.slice(-6).reverse().map(meeting => {
+                    const s = meeting.summary || {};
+                    return `
+                    <div class="history-item">
+                        <span class="history-date">${formatMeetingDate(meeting.date)}</span>
+                        <span class="history-stats">
+                            <span class="approved">${s.approved || 0} approved</span>
+                            <span class="deferred">${s.deferred || 0} deferred</span>
+                        </span>
+                        <span class="history-goal">${formatGoalType(s.currentGoal)}</span>
+                    </div>
+                    `;
+                }).join('')}
+            </div>
+        `;
+    } else {
+        meetingHistory.innerHTML = '<p class="empty-state">No meeting history</p>';
+    }
+}
+
+/**
+ * Render corporation attributes as a visual indicator
+ */
+function renderAttributes(attributes) {
+    if (!attributes) return '';
+
+    const attrs = [
+        { key: 'riskTolerance', label: 'Risk Tolerance', low: 'Conservative', high: 'Aggressive' },
+        { key: 'qualityFocus', label: 'Quality Focus', low: 'Cost-focused', high: 'Quality-focused' },
+        { key: 'growthOrientation', label: 'Growth', low: 'Stable', high: 'Growth-oriented' },
+        { key: 'integrationPreference', label: 'Integration', low: 'Independent', high: 'Integrated' }
+    ];
+
+    return `
+        <div class="attributes-section">
+            <h5>Corporation Attributes</h5>
+            <div class="attributes-grid">
+                ${attrs.map(attr => {
+                    const value = attributes[attr.key] || 0.5;
+                    const percentage = Math.round(value * 100);
+                    return `
+                    <div class="attribute-item">
+                        <span class="attribute-label">${attr.label}</span>
+                        <div class="attribute-bar">
+                            <div class="attribute-fill" style="width: ${percentage}%"></div>
+                        </div>
+                        <span class="attribute-description">${value < 0.4 ? attr.low : value > 0.6 ? attr.high : 'Balanced'}</span>
+                    </div>
+                    `;
+                }).join('')}
+            </div>
+        </div>
+    `;
+}
+
+// Helper functions for formatting
+function formatCorpType(type) {
+    const types = {
+        'SPECIALIST': 'Specialist',
+        'HORIZONTAL': 'Horizontal Group',
+        'VERTICAL': 'Vertical Chain',
+        'CONGLOMERATE': 'Conglomerate',
+        'FULL_VERTICAL': 'Full Vertical'
+    };
+    return types[type] || type;
+}
+
+function formatPersonaType(type) {
+    if (!type) return 'Unknown';
+    return type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+}
+
+function formatGoalType(goal) {
+    if (!goal) return 'Unknown';
+    const goals = {
+        'ESTABLISH_OPERATIONS': 'Establish Operations',
+        'SECURE_SUPPLY': 'Secure Supply',
+        'EXPAND_CAPACITY': 'Expand Capacity',
+        'VERTICAL_INTEGRATION': 'Vertical Integration',
+        'HORIZONTAL_EXPANSION': 'Horizontal Expansion',
+        'INCREASE_MARKET_SHARE': 'Market Share',
+        'IMPROVE_PROFITABILITY': 'Profitability',
+        'ENTER_NEW_MARKET': 'Enter New Market'
+    };
+    return goals[goal] || goal;
+}
+
+function formatDecisionType(type) {
+    if (!type) return 'Unknown';
+    const decisions = {
+        'OPEN_FIRM': 'Open New Firm',
+        'SIGN_SUPPLY_CONTRACT': 'Sign Supply Contract',
+        'SIGN_SALES_CONTRACT': 'Sign Sales Contract',
+        'EXPAND_FIRM': 'Expand Firm',
+        'CLOSE_FIRM': 'Close Firm',
+        'HIRE_WORKERS': 'Hire Workers',
+        'ENTER_CITY': 'Enter New City',
+        'DEFER': 'Deferred',
+        'CONSIDER_VERTICAL_INTEGRATION': 'Consider Integration'
+    };
+    return decisions[type] || type;
+}
+
+function formatMeetingDate(date) {
+    if (!date) return 'Unknown';
+    if (typeof date === 'object') {
+        return `Month ${date.month || 1}, Year ${date.year || 2025}`;
+    }
+    return date;
 }
 
 init();

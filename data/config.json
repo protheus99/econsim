@@ -91,7 +91,15 @@
     }
   },
   "corporations": {
-    "firmsPerCorp": 15
+    "firmsPerCorp": 15,
+    "organicGrowth": true,
+    "boardMeetingFrequency": "monthly",
+    "economicPhaseMonths": {
+      "FOUNDATION": 3,
+      "PROCESSING": 6,
+      "MANUFACTURING": 12,
+      "RETAIL": 18
+    }
   },
   "firms": {
     "types": ["MINING", "LOGGING", "FARM", "MANUFACTURING_SEMI", "MANUFACTURING", "RETAIL", "BANK"],
