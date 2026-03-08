@@ -94,6 +94,13 @@
     "firmsPerCorp": 15,
     "organicGrowth": true,
     "boardMeetingFrequency": "monthly",
+    "targetTotalCorporations": 80,
+    "monthlyCreationLimit": 3,
+    "viability": {
+      "semiRawMinInputs": 1,
+      "manufacturedMinInputPercent": 0.5,
+      "retailMinProductPercent": 0.3
+    },
     "economicPhaseMonths": {
       "FOUNDATION": 3,
       "PROCESSING": 6,

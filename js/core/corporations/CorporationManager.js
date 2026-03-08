@@ -313,6 +313,21 @@ export class CorporationManager {
         // Economic phase tracking
         this.economicPhase = 'FOUNDATION';
         this.monthsElapsed = 0;
+
+        // Track available products in the market (for viability checking)
+        this.availableProducts = new Set();
+
+        // Track how many corps to create total
+        this.targetTotalCorporations = engine.config?.corporations?.targetTotalCorporations ?? 80;
+        this.monthlyCreationLimit = engine.config?.corporations?.monthlyCreationLimit ?? 3;
+
+        // Viability thresholds from config
+        const viabilityConfig = engine.config?.corporations?.viability ?? {};
+        this.viabilityThresholds = {
+            semiRawMinInputs: viabilityConfig.semiRawMinInputs ?? 1,
+            manufacturedMinInputPercent: viabilityConfig.manufacturedMinInputPercent ?? 0.5,
+            retailMinProductPercent: viabilityConfig.retailMinProductPercent ?? 0.3
+        };
     }
 
     /**
@@ -324,30 +339,81 @@ export class CorporationManager {
 
     /**
      * Generate corporations based on config
+     * Called at startup (creates RAW + vertical corps) and monthly (creates more as viable)
      * @returns {Array<Corporation>} Generated corporations
      */
     generateCorporations() {
         const config = this.engine.config;
-        const firmsPerCityConfig = config.firms?.perCity ?? { min: 5, max: 10 };
-        const avgFirmsPerCity = (firmsPerCityConfig.min + firmsPerCityConfig.max) / 2;
-        const totalCities = config.cities?.initial ?? 8;
-        const expectedTotalFirms = totalCities * avgFirmsPerCity;
-        const firmsPerCorp = config.corporations?.firmsPerCorp ?? 4;
 
-        const corpCount = Math.max(5, Math.round(expectedTotalFirms / firmsPerCorp));
+        // Calculate how many corps we should try to create
+        const isStartup = this.corporations.size === 0;
+        let targetCount;
 
-        console.log(`📊 Generating ${corpCount} corporations (organic growth system)`);
-
-        const corporations = [];
-
-        for (let i = 0; i < corpCount; i++) {
-            const corporation = this.generateCorporation(i);
-            corporations.push(corporation);
-            this.corporations.set(corporation.id, corporation);
-            this.corporationsById.set(corporation.id, corporation);
+        if (isStartup) {
+            // At startup, calculate based on expected firms
+            const firmsPerCityConfig = config.firms?.perCity ?? { min: 5, max: 10 };
+            const avgFirmsPerCity = (firmsPerCityConfig.min + firmsPerCityConfig.max) / 2;
+            const totalCities = config.cities?.initial ?? 8;
+            const expectedTotalFirms = totalCities * avgFirmsPerCity;
+            const firmsPerCorp = config.corporations?.firmsPerCorp ?? 4;
+            targetCount = Math.max(5, Math.round(expectedTotalFirms / firmsPerCorp));
+        } else {
+            // Monthly: try to create up to limit if under target
+            targetCount = Math.min(
+                this.monthlyCreationLimit,
+                this.targetTotalCorporations - this.corporations.size
+            );
         }
 
-        // Log distribution
+        if (targetCount <= 0) {
+            return [];
+        }
+
+        // Update available products before checking viability
+        this.updateAvailableProducts();
+
+        console.log(`📊 Generating corporations (viability check enabled)`);
+        console.log(`   Available products: ${this.availableProducts.size > 0 ? Array.from(this.availableProducts).slice(0, 5).join(', ') + '...' : '(none yet)'}`);
+
+        const corporations = [];
+        let created = 0;
+        let skipped = 0;
+        const startIndex = this.corporations.size;
+
+        // At startup, we may need multiple passes to reach target
+        // because non-viable corps are skipped
+        const maxAttempts = isStartup ? targetCount * 3 : targetCount * 2;
+
+        for (let attempt = 0; attempt < maxAttempts && created < targetCount; attempt++) {
+            // Generate corporation blueprint
+            const corporation = this.generateCorporation(startIndex + attempt);
+
+            // Check viability before activating
+            if (this.checkViability(corporation)) {
+                corporations.push(corporation);
+                this.corporations.set(corporation.id, corporation);
+                this.corporationsById.set(corporation.id, corporation);
+                created++;
+            } else {
+                skipped++;
+                // Don't add to corporations - will be attempted again next month
+            }
+        }
+
+        // Log results
+        console.log(`   Created: ${created}, Skipped (not viable): ${skipped}`);
+        this.logTierDistribution(corporations);
+
+        return corporations;
+    }
+
+    /**
+     * Log tier distribution for created corporations
+     * @param {Array<Corporation>} corporations - Corporations to log
+     */
+    logTierDistribution(corporations) {
+        if (corporations.length === 0) return;
+
         const typeCounts = {};
         const tierCounts = {};
         for (const corp of corporations) {
@@ -358,8 +424,6 @@ export class CorporationManager {
 
         console.log(`   Types: ${JSON.stringify(typeCounts)}`);
         console.log(`   Tiers: ${JSON.stringify(tierCounts)}`);
-
-        return corporations;
     }
 
     /**
@@ -697,6 +761,214 @@ export class CorporationManager {
         return entries[0][0];
     }
 
+    // ========================================
+    // VIABILITY CHECKING METHODS
+    // ========================================
+
+    /**
+     * Update the set of available products based on existing firms
+     * A product is "available" when at least one firm exists that can PRODUCE it
+     */
+    updateAvailableProducts() {
+        this.availableProducts.clear();
+
+        for (const firm of this.engine.firms.values()) {
+            // RAW firms - add their output product
+            if (firm.type === 'MINING' && firm.resourceType) {
+                this.availableProducts.add(firm.resourceType);
+            }
+            if (firm.type === 'LOGGING' && firm.timberType) {
+                this.availableProducts.add(firm.timberType);
+            }
+            if (firm.type === 'FARM') {
+                if (firm.cropType) this.availableProducts.add(firm.cropType);
+                if (firm.livestockType) this.availableProducts.add(firm.livestockType);
+            }
+
+            // Manufacturing firms - add their output product
+            if (firm.type === 'MANUFACTURING' && firm.product?.name) {
+                this.availableProducts.add(firm.product.name);
+            }
+
+            // Retail firms don't produce - they only sell, so no products added
+        }
+    }
+
+    /**
+     * Check if a corporation is viable based on supply chain dependencies
+     * @param {Corporation} corp - Corporation to check
+     * @returns {boolean} True if corporation can operate
+     */
+    checkViability(corp) {
+        const tier = corp.getPrimaryTier();
+        const persona = corp.primaryPersona;
+
+        // RAW tier is ALWAYS viable - no input dependencies
+        if (tier === INDUSTRY_TIERS.RAW) {
+            return true;
+        }
+
+        // Vertically integrated corps that have RAW capability are viable
+        if (this.canSelfSupply(corp)) {
+            return true;
+        }
+
+        // Check tier-specific viability
+        switch (tier) {
+            case INDUSTRY_TIERS.SEMI_RAW:
+                return this.checkSemiRawViability(persona);
+
+            case INDUSTRY_TIERS.MANUFACTURED:
+                return this.checkManufacturedViability(persona);
+
+            case INDUSTRY_TIERS.RETAIL:
+                return this.checkRetailViability(persona);
+
+            default:
+                return false;
+        }
+    }
+
+    /**
+     * Check if corporation can self-supply through vertical integration
+     * @param {Corporation} corp - Corporation to check
+     * @returns {boolean} True if has RAW capability
+     */
+    canSelfSupply(corp) {
+        const type = corp.type;
+
+        // Only vertical types can self-supply
+        if (type !== CORPORATION_TYPES.VERTICAL &&
+            type !== CORPORATION_TYPES.FULL_VERTICAL &&
+            type !== CORPORATION_TYPES.CONGLOMERATE) {
+            return false;
+        }
+
+        // Check if has RAW capability in primary or secondary
+        if (corp.getPrimaryTier() === INDUSTRY_TIERS.RAW) {
+            return true;
+        }
+
+        for (const persona of corp.secondaryPersonas || []) {
+            if (persona.tier === INDUSTRY_TIERS.RAW) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Check viability for SEMI_RAW tier corporations
+     * @param {Object} persona - Corporation persona
+     * @returns {boolean} True if at least one input is available
+     */
+    checkSemiRawViability(persona) {
+        const upstreamSources = persona.upstreamSource || [];
+        if (upstreamSources.length === 0) return true; // No specific requirements
+
+        let availableCount = 0;
+        for (const material of upstreamSources) {
+            if (this.availableProducts.has(material)) {
+                availableCount++;
+            }
+        }
+
+        // Need at least 1 input available
+        return availableCount >= this.viabilityThresholds.semiRawMinInputs;
+    }
+
+    /**
+     * Check viability for MANUFACTURED tier corporations
+     * @param {Object} persona - Corporation persona
+     * @returns {boolean} True if enough inputs are available
+     */
+    checkManufacturedViability(persona) {
+        const inputs = this.getPersonaInputs(persona);
+        if (inputs.length === 0) return true;
+
+        const availableCount = inputs.filter(i =>
+            this.availableProducts.has(i)
+        ).length;
+
+        // Need at least 50% of inputs available
+        const percent = availableCount / inputs.length;
+        return percent >= this.viabilityThresholds.manufacturedMinInputPercent;
+    }
+
+    /**
+     * Check viability for RETAIL tier corporations
+     * @param {Object} persona - Corporation persona
+     * @returns {boolean} True if enough products to sell are available
+     */
+    checkRetailViability(persona) {
+        const productsSold = persona.productsSold || [];
+        if (productsSold.length === 0) return true;
+
+        // For retail, we check if manufactured products in their categories exist
+        // Since productsSold are categories like 'Food', 'Electronics', we need to
+        // check if any products in those categories are available
+        let availableCount = 0;
+        for (const category of productsSold) {
+            if (this.hasProductsInCategory(category)) {
+                availableCount++;
+            }
+        }
+
+        // Need at least 30% of categories to have products
+        const percent = availableCount / productsSold.length;
+        return percent >= this.viabilityThresholds.retailMinProductPercent;
+    }
+
+    /**
+     * Check if any products exist in a retail category
+     * @param {string} category - Category name like 'Food', 'Electronics'
+     * @returns {boolean} True if products exist in this category
+     */
+    hasProductsInCategory(category) {
+        // Map retail categories to manufactured products
+        const categoryProducts = {
+            'Food': ['Bread', 'Cake', 'Candy', 'Ice Cream', 'Breakfast Cereal', 'Canned Goods', 'Packaged Meat', 'Packaged Seafood'],
+            'Beverages': ['Soda', 'Alcohol'],
+            'Cleaning': ['Cleaning Products'],
+            'Health': ['Medicine', 'Vitamins'],
+            'Beauty': ['Cosmetics', 'Personal Care'],
+            'Snacks': ['Candy', 'Chips'],
+            'Electronics': ['Laptops', 'Personal Computer', 'Tablets', 'Monitors', 'Cellphone', 'TV', 'Console', 'Headphones'],
+            'Appliances': ['Vacuums', 'Microwave', 'Air Conditioner', 'Washing Machine', 'Dryer'],
+            'Clothing': ['Shirts', 'Jeans', 'Sweaters', 'Socks', 'Jackets', 'Shoes'],
+            'Accessories': ['Watches', 'Jewelry'],
+            'Furniture': ['Sofa', 'Tables', 'Beds', 'Dresser'],
+            'Vehicles': ['Cars', 'Trucks'],
+            'Auto Parts': ['Tires', 'Batteries']
+        };
+
+        const products = categoryProducts[category] || [];
+        return products.some(p => this.availableProducts.has(p));
+    }
+
+    /**
+     * Get input requirements from persona
+     * @param {Object} persona - Corporation persona
+     * @returns {Array<string>} List of input product names
+     */
+    getPersonaInputs(persona) {
+        // Check direct upstreamSource
+        if (persona.upstreamSource && Array.isArray(persona.upstreamSource)) {
+            return persona.upstreamSource;
+        }
+
+        // Check product focus for inputs
+        if (persona.selectedFocus && persona.productFocuses) {
+            const focus = persona.productFocuses[persona.selectedFocus];
+            if (focus?.upstreamSource) {
+                return Array.isArray(focus.upstreamSource) ? focus.upstreamSource : [];
+            }
+        }
+
+        return [];
+    }
+
     /**
      * Conduct monthly board meetings for all corporations
      */
@@ -710,6 +982,16 @@ export class CorporationManager {
         this.economicPhase = determineEconomicPhase(marketState);
 
         console.log(`📋 Month ${this.monthsElapsed}: Board meetings (Phase: ${this.economicPhase})`);
+
+        // Try to create new corporations if under target
+        let newCorpsCreated = 0;
+        if (this.corporations.size < this.targetTotalCorporations) {
+            const newCorps = this.generateCorporations();
+            newCorpsCreated = newCorps.length;
+            if (newCorpsCreated > 0) {
+                console.log(`   New corporations created: ${newCorpsCreated}`);
+            }
+        }
 
         let totalApproved = 0;
         let totalDeferred = 0;
@@ -737,7 +1019,9 @@ export class CorporationManager {
             economicPhase: this.economicPhase,
             totalApproved,
             totalDeferred,
-            pendingCreations: this.pendingFirmCreations.length
+            pendingCreations: this.pendingFirmCreations.length,
+            newCorporations: newCorpsCreated,
+            totalCorporations: this.corporations.size
         };
     }
 

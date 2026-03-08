@@ -2,9 +2,9 @@
 import { getSimulation, onUpdate, setupClock, setupControls, formatNumber, formatCurrency, getFirmTypeName } from './shared.js';
 
 let simulation;
-let currentSort = 'cash-desc';
-let currentFilter = 'all';
-let searchTerm = '';
+let currentSort = 'capital-desc';
+let currentTierFilter = 'all';
+let currentPersonaFilter = 'all';
 
 async function init() {
     try {
@@ -39,13 +39,13 @@ async function init() {
         renderCorporations();
     });
 
-    document.getElementById('corps-filter-select')?.addEventListener('change', (e) => {
-        currentFilter = e.target.value;
+    document.getElementById('corps-tier-filter')?.addEventListener('change', (e) => {
+        currentTierFilter = e.target.value;
         renderCorporations();
     });
 
-    document.getElementById('corps-search-input')?.addEventListener('input', (e) => {
-        searchTerm = e.target.value.toLowerCase();
+    document.getElementById('corps-persona-filter')?.addEventListener('change', (e) => {
+        currentPersonaFilter = e.target.value;
         renderCorporations();
     });
 
@@ -167,14 +167,20 @@ function renderCorporations() {
 
     let corps = [...simulation.corporations];
 
-    // Filter
-    if (currentFilter !== 'all') {
-        corps = corps.filter(c => c.character === currentFilter);
+    // Filter by tier
+    if (currentTierFilter !== 'all') {
+        corps = corps.filter(c => {
+            const tier = c.primaryPersona?.tier || c.getPrimaryTier?.() || null;
+            return tier === currentTierFilter;
+        });
     }
 
-    // Search
-    if (searchTerm) {
-        corps = corps.filter(c => c.name.toLowerCase().includes(searchTerm));
+    // Filter by persona
+    if (currentPersonaFilter !== 'all') {
+        corps = corps.filter(c => {
+            const personaType = c.primaryPersona?.type || null;
+            return personaType === currentPersonaFilter;
+        });
     }
 
     // Sort
@@ -182,11 +188,12 @@ function renderCorporations() {
     corps.sort((a, b) => {
         let aVal, bVal;
         switch (field) {
+            case 'capital': aVal = a.capital || 0; bVal = b.capital || 0; break;
             case 'cash': aVal = a.cash || 0; bVal = b.cash || 0; break;
             case 'profit': aVal = a.profit || 0; bVal = b.profit || 0; break;
             case 'revenue': aVal = a.revenue || 0; bVal = b.revenue || 0; break;
             case 'employees': aVal = a.employees || 0; bVal = b.employees || 0; break;
-            case 'facilities': aVal = a.facilities?.length || 0; bVal = b.facilities?.length || 0; break;
+            case 'facilities': aVal = a.facilities?.length || a.firms?.length || 0; bVal = b.facilities?.length || b.firms?.length || 0; break;
             case 'name': aVal = a.name; bVal = b.name; break;
             default: aVal = 0; bVal = 0;
         }
@@ -198,25 +205,46 @@ function renderCorporations() {
         const corpOrders = getCorpOrders(corp);
         const monthlySalary = getCorpMonthlySalary(corp);
         const monthlyProfit = corp.monthlyProfit || 0;
+
+        // Get tier and persona for organic growth corps
+        const tier = corp.primaryPersona?.tier || null;
+        const personaType = corp.primaryPersona?.type || null;
+        const corpType = corp.type || null;
+        const firmCount = corp.firms?.length || corp.facilities?.length || 0;
+        const capital = corp.capital || 0;
+
         return `
         <div class="corp-card" data-corp-id="${corp.id}">
             <div class="corp-card-header">
                 <span class="corp-abbr">${corp.abbreviation || '???'}</span>
                 <span class="corp-name">${corp.name}</span>
-                <span class="corp-badge ${corp.character?.toLowerCase()}">${corp.character || 'Unknown'}</span>
+                ${corpType ? `<span class="corp-type-badge ${corpType.toLowerCase()}">${formatCorpType(corpType)}</span>` : ''}
             </div>
+            ${tier || personaType ? `
+            <div class="corp-card-tags">
+                ${tier ? `<span class="tier-badge ${tier.toLowerCase()}">${tier}</span>` : ''}
+                ${personaType ? `<span class="persona-badge">${formatPersonaType(personaType)}</span>` : ''}
+            </div>
+            ` : ''}
             <div class="corp-card-stats">
+                ${capital > 0 ? `
+                <div class="stat-item">
+                    <span class="stat-label">Capital</span>
+                    <span class="stat-value">${formatCurrency(capital)}</span>
+                </div>
+                ` : `
                 <div class="stat-item">
                     <span class="stat-label">Cash</span>
                     <span class="stat-value">${formatCurrency(corp.cash || 0)}</span>
                 </div>
+                `}
                 <div class="stat-item">
-                    <span class="stat-label">Monthly Revenue</span>
-                    <span class="stat-value">${formatCurrency(corp.monthlyRevenue || 0)}</span>
+                    <span class="stat-label">Firms</span>
+                    <span class="stat-value">${firmCount}</span>
                 </div>
                 <div class="stat-item">
-                    <span class="stat-label">Total Revenue</span>
-                    <span class="stat-value">${formatCurrency(corp.revenue || 0)}</span>
+                    <span class="stat-label">Employees</span>
+                    <span class="stat-value">${formatNumber(corp.employees || 0)}</span>
                 </div>
                 <div class="stat-item">
                     <span class="stat-label">Monthly Profit</span>
@@ -277,9 +305,34 @@ function showCorpDetail(corpId) {
 
     // Financial stats
     const monthlyProfit = corp.monthlyProfit || 0;
+    const isOrganicGrowth = simulation.config?.corporations?.organicGrowth;
+    const hasCapital = corp.capital !== undefined;
+
+    // Calculate total funds (capital + cash from firms)
+    const capital = corp.capital || 0;
+    const firmCash = corp.cash || 0;
+    const totalFunds = capital + firmCash;
+
     document.getElementById('corp-financial-stats').innerHTML = `
         <div class="stats-grid">
+            ${isOrganicGrowth && hasCapital ? `
+            <div class="stat-item">
+                <span class="stat-label">Investment Capital</span>
+                <span class="stat-value">${formatCurrency(capital)}</span>
+                <span class="stat-hint">For opening new firms</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Operational Cash</span>
+                <span class="stat-value">${formatCurrency(firmCash)}</span>
+                <span class="stat-hint">From firm operations</span>
+            </div>
+            <div class="stat-item stat-highlight">
+                <span class="stat-label">Total Funds</span>
+                <span class="stat-value">${formatCurrency(totalFunds)}</span>
+            </div>
+            ` : `
             <div class="stat-item"><span class="stat-label">Cash</span><span class="stat-value">${formatCurrency(corp.cash || 0)}</span></div>
+            `}
             <div class="stat-item"><span class="stat-label">Monthly Revenue</span><span class="stat-value">${formatCurrency(corp.monthlyRevenue || 0)}</span></div>
             <div class="stat-item"><span class="stat-label">Total Revenue</span><span class="stat-value">${formatCurrency(corp.revenue || 0)}</span></div>
             <div class="stat-item"><span class="stat-label">Monthly Expenses</span><span class="stat-value">${formatCurrency(corp.monthlyExpenses || 0)}</span></div>

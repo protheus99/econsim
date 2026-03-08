@@ -72,6 +72,8 @@
             <div class="corps-sort">
                 <label for="corps-sort-select">Sort by:</label>
                 <select id="corps-sort-select" aria-label="Sort corporations">
+                    <option value="capital-desc">Capital (High to Low)</option>
+                    <option value="capital-asc">Capital (Low to High)</option>
                     <option value="cash-desc">Cash (High to Low)</option>
                     <option value="cash-asc">Cash (Low to High)</option>
                     <option value="profit-desc">Profit (High to Low)</option>
@@ -85,18 +87,57 @@
                 </select>
             </div>
             <div class="corps-filter">
-                <label for="corps-filter-select">Filter:</label>
-                <select id="corps-filter-select" aria-label="Filter by character type">
-                    <option value="all">All Characters</option>
-                    <option value="CONSERVATIVE">Conservative</option>
-                    <option value="MODERATE">Moderate</option>
-                    <option value="AGGRESSIVE">Aggressive</option>
-                    <option value="VERY_AGGRESSIVE">Very Aggressive</option>
+                <label for="corps-tier-filter">Tier:</label>
+                <select id="corps-tier-filter" aria-label="Filter by primary tier">
+                    <option value="all">All Tiers</option>
+                    <option value="RAW">RAW</option>
+                    <option value="SEMI_RAW">SEMI_RAW</option>
+                    <option value="MANUFACTURED">MANUFACTURED</option>
+                    <option value="RETAIL">RETAIL</option>
+                    <option value="SERVICES">SERVICES</option>
                 </select>
             </div>
-            <div class="corps-search">
-                <label for="corps-search-input" class="visually-hidden">Search corporations</label>
-                <input type="search" id="corps-search-input" placeholder="Search corporations..." aria-label="Search corporations">
+            <div class="corps-filter">
+                <label for="corps-persona-filter">Persona:</label>
+                <select id="corps-persona-filter" aria-label="Filter by primary persona">
+                    <option value="all">All Personas</option>
+                    <!-- RAW -->
+                    <optgroup label="RAW">
+                        <option value="MINING_COMPANY">Mining Company</option>
+                        <option value="LOGGING_COMPANY">Logging Company</option>
+                        <option value="FARM_CROP">Crop Farm</option>
+                        <option value="FARM_LIVESTOCK">Livestock Farm</option>
+                    </optgroup>
+                    <!-- SEMI_RAW -->
+                    <optgroup label="SEMI_RAW">
+                        <option value="STEEL_PROCESSING">Steel Processing</option>
+                        <option value="METAL_PROCESSING">Metal Processing</option>
+                        <option value="PETROLEUM_REFINERY">Petroleum Refinery</option>
+                        <option value="LUMBER_MILL">Lumber Mill</option>
+                        <option value="FOOD_INGREDIENT_PROCESSOR">Food Ingredient Processor</option>
+                        <option value="DAIRY_PROCESSOR">Dairy Processor</option>
+                        <option value="MEAT_PROCESSOR">Meat Processor</option>
+                        <option value="TEXTILE_MILL">Textile Mill</option>
+                    </optgroup>
+                    <!-- MANUFACTURED -->
+                    <optgroup label="MANUFACTURED">
+                        <option value="PACKAGED_FOOD">Packaged Food</option>
+                        <option value="BEVERAGE">Beverage</option>
+                        <option value="CLOTHING">Clothing</option>
+                        <option value="ELECTRONICS">Electronics</option>
+                        <option value="APPLIANCE">Appliance</option>
+                        <option value="FURNITURE">Furniture</option>
+                    </optgroup>
+                    <!-- RETAIL -->
+                    <optgroup label="RETAIL">
+                        <option value="SUPERMARKET">Supermarket</option>
+                        <option value="CONVENIENCE_STORE">Convenience Store</option>
+                        <option value="ELECTRONICS_RETAIL">Electronics Retail</option>
+                        <option value="FASHION_RETAIL">Fashion Retail</option>
+                        <option value="HOME_GOODS_RETAIL">Home Goods Retail</option>
+                        <option value="AUTO_RETAIL">Auto Retail</option>
+                    </optgroup>
+                </select>
             </div>
         </section>
 

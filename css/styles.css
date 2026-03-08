@@ -298,6 +298,29 @@ body {
     color: var(--accent-red);
 }
 
+/* Stat hints for clarification */
+.stat-hint {
+    display: block;
+    font-size: 10px;
+    color: var(--text-secondary);
+    font-style: italic;
+    margin-top: 2px;
+    opacity: 0.8;
+}
+
+/* Highlighted stat item */
+.stat-item.stat-highlight {
+    background: rgba(100, 181, 246, 0.1);
+    padding: 8px;
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(100, 181, 246, 0.3);
+}
+
+.stat-item.stat-highlight .stat-value {
+    color: var(--accent-blue);
+    font-size: 16px;
+}
+
 /* Corporation List */
 #corp-list {
     display: flex;
@@ -6409,6 +6432,26 @@ tr.tx-contract-row { border-left: 3px solid #ffa726; }
 .corp-type-badge.full_vertical {
     background: rgba(244, 67, 54, 0.2);
     color: var(--accent-red);
+}
+
+/* Corporation Card Tags */
+.corp-card-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 8px 0;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.persona-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    background: rgba(156, 39, 176, 0.15);
+    color: var(--accent-purple);
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 500;
 }
 
 /* Tier Badges */
