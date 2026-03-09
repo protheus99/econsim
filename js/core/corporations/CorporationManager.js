@@ -469,6 +469,9 @@ export class CorporationManager {
         // Calculate starting capital
         const capital = this.calculateStartingCapital(primaryTier, corpType);
 
+        // Select headquarters city
+        const headquarters = this.selectHeadquartersCity();
+
         // Create corporation
         const corporation = new Corporation({
             id: `CORP_${index + 1}`,
@@ -480,7 +483,9 @@ export class CorporationManager {
             secondaryPersonas,
             capital,
             attributes,
-            targetFirms: this.calculateTargetFirms(corpType, integrationLevel)
+            targetFirms: this.calculateTargetFirms(corpType, integrationLevel),
+            homeCity: headquarters.city,
+            homeCountry: headquarters.country
         });
 
         corporation.createdAt = Date.now();
@@ -726,6 +731,51 @@ export class CorporationManager {
         const multiplier = typeMultipliers[corpType] || 1.0;
 
         return Math.floor(base * multiplier * (0.8 + this.random() * 0.4));
+    }
+
+    /**
+     * Select a headquarters city for a new corporation
+     * Prefers larger cities with better infrastructure
+     */
+    selectHeadquartersCity() {
+        const cities = this.engine.cities;
+        if (!cities || cities.length === 0) {
+            return { city: null, country: null };
+        }
+
+        // Score cities based on population and infrastructure
+        const scoredCities = cities.map(city => {
+            let score = city.population || 10000;
+
+            // Bonus for infrastructure
+            if (city.hasAirport) score *= 1.3;
+            if (city.hasSeaport) score *= 1.2;
+            if (city.hasRailway) score *= 1.1;
+
+            return { city, score };
+        });
+
+        // Sort by score descending
+        scoredCities.sort((a, b) => b.score - a.score);
+
+        // Weighted selection favoring top cities
+        // Top 30% of cities have higher chance
+        const topCount = Math.max(1, Math.floor(cities.length * 0.3));
+        const useTopCity = this.random() < 0.7;
+
+        let selectedCity;
+        if (useTopCity) {
+            const topIndex = Math.floor(this.random() * topCount);
+            selectedCity = scoredCities[topIndex].city;
+        } else {
+            const index = Math.floor(this.random() * scoredCities.length);
+            selectedCity = scoredCities[index].city;
+        }
+
+        return {
+            city: selectedCity,
+            country: selectedCity.country || null
+        };
     }
 
     /**
@@ -1156,12 +1206,17 @@ export class CorporationManager {
                         corporation.addFirm(firm);
                         console.log(`   ✅ ${corporation.abbreviation} opened: ${firm.getDisplayName?.() || firm.type}`);
                     }
+                    // Note: Location check is done at decision approval time in BoardMeeting.meetsPrerequisites()
+                    // If we still fail here, it's an unexpected edge case
+
+                    // Remove from corporation's active projects
+                    corporation.completeProject(project.id);
                 }
                 completed.push(project.id);
             }
         }
 
-        // Remove completed projects
+        // Remove completed projects from pending list
         this.pendingFirmCreations = this.pendingFirmCreations.filter(p => !completed.includes(p.id));
     }
 
@@ -1268,18 +1323,26 @@ export class CorporationManager {
         const persona = project.persona;
         const firmType = persona.firmType || persona.type;
 
-        // For RAW tier firms, find cities with matching resources
+        // Get city/country from project (RAW firms have this pre-selected in the decision)
         let city, country, selectedResource;
 
         if (project.tier === INDUSTRY_TIERS.RAW) {
-            const selection = this.selectCityForPersona(persona);
-            if (!selection) {
-                console.log(`   ❌ Cannot create ${firmType} - no country has required resources`);
-                return null;
+            // RAW firms: use pre-selected location from the decision
+            if (project.city && project.country) {
+                city = project.city;
+                country = project.country;
+                selectedResource = project.selectedResource;
+            } else {
+                // Fallback for legacy projects without pre-selected location
+                const selection = this.selectCityForPersona(persona);
+                if (!selection) {
+                    console.log(`   ❌ Cannot create ${firmType} - no country has required resources`);
+                    return null;
+                }
+                city = selection.city;
+                country = selection.country;
+                selectedResource = selection.selectedResource;
             }
-            city = selection.city;
-            country = selection.country;
-            selectedResource = selection.selectedResource;
         } else {
             // Non-RAW firms can go anywhere (they buy inputs from suppliers)
             const cities = this.engine.cities;

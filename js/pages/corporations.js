@@ -213,6 +213,11 @@ function renderCorporations() {
         const firmCount = corp.firms?.length || corp.facilities?.length || 0;
         const capital = corp.capital || 0;
 
+        // Get headquarters info
+        const hqCity = corp.homeCity?.name || corp.homeCity || null;
+        const hqCountry = corp.homeCountry?.name || corp.homeCountry || null;
+        const hqDisplay = hqCity && hqCountry ? `${hqCity}, ${hqCountry}` : (hqCity || hqCountry || null);
+
         return `
         <div class="corp-card" data-corp-id="${corp.id}">
             <div class="corp-card-header">
@@ -220,6 +225,7 @@ function renderCorporations() {
                 <span class="corp-name">${corp.name}</span>
                 ${corpType ? `<span class="corp-type-badge ${corpType.toLowerCase()}">${formatCorpType(corpType)}</span>` : ''}
             </div>
+            ${hqDisplay ? `<div class="corp-headquarters-mini">HQ: ${hqDisplay}</div>` : ''}
             ${tier || personaType ? `
             <div class="corp-card-tags">
                 ${tier ? `<span class="tier-badge ${tier.toLowerCase()}">${tier}</span>` : ''}
@@ -302,6 +308,15 @@ function showCorpDetail(corpId) {
     document.getElementById('corp-detail-name').textContent = `[${corp.abbreviation || '???'}] ${corp.name}`;
     document.getElementById('corp-character-badge').textContent = corp.character || 'Unknown';
     document.getElementById('corp-character-badge').className = `corp-character-badge ${corp.character?.toLowerCase()}`;
+
+    // Display headquarters information
+    const hqCity = corp.homeCity?.name || corp.homeCity || null;
+    const hqCountry = corp.homeCountry?.name || corp.homeCountry || null;
+    const hqDisplay = hqCity && hqCountry ? `${hqCity}, ${hqCountry}` : (hqCity || hqCountry || 'Not established');
+    const hqContainer = document.getElementById('corp-headquarters');
+    if (hqContainer) {
+        hqContainer.innerHTML = `<span class="hq-icon">🏢</span> <span class="hq-text">${hqDisplay}</span>`;
+    }
 
     // Financial stats
     const monthlyProfit = corp.monthlyProfit || 0;

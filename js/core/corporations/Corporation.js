@@ -128,6 +128,10 @@ export class Corporation {
         // Creation tracking
         this.createdAt = null;      // Game time when created
         this.firstFirmAt = null;    // Game time when first firm opened
+
+        // Headquarters location (for taxation and other purposes)
+        this.homeCountry = config.homeCountry || null;  // Country object or name
+        this.homeCity = config.homeCity || null;        // City object or name
     }
 
     /**
@@ -434,7 +438,9 @@ export class Corporation {
                 activeProjects: this.boardMeeting.activeProjects
             },
             createdAt: this.createdAt,
-            firstFirmAt: this.firstFirmAt
+            firstFirmAt: this.firstFirmAt,
+            homeCountry: this.homeCountry?.name || this.homeCountry,
+            homeCity: this.homeCity?.name || this.homeCity
         };
     }
 
@@ -466,5 +472,7 @@ export class Corporation {
         }
         if (state.createdAt) this.createdAt = state.createdAt;
         if (state.firstFirmAt) this.firstFirmAt = state.firstFirmAt;
+        if (state.homeCountry) this.homeCountry = state.homeCountry;
+        if (state.homeCity) this.homeCity = state.homeCity;
     }
 }

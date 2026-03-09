@@ -241,12 +241,15 @@ export class BoardMeeting {
 
         for (const option of prioritizedOptions) {
             if (this.canAfford(option, availableCapital) && this.meetsPrerequisites(option, corporation, marketState)) {
+                // Generate a unique ID for this project
+                const projectId = `PROJECT_${corporation.id}_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+                option.id = projectId;
+
                 meeting.approvedProjects.push(option);
                 availableCapital -= (option.cost || 0);
 
-                // Add to corporation's active projects
+                // Add to corporation's active projects with same ID
                 corporation.addProject({
-                    id: `PROJECT_${corporation.id}_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
                     ...option,
                     approvedAt: gameTime
                 });
@@ -494,21 +497,44 @@ export class BoardMeeting {
     }
 
     /**
+     * Check if corporation has a pending OPEN_FIRM project
+     */
+    hasPendingFirmCreation(corporation) {
+        const activeProjects = corporation.boardMeeting?.activeProjects || [];
+        return activeProjects.some(p => p.type === DECISION_TYPES.OPEN_FIRM);
+    }
+
+    /**
      * Generate decisions for RAW tier corporations
      */
     generateRAWDecisions(corporation, marketAnalysis, availableCapital) {
         const decisions = [];
         const persona = corporation.primaryPersona;
 
-        // RAW firms can always open (no supply dependencies)
-        if (corporation.firms.length === 0) {
+        // Check if already has a pending firm creation
+        const hasPending = this.hasPendingFirmCreation(corporation);
+
+        // RAW firms need a suitable location - find it upfront
+        const location = this.findSuitableLocationForPersona(persona);
+        if (!location) {
+            // No suitable location exists - cannot open RAW firm
+            console.log(`   ⚠️ ${corporation.abbreviation}: No country has resources for ${persona.type}`);
+            return decisions;
+        }
+
+        // RAW firms can open if we have a location
+        if (corporation.firms.length === 0 && !hasPending) {
             decisions.push({
                 type: DECISION_TYPES.OPEN_FIRM,
                 priority: PRIORITY.CRITICAL,
                 persona: persona,
                 tier: INDUSTRY_TIERS.RAW,
                 cost: this.getOpeningCost(persona, INDUSTRY_TIERS.RAW),
-                rationale: 'Establish initial operations'
+                rationale: `Establish operations in ${location.city.name}, ${location.country.name}`,
+                // Include location in decision
+                city: location.city,
+                country: location.country,
+                selectedResource: location.selectedResource
             });
         }
 
@@ -524,16 +550,23 @@ export class BoardMeeting {
             });
         }
 
-        // Additional firm if capital allows
-        if (corporation.firms.length > 0 && corporation.firms.length < corporation.goals.targetFirms) {
-            decisions.push({
-                type: DECISION_TYPES.OPEN_FIRM,
-                priority: PRIORITY.MEDIUM,
-                persona: persona,
-                tier: INDUSTRY_TIERS.RAW,
-                cost: this.getOpeningCost(persona, INDUSTRY_TIERS.RAW),
-                rationale: 'Expand capacity toward target'
-            });
+        // Additional firm if capital allows (but not if already has pending)
+        if (corporation.firms.length > 0 && corporation.firms.length < corporation.goals.targetFirms && !hasPending) {
+            // Find another location for expansion
+            const expansionLocation = this.findSuitableLocationForPersona(persona);
+            if (expansionLocation) {
+                decisions.push({
+                    type: DECISION_TYPES.OPEN_FIRM,
+                    priority: PRIORITY.MEDIUM,
+                    persona: persona,
+                    tier: INDUSTRY_TIERS.RAW,
+                    cost: this.getOpeningCost(persona, INDUSTRY_TIERS.RAW),
+                    rationale: `Expand to ${expansionLocation.city.name}, ${expansionLocation.country.name}`,
+                    city: expansionLocation.city,
+                    country: expansionLocation.country,
+                    selectedResource: expansionLocation.selectedResource
+                });
+            }
         }
 
         return decisions;
@@ -546,6 +579,7 @@ export class BoardMeeting {
         const decisions = [];
         const persona = corporation.primaryPersona;
         const requiredInputs = this.getRequiredInputs(corporation);
+        const hasPending = this.hasPendingFirmCreation(corporation);
 
         // Check if supply is available
         let allSupplyAvailable = true;
@@ -578,8 +612,8 @@ export class BoardMeeting {
                 checkAgainIn: 1
             });
         } else {
-            // Supply available - can open firm
-            if (corporation.firms.length === 0) {
+            // Supply available - can open firm (if not already pending)
+            if (corporation.firms.length === 0 && !hasPending) {
                 decisions.push({
                     type: DECISION_TYPES.OPEN_FIRM,
                     priority: PRIORITY.CRITICAL,
@@ -588,7 +622,7 @@ export class BoardMeeting {
                     cost: this.getOpeningCost(persona, INDUSTRY_TIERS.SEMI_RAW),
                     rationale: 'Supply secured, establish operations'
                 });
-            } else if (corporation.firms.length < corporation.goals.targetFirms) {
+            } else if (corporation.firms.length < corporation.goals.targetFirms && !hasPending) {
                 decisions.push({
                     type: DECISION_TYPES.OPEN_FIRM,
                     priority: PRIORITY.MEDIUM,
@@ -610,6 +644,7 @@ export class BoardMeeting {
         const decisions = [];
         const persona = corporation.primaryPersona;
         const requiredInputs = this.getRequiredInputs(corporation);
+        const hasPending = this.hasPendingFirmCreation(corporation);
 
         // Check supply chain
         let allSupplyAvailable = true;
@@ -662,8 +697,8 @@ export class BoardMeeting {
             }
         }
 
-        // Supply available - can open firm
-        if (corporation.firms.length === 0) {
+        // Supply available - can open firm (if not already pending)
+        if (corporation.firms.length === 0 && !hasPending) {
             decisions.push({
                 type: DECISION_TYPES.OPEN_FIRM,
                 priority: PRIORITY.CRITICAL,
@@ -672,7 +707,7 @@ export class BoardMeeting {
                 cost: this.getOpeningCost(persona, INDUSTRY_TIERS.MANUFACTURED),
                 rationale: 'Supply chain ready, begin manufacturing'
             });
-        } else if (corporation.firms.length < corporation.goals.targetFirms) {
+        } else if (corporation.firms.length < corporation.goals.targetFirms && !hasPending) {
             decisions.push({
                 type: DECISION_TYPES.OPEN_FIRM,
                 priority: PRIORITY.MEDIUM,
@@ -692,6 +727,7 @@ export class BoardMeeting {
     generateRETAILDecisions(corporation, marketAnalysis, availableCapital) {
         const decisions = [];
         const persona = corporation.primaryPersona;
+        const hasPending = this.hasPendingFirmCreation(corporation);
 
         // Retail needs products to sell
         const productsToSell = persona.productsSold || persona.products || [];
@@ -736,8 +772,8 @@ export class BoardMeeting {
             return decisions; // Wait for more products
         }
 
-        // Products available - can open store
-        if (corporation.firms.length === 0 && percentAvailable >= 0.5) {
+        // Products available - can open store (if not already pending)
+        if (corporation.firms.length === 0 && percentAvailable >= 0.5 && !hasPending) {
             decisions.push({
                 type: DECISION_TYPES.OPEN_FIRM,
                 priority: PRIORITY.HIGH,
@@ -746,7 +782,7 @@ export class BoardMeeting {
                 cost: this.getOpeningCost(persona, INDUSTRY_TIERS.RETAIL),
                 rationale: 'Product supply secured, open retail location'
             });
-        } else if (corporation.firms.length < corporation.goals.targetFirms) {
+        } else if (corporation.firms.length < corporation.goals.targetFirms && !hasPending) {
             decisions.push({
                 type: DECISION_TYPES.OPEN_FIRM,
                 priority: PRIORITY.MEDIUM,
@@ -855,9 +891,10 @@ export class BoardMeeting {
 
         // OPEN_FIRM decisions - check tier prerequisites
         if (option.type === DECISION_TYPES.OPEN_FIRM) {
-            // RAW can always open
+            // RAW tier: location is already included in the decision (selected in generateRAWDecisions)
             if (option.tier === INDUSTRY_TIERS.RAW) {
-                return true;
+                // Decision must have a city - if not, it wasn't properly generated
+                return option.city != null;
             }
 
             // Other tiers need supply contracts or available supply
@@ -866,6 +903,77 @@ export class BoardMeeting {
         }
 
         return true;
+    }
+
+    /**
+     * Find a suitable location (city/country) for a RAW persona
+     * @param {Object} persona - The persona to check
+     * @returns {Object|null} {city, country, selectedResource} or null if none found
+     */
+    findSuitableLocationForPersona(persona) {
+        const requiredProducts = this.getPersonaProducts(persona);
+        const cities = this.engine.cities || [];
+
+        // Collect all suitable cities
+        const suitableCities = [];
+
+        for (const city of cities) {
+            const country = city.country;
+            if (!country || !country.resources) continue;
+
+            // Check which required products this country has
+            const matchingResources = requiredProducts.filter(product =>
+                country.resources.includes(product)
+            );
+
+            if (matchingResources.length > 0 || requiredProducts.length === 0) {
+                suitableCities.push({
+                    city,
+                    country,
+                    matchingResources
+                });
+            }
+        }
+
+        if (suitableCities.length === 0) {
+            return null;
+        }
+
+        // Pick a random suitable city
+        const selected = suitableCities[Math.floor(Math.random() * suitableCities.length)];
+
+        // Pick a specific resource from matching ones
+        const selectedResource = selected.matchingResources.length > 0
+            ? selected.matchingResources[Math.floor(Math.random() * selected.matchingResources.length)]
+            : null;
+
+        return {
+            city: selected.city,
+            country: selected.country,
+            selectedResource
+        };
+    }
+
+    /**
+     * Get the products a persona wants to produce
+     * @param {Object} persona - Corporation persona
+     * @returns {Array<string>} List of product names
+     */
+    getPersonaProducts(persona) {
+        // Check if products already set (from selected focus)
+        if (persona.products && Array.isArray(persona.products)) {
+            return persona.products;
+        }
+
+        // Check product focuses
+        if (persona.selectedFocus && persona.productFocuses) {
+            const focus = persona.productFocuses[persona.selectedFocus];
+            if (focus?.products) {
+                return focus.products;
+            }
+        }
+
+        return [];
     }
 }
 
