@@ -69,10 +69,10 @@ const RAW_PERSONAS = {
         firmType: 'FARM',
         weight: 0.25,
         productFocuses: {
-            CATTLE_RANCHING: { products: ['Cattle', 'Raw Hides'], weight: 0.30, downstreamAffinity: ['MEAT_PROCESSOR', 'TEXTILE_MILL'] },
+            CATTLE_RANCHING: { products: ['Cattle'], weight: 0.30, downstreamAffinity: ['MEAT_PROCESSOR', 'TEXTILE_MILL'] },
             PIG_FARMING: { products: ['Pigs'], weight: 0.20, downstreamAffinity: ['MEAT_PROCESSOR'] },
-            POULTRY_FARMING: { products: ['Chickens', 'Eggs'], weight: 0.25, downstreamAffinity: ['MEAT_PROCESSOR', 'PACKAGED_FOOD'] },
-            DAIRY_FARMING: { products: ['Raw Milk'], weight: 0.15, downstreamAffinity: ['DAIRY_PROCESSOR'] },
+            POULTRY_FARMING: { products: ['Chickens'], weight: 0.25, downstreamAffinity: ['MEAT_PROCESSOR', 'PACKAGED_FOOD'] },
+            DAIRY_FARMING: { products: ['Cattle'], weight: 0.15, downstreamAffinity: ['DAIRY_PROCESSOR'] },
             COMMERCIAL_FISHING: { products: ['Fish'], weight: 0.10, downstreamAffinity: ['SEAFOOD_PROCESSOR'] }
         }
     }

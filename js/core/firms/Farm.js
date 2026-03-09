@@ -165,20 +165,27 @@ export class Farm extends Firm {
     }
 
     selectLivestock() {
+        // Livestock are the actual animals - outputs like Raw Milk, Eggs are produced FROM these
+        const livestock = ['Cattle', 'Pigs', 'Chickens', 'Sheep', 'Fish'];
+
         // Use specific product if provided and it's a valid livestock
-        const livestock = ['Cattle', 'Pigs', 'Chickens', 'Sheep', 'Raw Milk', 'Eggs', 'Fish', 'Raw Hides'];
         if (this.specificProduct && livestock.includes(this.specificProduct)) {
             return this.specificProduct;
         }
+
         // For derived products, map to the animal that produces them
         const productToLivestock = {
             'Raw Milk': 'Cattle',
             'Eggs': 'Chickens',
-            'Raw Hides': 'Cattle'
+            'Raw Hides': 'Cattle',
+            'Beef': 'Cattle',
+            'Pork': 'Pigs',
+            'Chicken': 'Chickens'
         };
         if (this.specificProduct && productToLivestock[this.specificProduct]) {
             return productToLivestock[this.specificProduct];
         }
+
         return livestock[Math.floor(Math.random() * livestock.length)];
     }
     
