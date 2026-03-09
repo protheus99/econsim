@@ -120,7 +120,7 @@ function renderCities() {
     let cities = [];
     countries.forEach(c => {
         c.cities.forEach(city => {
-            cities.push({ ...city, country: c.name });
+            cities.push({ ...city, country: c.name, countryResources: c.resources || [] });
         });
     });
 
@@ -171,6 +171,11 @@ function renderCities() {
                 <div class="stat-item"><span class="stat-label">Population</span><span class="stat-value">${formatNumber(city.population)}</span></div>
                 <div class="stat-item"><span class="stat-label">Purchasing Power</span><span class="stat-value">${formatCurrency(city.totalPurchasingPower || 0)}</span></div>
                 <div class="stat-item"><span class="stat-label">Firms</span><span class="stat-value">${city.firms?.length || 0}</span></div>
+            </div>
+            <div class="city-resources">
+                ${city.countryResources.length > 0
+                    ? city.countryResources.map(r => `<span class="resource-badge">${r}</span>`).join('')
+                    : '<span class="no-resources">No natural resources</span>'}
             </div>
             <div class="city-infra">
                 ${city.hasAirport ? '<span class="infra-badge">Airport</span>' : ''}
@@ -248,6 +253,7 @@ function showCityNotFoundError(cityId) {
 function showCityDetail(cityName) {
     let city = null;
     let countryName = '';
+    let countryResources = [];
 
     const countries = Array.from(simulation.countries.values());
     for (const country of countries) {
@@ -255,6 +261,7 @@ function showCityDetail(cityName) {
         if (found) {
             city = found;
             countryName = country.name;
+            countryResources = country.resources || [];
             break;
         }
     }
@@ -270,11 +277,25 @@ function showCityDetail(cityName) {
     document.getElementById('city-detail-name').textContent = city.name;
     document.getElementById('city-detail-country').textContent = countryName;
 
+    // Build resources HTML
+    const resourcesHtml = countryResources.length > 0
+        ? `<div class="city-detail-resources">
+            <span class="stat-label">Natural Resources</span>
+            <div class="resources-list">
+                ${countryResources.map(r => `<span class="resource-badge">${r}</span>`).join('')}
+            </div>
+           </div>`
+        : `<div class="city-detail-resources">
+            <span class="stat-label">Natural Resources</span>
+            <span class="no-resources">None available in this region</span>
+           </div>`;
+
     document.getElementById('city-overview-stats').innerHTML = `
         <div class="stats-grid">
             <div class="stat-item"><span class="stat-label">Population</span><span class="stat-value">${formatNumber(city.population)}</span></div>
             <div class="stat-item"><span class="stat-label">Purchasing Power</span><span class="stat-value">${formatCurrency(city.totalPurchasingPower || 0)}</span></div>
         </div>
+        ${resourcesHtml}
     `;
 
     document.getElementById('city-infrastructure-detail').innerHTML = `

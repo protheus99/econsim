@@ -4,11 +4,12 @@ import { LotInventory, Lot } from '../Lot.js';
 import { getLotConfigForProduct, getRecommendedSaleStrategy, isPerishable, getShelfLife } from '../LotSizings.js';
 
 export class Farm extends Firm {
-    constructor(location, country, farmType, customId = null, productRegistry = null) {
+    constructor(location, country, farmType, customId = null, productRegistry = null, specificProduct = null) {
         super('FARM', location, country, customId);
 
         this.farmType = farmType; // 'CROP' or 'LIVESTOCK'
         this.productRegistry = productRegistry;
+        this.specificProduct = specificProduct; // Optional: specific crop/livestock to produce
         this.landSize = 100 + Math.random() * 400; // Hectares
         this.soilQuality = 50 + Math.random() * 50; // For crops
         this.climate = location.climate || 'TEMPERATE';
@@ -155,12 +156,29 @@ export class Farm extends Firm {
     }
     
     selectCrop() {
-        const crops = ['Wheat', 'Rice', 'Corn', 'Cotton', 'Sugarcane', 'Coffee Beans'];
+        // Use specific product if provided and it's a valid crop
+        const crops = ['Wheat', 'Rice', 'Corn', 'Cotton', 'Sugarcane', 'Coffee Beans', 'Soybeans', 'Fresh Fruits', 'Vegetables', 'Rubber Latex'];
+        if (this.specificProduct && crops.includes(this.specificProduct)) {
+            return this.specificProduct;
+        }
         return crops[Math.floor(Math.random() * crops.length)];
     }
-    
+
     selectLivestock() {
-        const livestock = ['Cattle', 'Pigs', 'Chickens', 'Sheep'];
+        // Use specific product if provided and it's a valid livestock
+        const livestock = ['Cattle', 'Pigs', 'Chickens', 'Sheep', 'Raw Milk', 'Eggs', 'Fish', 'Raw Hides'];
+        if (this.specificProduct && livestock.includes(this.specificProduct)) {
+            return this.specificProduct;
+        }
+        // For derived products, map to the animal that produces them
+        const productToLivestock = {
+            'Raw Milk': 'Cattle',
+            'Eggs': 'Chickens',
+            'Raw Hides': 'Cattle'
+        };
+        if (this.specificProduct && productToLivestock[this.specificProduct]) {
+            return productToLivestock[this.specificProduct];
+        }
         return livestock[Math.floor(Math.random() * livestock.length)];
     }
     

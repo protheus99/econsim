@@ -3980,6 +3980,57 @@ tr.tx-contract-row { border-left: 3px solid #ffa726; }
     margin-right: 5px;
 }
 
+/* Resource Badges for Cities */
+.city-resources {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin: 8px 0;
+    padding-top: 8px;
+    border-top: 1px solid var(--border-color);
+}
+
+.resource-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    background: rgba(255, 193, 7, 0.15);
+    border: 1px solid rgba(255, 193, 7, 0.3);
+    border-radius: 4px;
+    font-size: 0.7rem;
+    color: #ffc107;
+    white-space: nowrap;
+}
+
+.no-resources {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+/* City Detail Resources */
+.city-detail-resources {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid var(--border-color);
+}
+
+.city-detail-resources .stat-label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+}
+
+.city-detail-resources .resources-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.city-detail-resources .resource-badge {
+    padding: 4px 12px;
+    font-size: 0.8rem;
+}
+
 /* ===================== */
 /* ORDER SYSTEM STYLES   */
 /* ===================== */

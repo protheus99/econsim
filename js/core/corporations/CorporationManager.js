@@ -1166,6 +1166,95 @@ export class CorporationManager {
     }
 
     /**
+     * Get the products a persona wants to produce
+     * @param {Object} persona - Corporation persona
+     * @returns {Array<string>} List of product names
+     */
+    getPersonaProducts(persona) {
+        // Check if products already set (from selected focus)
+        if (persona.products && Array.isArray(persona.products)) {
+            return persona.products;
+        }
+
+        // Check product focuses
+        if (persona.selectedFocus && persona.productFocuses) {
+            const focus = persona.productFocuses[persona.selectedFocus];
+            if (focus?.products) {
+                return focus.products;
+            }
+        }
+
+        return [];
+    }
+
+    /**
+     * Find cities in countries that have the required resources for a persona
+     * @param {Object} persona - Corporation persona
+     * @returns {Array} Array of {city, country, matchingResources} objects
+     */
+    findSuitableCitiesForPersona(persona) {
+        const requiredProducts = this.getPersonaProducts(persona);
+        if (requiredProducts.length === 0) {
+            // No specific requirements - return all cities
+            return this.engine.cities.map(city => ({
+                city,
+                country: city.country,
+                matchingResources: []
+            }));
+        }
+
+        const suitableCities = [];
+
+        for (const city of this.engine.cities) {
+            const country = city.country;
+            if (!country || !country.resources) continue;
+
+            // Check which required products this country has
+            const matchingResources = requiredProducts.filter(product =>
+                country.resources.includes(product)
+            );
+
+            if (matchingResources.length > 0) {
+                suitableCities.push({
+                    city,
+                    country,
+                    matchingResources
+                });
+            }
+        }
+
+        return suitableCities;
+    }
+
+    /**
+     * Select a city for firm creation based on persona requirements
+     * @param {Object} persona - Corporation persona
+     * @returns {Object|null} {city, country, selectedResource} or null if none found
+     */
+    selectCityForPersona(persona) {
+        const suitableCities = this.findSuitableCitiesForPersona(persona);
+
+        if (suitableCities.length === 0) {
+            console.log(`   ⚠️ No suitable city found for ${persona.type}`);
+            return null;
+        }
+
+        // Pick a random suitable city
+        const selected = suitableCities[Math.floor(this.random() * suitableCities.length)];
+
+        // Pick a specific resource from matching ones
+        const selectedResource = selected.matchingResources.length > 0
+            ? selected.matchingResources[Math.floor(this.random() * selected.matchingResources.length)]
+            : null;
+
+        return {
+            city: selected.city,
+            country: selected.country,
+            selectedResource
+        };
+    }
+
+    /**
      * Create a firm from a completed project
      */
     createFirmFromProject(corporation, project) {
@@ -1177,29 +1266,49 @@ export class CorporationManager {
         }
 
         const persona = project.persona;
-        const cities = this.engine.cities;
-        const city = cities[Math.floor(this.random() * cities.length)];
-        const country = city.country;
+        const firmType = persona.firmType || persona.type;
+
+        // For RAW tier firms, find cities with matching resources
+        let city, country, selectedResource;
+
+        if (project.tier === INDUSTRY_TIERS.RAW) {
+            const selection = this.selectCityForPersona(persona);
+            if (!selection) {
+                console.log(`   ❌ Cannot create ${firmType} - no country has required resources`);
+                return null;
+            }
+            city = selection.city;
+            country = selection.country;
+            selectedResource = selection.selectedResource;
+        } else {
+            // Non-RAW firms can go anywhere (they buy inputs from suppliers)
+            const cities = this.engine.cities;
+            city = cities[Math.floor(this.random() * cities.length)];
+            country = city.country;
+        }
 
         const firmId = this.engine.generateDeterministicId('FIRM', this.engine.firmCreationIndex++);
 
         let firm = null;
 
-        switch (persona.firmType || persona.type) {
+        switch (firmType) {
             case 'MINING':
             case 'MINING_COMPANY':
-                firm = firmGenerator.createMiningFirm(city, country, firmId);
+                // Pass the specific resource to create
+                firm = firmGenerator.createMiningFirmWithResource(city, country, firmId, selectedResource);
                 break;
 
             case 'LOGGING':
             case 'LOGGING_COMPANY':
-                firm = firmGenerator.createLoggingFirm(city, country, firmId);
+                // Pass the specific timber type to create
+                firm = firmGenerator.createLoggingFirmWithResource(city, country, firmId, selectedResource);
                 break;
 
             case 'FARM':
             case 'FARM_CROP':
             case 'FARM_LIVESTOCK':
-                firm = firmGenerator.createFarmFirm(city, country, firmId);
+                // Pass the specific crop/livestock to create
+                firm = firmGenerator.createFarmFirmWithResource(city, country, firmId, selectedResource, persona.type);
                 break;
 
             case 'MANUFACTURING':
@@ -1212,7 +1321,7 @@ export class CorporationManager {
                 break;
 
             default:
-                console.warn(`Unknown firm type: ${persona.firmType || persona.type}`);
+                console.warn(`Unknown firm type: ${firmType}`);
         }
 
         if (firm) {

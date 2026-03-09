@@ -297,6 +297,31 @@ export class FirmGenerator {
         return null;
     }
 
+    /**
+     * Create a mining firm with a specific resource type
+     * @param {Object} city - City to place the firm
+     * @param {Object} country - Country the city belongs to
+     * @param {string} firmId - Unique firm ID
+     * @param {string} resourceType - Specific resource to mine (e.g., 'Iron Ore')
+     * @returns {MiningCompany|null} Created firm or null
+     */
+    createMiningFirmWithResource(city, country, firmId, resourceType) {
+        // If no specific resource, fall back to random selection
+        if (!resourceType) {
+            return this.createMiningFirm(city, country, firmId);
+        }
+
+        // Verify the country has this resource
+        if (!country.resources.includes(resourceType)) {
+            console.warn(`Country ${country.name} does not have ${resourceType}`);
+            return null;
+        }
+
+        const firm = new MiningCompany({ city: city }, country, resourceType, firmId, this.engine.productRegistry);
+        firm.engine = this.engine;
+        return firm;
+    }
+
     createLoggingFirm(city, country, firmId) {
         const timberTypes = ['Softwood Logs', 'Hardwood Logs', 'Bamboo'];
         const timberType = timberTypes[Math.floor(this.random() * timberTypes.length)];
@@ -305,10 +330,73 @@ export class FirmGenerator {
         return firm;
     }
 
+    /**
+     * Create a logging firm with a specific timber type
+     * @param {Object} city - City to place the firm
+     * @param {Object} country - Country the city belongs to
+     * @param {string} firmId - Unique firm ID
+     * @param {string} timberType - Specific timber to harvest (e.g., 'Softwood Logs')
+     * @returns {LoggingCompany} Created firm
+     */
+    createLoggingFirmWithResource(city, country, firmId, timberType) {
+        // If no specific timber type, fall back to random selection
+        if (!timberType) {
+            return this.createLoggingFirm(city, country, firmId);
+        }
+
+        // Verify the country has this resource (if resources are defined)
+        if (country.resources && !country.resources.includes(timberType)) {
+            console.warn(`Country ${country.name} does not have ${timberType}`);
+            return null;
+        }
+
+        const firm = new LoggingCompany({ city: city }, country, timberType, firmId, this.engine.productRegistry);
+        firm.engine = this.engine;
+        return firm;
+    }
+
     createFarmFirm(city, country, firmId) {
         const farmType = this.random() < 0.6 ? 'CROP' : 'LIVESTOCK';
         const firm = new Farm({ city: city }, country, farmType, firmId, this.engine.productRegistry);
         firm.engine = this.engine; // Set engine reference for clock access
+        return firm;
+    }
+
+    /**
+     * Create a farm with a specific crop or livestock type
+     * @param {Object} city - City to place the firm
+     * @param {Object} country - Country the city belongs to
+     * @param {string} firmId - Unique firm ID
+     * @param {string} productType - Specific product (e.g., 'Wheat', 'Cattle')
+     * @param {string} personaType - Persona type ('FARM_CROP' or 'FARM_LIVESTOCK')
+     * @returns {Farm} Created firm
+     */
+    createFarmFirmWithResource(city, country, firmId, productType, personaType) {
+        // Determine farm type from persona or product
+        let farmType;
+        const cropTypes = ['Wheat', 'Corn', 'Rice', 'Soybeans', 'Cotton', 'Sugarcane', 'Rubber Latex', 'Fresh Fruits', 'Vegetables', 'Coffee Beans'];
+        const livestockTypes = ['Cattle', 'Pigs', 'Chickens', 'Sheep', 'Raw Hides', 'Eggs', 'Raw Milk', 'Fish'];
+
+        if (personaType === 'FARM_CROP') {
+            farmType = 'CROP';
+        } else if (personaType === 'FARM_LIVESTOCK') {
+            farmType = 'LIVESTOCK';
+        } else if (productType) {
+            // Infer from product type
+            farmType = cropTypes.includes(productType) ? 'CROP' : 'LIVESTOCK';
+        } else {
+            // Default random
+            farmType = this.random() < 0.6 ? 'CROP' : 'LIVESTOCK';
+        }
+
+        // Verify the country has this resource (if specified and resources defined)
+        if (productType && country.resources && !country.resources.includes(productType)) {
+            console.warn(`Country ${country.name} does not have ${productType}`);
+            return null;
+        }
+
+        const firm = new Farm({ city: city }, country, farmType, firmId, this.engine.productRegistry, productType);
+        firm.engine = this.engine;
         return firm;
     }
 
