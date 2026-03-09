@@ -35,10 +35,13 @@ econsim/
 │   └── ui/                      # Dashboard.js, MapRenderer.js
 ├── css/styles.css               # Single stylesheet
 ├── data/config.json             # All configuration
+├── docs/                        # All documentation (.md files)
 ├── tests/                       # Test suite
 ├── sprints/                     # Sprint planning
 └── *.html                       # Page files
 ```
+
+**Documentation Location**: All `.md` files (except this CLAUDE.md) belong in the `docs/` folder. Create any new documentation there.
 
 ## Core Architecture
 
