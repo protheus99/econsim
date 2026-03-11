@@ -6786,6 +6786,31 @@ tr.tx-contract-row { border-left: 3px solid #ffa726; }
     font-weight: 500;
 }
 
+/* Project Timeline */
+.project-timeline {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 10px;
+    padding: 8px 10px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+}
+
+.project-timeline .project-started {
+    color: var(--text-secondary);
+}
+
+.project-timeline .project-completion {
+    color: var(--text-secondary);
+}
+
+.project-timeline .project-completion strong {
+    color: var(--accent-green);
+    font-weight: 600;
+}
+
 /* Project Status Info (for awaiting board meeting) */
 .project-status-info {
     display: flex;
