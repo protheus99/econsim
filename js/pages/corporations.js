@@ -262,6 +262,11 @@ function renderCorporations() {
                 <span class="orders-won-badge">${corpOrders.length} Orders Won</span>
             </div>
             ` : ''}
+            ${firmCount === 0 && corp.goals?.primary === 'ESTABLISH_OPERATIONS' ? `
+            <div class="corp-establishing-badge">
+                <span class="establishing-status">Establishing Operations</span>
+            </div>
+            ` : ''}
         </div>
     `}).join('');
 
@@ -576,15 +581,17 @@ function renderBoardMeetingInfo(corp) {
     const projects = corp.boardMeeting?.activeProjects || [];
     const corporationManager = simulation.corporationManager;
     const pendingCreations = corporationManager?.pendingFirmCreations?.filter(p => p.corporationId === corp.id) || [];
+    const currentMonth = corporationManager?.monthsElapsed || 0;
 
     if (projects.length > 0 || pendingCreations.length > 0) {
         const allProjects = [...projects, ...pendingCreations];
         activeProjects.innerHTML = `
             <div class="projects-list">
                 ${allProjects.map(project => {
-                    const progress = project.completionMonth && corporationManager?.monthsElapsed
-                        ? Math.min(100, Math.round(((corporationManager.monthsElapsed - project.startMonth) / (project.completionMonth - project.startMonth)) * 100))
+                    const progress = project.completionMonth && currentMonth
+                        ? Math.min(100, Math.round(((currentMonth - project.startMonth) / (project.completionMonth - project.startMonth)) * 100))
                         : 0;
+                    const monthsRemaining = project.completionMonth ? Math.max(0, project.completionMonth - currentMonth) : 0;
                     return `
                     <div class="project-item ${project.status?.toLowerCase() || 'in-progress'}">
                         <div class="project-header">
@@ -596,21 +603,53 @@ function renderBoardMeetingInfo(corp) {
                             ${project.cost ? `<span class="project-cost">${formatCurrency(project.cost)}</span>` : ''}
                             ${project.rationale ? `<span class="project-rationale">${project.rationale}</span>` : ''}
                         </div>
-                        ${progress > 0 ? `
                         <div class="project-progress">
                             <div class="progress-bar">
                                 <div class="progress-fill" style="width: ${progress}%"></div>
                             </div>
                             <span class="progress-text">${progress}% complete</span>
+                            <span class="project-eta">${monthsRemaining > 0 ? `ETA: ${monthsRemaining} month${monthsRemaining !== 1 ? 's' : ''}` : 'Completing soon'}</span>
                         </div>
-                        ` : ''}
                     </div>
                     `;
                 }).join('')}
             </div>
         `;
     } else {
-        activeProjects.innerHTML = '<p class="empty-state">No active projects</p>';
+        // No active projects - show status based on goal
+        const currentGoal = corp.goals?.primary || 'ESTABLISH_OPERATIONS';
+        const hasHadMeeting = corp.boardMeeting?.lastMeeting != null;
+        const firmCount = corp.firms?.length || 0;
+
+        let statusMessage = '';
+        if (currentGoal === 'ESTABLISH_OPERATIONS' && firmCount === 0) {
+            if (!hasHadMeeting) {
+                statusMessage = `
+                    <div class="project-status-info">
+                        <div class="status-icon">⏳</div>
+                        <div class="status-text">
+                            <strong>Awaiting First Board Meeting</strong>
+                            <p>Board meetings occur monthly. The board will decide on opening the first facility.</p>
+                            <p class="status-eta">Next meeting: Month ${currentMonth + 1}</p>
+                        </div>
+                    </div>
+                `;
+            } else {
+                statusMessage = `
+                    <div class="project-status-info">
+                        <div class="status-icon">📋</div>
+                        <div class="status-text">
+                            <strong>Planning Operations</strong>
+                            <p>The board is evaluating options for establishing the first facility.</p>
+                            <p class="status-eta">Next board meeting: Month ${currentMonth + 1}</p>
+                        </div>
+                    </div>
+                `;
+            }
+        } else {
+            statusMessage = '<p class="empty-state">No active projects</p>';
+        }
+        activeProjects.innerHTML = statusMessage;
     }
 
     // Render Last Board Meeting
