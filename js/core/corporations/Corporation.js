@@ -435,8 +435,35 @@ export class Corporation {
                 lastMeeting: this.boardMeeting.lastMeeting,
                 nextMeeting: this.boardMeeting.nextMeeting,
                 pendingDecisions: this.boardMeeting.pendingDecisions,
-                activeProjects: this.boardMeeting.activeProjects,
-                meetingHistory: this.boardMeeting.meetingHistory
+                // Serialize activeProjects with city/country IDs instead of object refs
+                activeProjects: this.boardMeeting.activeProjects.map(project => ({
+                    ...project,
+                    cityId: project.city?.id || null,
+                    cityName: project.city?.name || null,
+                    countryName: project.country?.name || null,
+                    city: undefined,
+                    country: undefined
+                })),
+                // Serialize meetingHistory with city/country stripped from projects
+                meetingHistory: this.boardMeeting.meetingHistory.map(meeting => ({
+                    ...meeting,
+                    approvedProjects: (meeting.approvedProjects || []).map(p => ({
+                        ...p,
+                        cityId: p.city?.id || null,
+                        cityName: p.city?.name || null,
+                        countryName: p.country?.name || null,
+                        city: undefined,
+                        country: undefined
+                    })),
+                    deferredProjects: (meeting.deferredProjects || []).map(p => ({
+                        ...p,
+                        cityId: p.city?.id || null,
+                        cityName: p.city?.name || null,
+                        countryName: p.country?.name || null,
+                        city: undefined,
+                        country: undefined
+                    }))
+                }))
             },
             createdAt: this.createdAt,
             firstFirmAt: this.firstFirmAt,

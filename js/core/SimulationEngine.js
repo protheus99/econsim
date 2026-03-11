@@ -1785,10 +1785,19 @@ export class SimulationEngine {
 
             // Serialize corporation manager state (organic growth)
             if (this.config.corporations?.organicGrowth && this.corporationManager) {
+                // Serialize pendingFirmCreations with city/country IDs instead of object refs
+                const serializedPendingCreations = this.corporationManager.pendingFirmCreations.map(project => ({
+                    ...project,
+                    cityId: project.city?.id || null,
+                    countryName: project.country?.name || null,
+                    city: undefined,  // Don't serialize full objects
+                    country: undefined
+                }));
+
                 state.corporationManager = {
                     monthsElapsed: this.corporationManager.monthsElapsed,
                     economicPhase: this.corporationManager.economicPhase,
-                    pendingFirmCreations: this.corporationManager.pendingFirmCreations,
+                    pendingFirmCreations: serializedPendingCreations,
                     corporations: {}
                 };
 
@@ -1900,7 +1909,18 @@ export class SimulationEngine {
             if (state.corporationManager && this.corporationManager) {
                 this.corporationManager.monthsElapsed = state.corporationManager.monthsElapsed || 0;
                 this.corporationManager.economicPhase = state.corporationManager.economicPhase || 'FOUNDATION';
-                this.corporationManager.pendingFirmCreations = state.corporationManager.pendingFirmCreations || [];
+
+                // Restore pendingFirmCreations with city/country references reconstituted
+                const restoredPendingCreations = (state.corporationManager.pendingFirmCreations || []).map(project => {
+                    const restored = { ...project };
+                    // Reconstitute city reference from cityId
+                    if (project.cityId && this.cityManager) {
+                        restored.city = this.cityManager.getCityById(project.cityId);
+                        restored.country = restored.city?.country || null;
+                    }
+                    return restored;
+                });
+                this.corporationManager.pendingFirmCreations = restoredPendingCreations;
 
                 // Restore corporation states
                 if (state.corporationManager.corporations) {
