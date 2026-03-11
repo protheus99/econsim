@@ -38,36 +38,92 @@ body {
 
 /* Page Navigation */
 .page-nav {
-    background: var(--bg-secondary);
-    padding: 10px 20px;
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    padding: 8px 20px;
     display: flex;
-    gap: 5px;
-    flex-wrap: wrap;
-    justify-content: center;
+    align-items: center;
+    justify-content: space-between;
     border-bottom: 1px solid var(--border-color);
     position: sticky;
     top: 0;
     z-index: 200;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.nav-links {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    align-items: center;
 }
 
 .nav-link {
-    color: var(--text-secondary);
+    color: rgba(255,255,255,0.8);
     text-decoration: none;
-    padding: 8px 16px;
+    padding: 6px 12px;
     border-radius: 6px;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     font-weight: 500;
     transition: all 0.2s ease;
 }
 
 .nav-link:hover {
-    background: var(--bg-tertiary);
-    color: var(--text-primary);
+    background: rgba(255,255,255,0.15);
+    color: white;
 }
 
 .nav-link.active {
-    background: var(--accent-blue);
+    background: rgba(255,255,255,0.25);
     color: white;
+}
+
+/* Nav Game Clock */
+.nav-game-clock {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.nav-clock-display {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.nav-date-time {
+    background: rgba(0,0,0,0.3);
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 16px;
+    font-weight: bold;
+    font-family: 'Courier New', monospace;
+    color: white;
+}
+
+.nav-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: rgba(255,255,255,0.7);
+}
+
+.nav-controls {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+
+.nav-controls .btn {
+    padding: 5px 10px;
+    font-size: 12px;
+    border-radius: 4px;
+}
+
+.nav-controls .btn-reset {
+    margin-left: 6px;
 }
 
 /* Page Header */

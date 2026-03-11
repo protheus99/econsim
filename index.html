@@ -8,48 +8,39 @@
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
-    <!-- Navigation -->
+    <!-- Navigation with Game Controls -->
     <nav class="page-nav" role="navigation" aria-label="Main navigation">
-        <a href="index.html" class="nav-link active" aria-current="page">Dashboard</a>
-        <a href="global-economy.html" class="nav-link">Global Economy</a>
-        <a href="corporations.html" class="nav-link">Corporations</a>
-        <a href="market-activity.html" class="nav-link">Market Activity</a>
-        <a href="contracts.html" class="nav-link">Contracts</a>
-        <a href="world-map.html" class="nav-link">World Map</a>
-        <a href="cities.html" class="nav-link">Cities</a>
-        <a href="products.html" class="nav-link">Products</a>
-        <a href="transportation.html" class="nav-link">Transportation</a>
-        <a href="feed.html" class="nav-link">Feed</a>
-    </nav>
-
-    <!-- Header -->
-    <header class="header">
-        <div class="game-clock">
-            <div class="clock-display">
-                <div class="clock-info">
-                    <div class="date-time" id="game-date">2025-01-01 00:00</div>
-                    <div class="time-meta">
-                        <span class="status-indicator status-running" id="status-indicator"></span>
-                        <span id="status-text">Running</span> • 1 second = 1 game hour
-                    </div>
-                </div>
-                <div class="real-time-info">
-                    <div class="time-meta">Real Time Elapsed</div>
-                    <div class="real-time-display" id="real-time">00:00:00</div>
+        <div class="nav-links">
+            <a href="index.html" class="nav-link active" aria-current="page">Dashboard</a>
+            <a href="global-economy.html" class="nav-link">Global Economy</a>
+            <a href="corporations.html" class="nav-link">Corporations</a>
+            <a href="market-activity.html" class="nav-link">Market Activity</a>
+            <a href="contracts.html" class="nav-link">Contracts</a>
+            <a href="world-map.html" class="nav-link">World Map</a>
+            <a href="cities.html" class="nav-link">Cities</a>
+            <a href="products.html" class="nav-link">Products</a>
+            <a href="transportation.html" class="nav-link">Transportation</a>
+            <a href="feed.html" class="nav-link">Feed</a>
+        </div>
+        <div class="nav-game-clock">
+            <div class="nav-clock-display">
+                <div class="nav-date-time" id="game-date">2025-01-01 00:00</div>
+                <div class="nav-status">
+                    <span class="status-indicator status-running" id="status-indicator"></span>
+                    <span id="status-text">Running</span>
                 </div>
             </div>
-            <div class="controls" role="group" aria-label="Simulation controls">
+            <div class="nav-controls" role="group" aria-label="Simulation controls">
                 <button class="btn btn-play" id="btn-play" aria-label="Play simulation">Play</button>
                 <button class="btn btn-pause" id="btn-pause" aria-label="Pause simulation">Pause</button>
                 <button class="btn btn-speed" data-speed="8" aria-label="Set speed to 8x">8x</button>
                 <button class="btn btn-speed" data-speed="4" aria-label="Set speed to 4x">4x</button>
                 <button class="btn btn-speed" data-speed="2" aria-label="Set speed to 2x">2x</button>
                 <button class="btn btn-speed" data-speed="1" aria-label="Set speed to 1x">1x</button>
-                <button class="btn btn-speed" data-speed="0.5" aria-label="Set speed to 0.5x">0.5x</button>
                 <button class="btn btn-reset" id="btn-reset" aria-label="Reset simulation">Reset</button>
             </div>
         </div>
-    </header>
+    </nav>
 
     <!-- Main Container -->
     <main class="main-container" id="main-dashboard">
