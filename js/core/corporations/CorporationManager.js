@@ -1039,6 +1039,9 @@ export class CorporationManager {
             const newCorps = this.generateCorporations();
             newCorpsCreated = newCorps.length;
             if (newCorpsCreated > 0) {
+                // Sync new corporations to SimulationEngine arrays for UI access
+                this.engine.corporations.push(...newCorps);
+                newCorps.forEach(corp => this.engine.corporationsById.set(corp.id, corp));
                 console.log(`   New corporations created: ${newCorpsCreated}`);
             }
         }
@@ -1183,8 +1186,15 @@ export class CorporationManager {
             cost: decision.cost || 0,
             startMonth: this.monthsElapsed,
             completionMonth: this.monthsElapsed + timeline,
-            status: 'IN_PROGRESS'
+            status: 'IN_PROGRESS',
+            // Copy location data from decision (set during BoardMeeting.generateRAWDecisions)
+            city: decision.city || null,
+            country: decision.country || null,
+            selectedResource: decision.selectedResource || null,
+            rationale: decision.rationale || null
         });
+
+        console.log(`   📋 ${corporation.abbreviation}: Queued ${persona.type} firm in ${decision.city?.name || 'TBD'}, completion Month ${this.monthsElapsed + timeline}`);
 
         // Deduct capital
         corporation.spendCapital(decision.cost || 0, 'Firm creation');
@@ -1204,19 +1214,26 @@ export class CorporationManager {
                     const firm = this.createFirmFromProject(corporation, project);
                     if (firm) {
                         corporation.addFirm(firm);
-                        console.log(`   ✅ ${corporation.abbreviation} opened: ${firm.getDisplayName?.() || firm.type}`);
+                        console.log(`   ✅ ${corporation.abbreviation} opened: ${firm.getDisplayName?.() || firm.type} in ${firm.city?.name || 'unknown location'}`);
+                        // Remove from corporation's active projects on success
+                        corporation.completeProject(project.id);
+                        completed.push(project.id);
+                    } else {
+                        // Firm creation failed - log warning and mark as failed
+                        console.warn(`   ❌ ${corporation.abbreviation}: Failed to create ${project.persona?.type} - no location available (city: ${project.city?.name || 'null'}, resource: ${project.selectedResource || 'null'})`);
+                        // Mark project as failed and remove it
+                        corporation.completeProject(project.id);
+                        completed.push(project.id);
                     }
-                    // Note: Location check is done at decision approval time in BoardMeeting.meetsPrerequisites()
-                    // If we still fail here, it's an unexpected edge case
-
-                    // Remove from corporation's active projects
-                    corporation.completeProject(project.id);
+                } else {
+                    // Corporation no longer exists - clean up orphaned project
+                    console.warn(`   ❌ Orphaned project ${project.id}: corporation ${project.corporationId} not found`);
+                    completed.push(project.id);
                 }
-                completed.push(project.id);
             }
         }
 
-        // Remove completed projects from pending list
+        // Remove completed/failed projects from pending list
         this.pendingFirmCreations = this.pendingFirmCreations.filter(p => !completed.includes(p.id));
     }
 

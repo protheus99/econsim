@@ -5,6 +5,7 @@ let simulation;
 let currentSort = 'capital-desc';
 let currentTierFilter = 'all';
 let currentPersonaFilter = 'all';
+let currentCorpId = null;
 
 async function init() {
     try {
@@ -50,6 +51,7 @@ async function init() {
     });
 
     document.getElementById('btn-back')?.addEventListener('click', () => {
+        currentCorpId = null;
         document.getElementById('corp-detail-view').classList.add('hidden');
         document.querySelector('.main-container').style.display = 'block';
         window.history.pushState({}, '', 'corporations.html');
@@ -74,6 +76,11 @@ function updateDisplay() {
     document.getElementById('all-corps-count').textContent = simulation.corporations.length + ' Corporations';
     renderSummary();
     renderCorporations();
+
+    // Refresh detail view if currently displayed
+    if (currentCorpId && !document.getElementById('corp-detail-view').classList.contains('hidden')) {
+        showCorpDetail(currentCorpId);
+    }
 }
 
 function renderSummary() {
@@ -281,6 +288,7 @@ function renderCorporations() {
 }
 
 function showCorpDetail(corpId) {
+    currentCorpId = corpId;
     const corp = simulation.corporations.find(c => c.id === corpId || c.id === parseInt(corpId));
 
     // If corporation not found, show error
@@ -582,6 +590,19 @@ function renderBoardMeetingInfo(corp) {
     const corporationManager = simulation.corporationManager;
     const pendingCreations = corporationManager?.pendingFirmCreations?.filter(p => p.corporationId === corp.id) || [];
     const currentMonth = corporationManager?.monthsElapsed || 0;
+    const gameTime = simulation.clock?.getGameTime() || { year: 2025, month: 1 };
+
+    // Helper to calculate estimated completion date
+    const getEstimatedDate = (monthsRemaining) => {
+        let targetMonth = gameTime.month + monthsRemaining;
+        let targetYear = gameTime.year;
+        while (targetMonth > 12) {
+            targetMonth -= 12;
+            targetYear++;
+        }
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        return `${monthNames[targetMonth - 1]} ${targetYear}`;
+    };
 
     if (projects.length > 0 || pendingCreations.length > 0) {
         const allProjects = [...projects, ...pendingCreations];
@@ -592,6 +613,7 @@ function renderBoardMeetingInfo(corp) {
                         ? Math.min(100, Math.round(((currentMonth - project.startMonth) / (project.completionMonth - project.startMonth)) * 100))
                         : 0;
                     const monthsRemaining = project.completionMonth ? Math.max(0, project.completionMonth - currentMonth) : 0;
+                    const estimatedDate = getEstimatedDate(monthsRemaining);
                     return `
                     <div class="project-item ${project.status?.toLowerCase() || 'in-progress'}">
                         <div class="project-header">
@@ -603,12 +625,16 @@ function renderBoardMeetingInfo(corp) {
                             ${project.cost ? `<span class="project-cost">${formatCurrency(project.cost)}</span>` : ''}
                             ${project.rationale ? `<span class="project-rationale">${project.rationale}</span>` : ''}
                         </div>
+                        <div class="project-timeline">
+                            <span class="project-started">Started: Month ${project.startMonth || '?'}</span>
+                            <span class="project-completion">Est. Completion: <strong>${estimatedDate}</strong></span>
+                        </div>
                         <div class="project-progress">
                             <div class="progress-bar">
                                 <div class="progress-fill" style="width: ${progress}%"></div>
                             </div>
                             <span class="progress-text">${progress}% complete</span>
-                            <span class="project-eta">${monthsRemaining > 0 ? `ETA: ${monthsRemaining} month${monthsRemaining !== 1 ? 's' : ''}` : 'Completing soon'}</span>
+                            <span class="project-eta">${monthsRemaining > 0 ? `${monthsRemaining} month${monthsRemaining !== 1 ? 's' : ''} remaining` : 'Completing soon'}</span>
                         </div>
                     </div>
                     `;

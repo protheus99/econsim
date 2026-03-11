@@ -435,7 +435,8 @@ export class Corporation {
                 lastMeeting: this.boardMeeting.lastMeeting,
                 nextMeeting: this.boardMeeting.nextMeeting,
                 pendingDecisions: this.boardMeeting.pendingDecisions,
-                activeProjects: this.boardMeeting.activeProjects
+                activeProjects: this.boardMeeting.activeProjects,
+                meetingHistory: this.boardMeeting.meetingHistory
             },
             createdAt: this.createdAt,
             firstFirmAt: this.firstFirmAt,
