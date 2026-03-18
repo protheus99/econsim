@@ -442,6 +442,7 @@ export class LoggingCompany extends Firm {
         const baseState = super.getSerializableState();
         return {
             ...baseState,
+            timberType: this.timberType,
             forestSize: this.forestSize,
             forestDensity: this.forestDensity,
             forestHealth: this.forestHealth,

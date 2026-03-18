@@ -492,6 +492,7 @@ export class MiningCompany extends Firm {
         const baseState = super.getSerializableState();
         return {
             ...baseState,
+            resourceType: this.resourceType,
             remainingReserves: this.remainingReserves,
             depletionRate: this.depletionRate,
             reserveQuality: this.reserveQuality,

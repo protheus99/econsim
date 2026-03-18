@@ -39,6 +39,8 @@
                 <button class="btn btn-speed" data-speed="4" aria-label="Set speed to 4x">4x</button>
                 <button class="btn btn-speed" data-speed="2" aria-label="Set speed to 2x">2x</button>
                 <button class="btn btn-speed" data-speed="1" aria-label="Set speed to 1x">1x</button>
+                <button class="btn btn-save" id="btn-save" aria-label="Save game">Save</button>
+                <button class="btn btn-load" id="btn-load" aria-label="Load game">Load</button>
                 <button class="btn btn-reset" id="btn-reset" aria-label="Reset simulation">Reset</button>
             </div>
         </div>
@@ -235,6 +237,37 @@
             <div class="event-feed" id="event-feed"></div>
         </section>
     </main>
+
+    <!-- Save/Load Modal -->
+    <div id="save-load-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modal-title">Save Game</h2>
+                <button class="modal-close" id="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- Save Form (shown in save mode) -->
+                <div id="save-form" class="save-form">
+                    <div class="form-group">
+                        <label for="save-slot-name">Save Name:</label>
+                        <input type="text" id="save-slot-name" placeholder="Enter save name..." value="">
+                    </div>
+                    <button class="btn btn-primary" id="btn-save-confirm">Save Game</button>
+                </div>
+
+                <!-- Saves List -->
+                <div class="saves-list" id="saves-list">
+                    <div class="saves-header">
+                        <span>Saved Games</span>
+                        <span id="storage-stats"></span>
+                    </div>
+                    <div class="saves-items" id="saves-items">
+                        <div class="loading">Loading saves...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Scripts -->
     <script type="module" src="js/main.js"></script>

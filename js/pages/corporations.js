@@ -604,6 +604,19 @@ function renderBoardMeetingInfo(corp) {
         return `${monthNames[targetMonth - 1]} ${targetYear}`;
     };
 
+    // Helper to get next board meeting date (1st of next month)
+    const getNextMeetingDate = () => {
+        let nextMonth = gameTime.month + 1;
+        let nextYear = gameTime.year;
+        if (nextMonth > 12) {
+            nextMonth = 1;
+            nextYear++;
+        }
+        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                           'July', 'August', 'September', 'October', 'November', 'December'];
+        return `${monthNames[nextMonth - 1]} 1, ${nextYear}`;
+    };
+
     if (projects.length > 0 || pendingCreations.length > 0) {
         const allProjects = [...projects, ...pendingCreations];
         activeProjects.innerHTML = `
@@ -656,7 +669,7 @@ function renderBoardMeetingInfo(corp) {
                         <div class="status-text">
                             <strong>Awaiting First Board Meeting</strong>
                             <p>Board meetings occur monthly. The board will decide on opening the first facility.</p>
-                            <p class="status-eta">Next meeting: Month ${currentMonth + 1}</p>
+                            <p class="status-eta">Next meeting: ${getNextMeetingDate()}</p>
                         </div>
                     </div>
                 `;
@@ -667,7 +680,7 @@ function renderBoardMeetingInfo(corp) {
                         <div class="status-text">
                             <strong>Planning Operations</strong>
                             <p>The board is evaluating options for establishing the first facility.</p>
-                            <p class="status-eta">Next board meeting: Month ${currentMonth + 1}</p>
+                            <p class="status-eta">Next board meeting: ${getNextMeetingDate()}</p>
                         </div>
                     </div>
                 `;
@@ -848,7 +861,12 @@ function formatDecisionType(type) {
 function formatMeetingDate(date) {
     if (!date) return 'Unknown';
     if (typeof date === 'object') {
-        return `Month ${date.month || 1}, Year ${date.year || 2025}`;
+        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                           'July', 'August', 'September', 'October', 'November', 'December'];
+        const month = date.month || 1;
+        const day = date.day || 1;
+        const year = date.year || 2025;
+        return `${monthNames[month - 1]} ${day}, ${year}`;
     }
     return date;
 }

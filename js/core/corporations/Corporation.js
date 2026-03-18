@@ -135,6 +135,14 @@ export class Corporation {
     }
 
     /**
+     * Getter for backward compatibility with legacy code
+     * Returns the firms array for code that expects 'facilities'
+     */
+    get facilities() {
+        return this.firms;
+    }
+
+    /**
      * Generate a color based on corporation ID
      */
     generateColor(id) {
@@ -432,7 +440,26 @@ export class Corporation {
             goals: this.goals,
             attributes: this.attributes,
             boardMeeting: {
-                lastMeeting: this.boardMeeting.lastMeeting,
+                // Serialize lastMeeting with city/country stripped from projects
+                lastMeeting: this.boardMeeting.lastMeeting ? {
+                    ...this.boardMeeting.lastMeeting,
+                    approvedProjects: (this.boardMeeting.lastMeeting.approvedProjects || []).map(p => ({
+                        ...p,
+                        cityId: p.city?.id || null,
+                        cityName: p.city?.name || null,
+                        countryName: p.country?.name || null,
+                        city: undefined,
+                        country: undefined
+                    })),
+                    deferredProjects: (this.boardMeeting.lastMeeting.deferredProjects || []).map(p => ({
+                        ...p,
+                        cityId: p.city?.id || null,
+                        cityName: p.city?.name || null,
+                        countryName: p.country?.name || null,
+                        city: undefined,
+                        country: undefined
+                    }))
+                } : null,
                 nextMeeting: this.boardMeeting.nextMeeting,
                 pendingDecisions: this.boardMeeting.pendingDecisions,
                 // Serialize activeProjects with city/country IDs instead of object refs

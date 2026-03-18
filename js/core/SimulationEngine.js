@@ -20,6 +20,9 @@ import { TradeExecutor } from './trading/TradeExecutor.js';
 // Corporate organic growth system
 import { CorporationManager } from './corporations/CorporationManager.js';
 
+// Persistent storage (IndexedDB)
+import { gameStorage } from './GameStorage.js';
+
 export class SimulationEngine {
     constructor() {
         this.clock = new GameClock();
@@ -210,6 +213,10 @@ export class SimulationEngine {
 
     async initialize() {
         console.log('🚀 Initializing Enhanced Simulation Engine...');
+
+        // Initialize persistent storage (IndexedDB)
+        await gameStorage.initialize();
+        console.log('✅ Game Storage initialized (IndexedDB)');
 
         // Initialize seeded RNG for consistent generation within a session
         this.initializeRng();
@@ -566,6 +573,17 @@ export class SimulationEngine {
             }
             this.emit('update');
         }, tickRate);
+
+        // Setup periodic autosave to IndexedDB (every 5 minutes of real time)
+        this.autosaveInterval = setInterval(async () => {
+            if (!this.clock.isPaused && !SimulationEngine.isResetting) {
+                try {
+                    await this.autosave();
+                } catch (e) {
+                    console.warn('Autosave failed:', e);
+                }
+            }
+        }, 5 * 60 * 1000); // 5 minutes
     }
 
     updateHourly() {
@@ -1481,8 +1499,8 @@ export class SimulationEngine {
     }
 
     setSpeed(multiplier) {
-        // Clamp to positive integer (min 1, max 16) for use as loop bound
-        this.speed = Math.max(1, Math.min(16, Math.floor(multiplier) || 1));
+        // Clamp to positive integer (min 1, max 168 for 1W speed)
+        this.speed = Math.max(1, Math.min(168, Math.floor(multiplier) || 1));
         this.addEvent('info', 'Speed Changed', `Simulation speed set to ${this.speed}x`);
     }
 
@@ -1832,6 +1850,29 @@ export class SimulationEngine {
                 state.pendingDeliveries = contractManager.pendingDeliveries || [];
             }
 
+            // Debug: Try to identify circular reference source
+            try {
+                JSON.stringify(state.clock);
+            } catch (e) { console.error('Circular ref in: clock'); }
+            try {
+                JSON.stringify(state.firms);
+            } catch (e) { console.error('Circular ref in: firms'); }
+            try {
+                JSON.stringify(state.cities);
+            } catch (e) { console.error('Circular ref in: cities'); }
+            try {
+                JSON.stringify(state.contracts);
+            } catch (e) { console.error('Circular ref in: contracts'); }
+            try {
+                JSON.stringify(state.pendingDeliveries);
+            } catch (e) { console.error('Circular ref in: pendingDeliveries'); }
+            try {
+                JSON.stringify(state.recentTransactions);
+            } catch (e) { console.error('Circular ref in: recentTransactions'); }
+            try {
+                JSON.stringify(state.corporationManager);
+            } catch (e) { console.error('Circular ref in: corporationManager'); }
+
             sessionStorage.setItem(SimulationEngine.GAME_STATE_KEY, JSON.stringify(state));
             // Debug log (uncomment if needed)
             // console.log(`💾 Saved state: ${Object.keys(state.cities).length} cities, ${Object.keys(state.firms).length} firms`);
@@ -1858,19 +1899,36 @@ export class SimulationEngine {
                 this.clock.month = state.clock.month;
                 this.clock.year = state.clock.year;
                 this.clock.isPaused = state.clock.isPaused ?? false;
+
+                // Sync tick counters with restored clock to prevent delayed monthly updates
+                this.dailyTick = state.clock.hour;
+                this.monthlyTick = state.clock.day;
             }
 
             // Restore control state (but don't auto-start, let shared.js handle that)
             this.timeScale = state.timeScale || 1;
 
             // Restore firm states
+            // In organic growth mode, firms may not exist yet - we need to recreate them
             if (state.firms) {
+                let firmsRestored = 0;
+                const totalFirms = Object.keys(state.firms).length;
+
                 for (const [id, firmState] of Object.entries(state.firms)) {
-                    const firm = this.firms.get(id);
+                    let firm = this.firms.get(id);
+
+                    // If firm doesn't exist (organic growth mode), try to recreate it
+                    if (!firm && firmState.type && firmState.cityId) {
+                        firm = this.recreateFirmFromState(id, firmState);
+                    }
+
                     if (firm && firm.restoreState) {
                         firm.restoreState(firmState);
+                        firmsRestored++;
                     }
                 }
+
+                console.log(`   - Firms: ${firmsRestored}/${totalFirms} restored`);
             }
 
             // Restore city states
@@ -1956,7 +2014,7 @@ export class SimulationEngine {
     }
 
     /**
-     * Check if there is saved state available
+     * Check if there is saved state available (sync check for sessionStorage)
      * @returns {boolean}
      */
     hasSavedState() {
@@ -1964,10 +2022,352 @@ export class SimulationEngine {
     }
 
     /**
-     * Clear saved state
+     * Clear saved state (both sessionStorage and optionally IndexedDB)
      */
     clearSavedState() {
         sessionStorage.removeItem(SimulationEngine.GAME_STATE_KEY);
+    }
+
+    // ============================================
+    // IndexedDB Persistent Storage Methods
+    // ============================================
+
+    /**
+     * Get the current game state as a serializable object
+     * @returns {Object} Serialized game state
+     */
+    getSerializableState() {
+        const state = {
+            version: 1,
+            savedAt: Date.now(),
+            clock: {
+                hour: this.clock.hour,
+                day: this.clock.day,
+                month: this.clock.month,
+                year: this.clock.year,
+                isPaused: this.clock.isPaused
+            },
+            running: this.running,
+            timeScale: this.timeScale,
+            firms: {},
+            cities: {},
+            contracts: [],
+            pendingDeliveries: [],
+            recentTransactions: this.transactionLog?.transactions?.slice(-100) || [],
+            corporationManager: null
+        };
+
+        // Serialize corporation manager state
+        if (this.config.corporations?.organicGrowth && this.corporationManager) {
+            const serializedPendingCreations = this.corporationManager.pendingFirmCreations.map(project => ({
+                ...project,
+                cityId: project.city?.id || null,
+                countryName: project.country?.name || null,
+                city: undefined,
+                country: undefined
+            }));
+
+            state.corporationManager = {
+                monthsElapsed: this.corporationManager.monthsElapsed,
+                economicPhase: this.corporationManager.economicPhase,
+                pendingFirmCreations: serializedPendingCreations,
+                corporations: {}
+            };
+
+            for (const [id, corp] of this.corporationManager.corporations) {
+                if (corp.getSerializableState) {
+                    state.corporationManager.corporations[id] = corp.getSerializableState();
+                }
+            }
+        }
+
+        // Serialize firms
+        for (const [id, firm] of this.firms) {
+            if (firm.getSerializableState) {
+                state.firms[id] = firm.getSerializableState();
+            }
+        }
+
+        // Serialize cities
+        const cities = this.cityManager?.getAllCities() || [];
+        for (const city of cities) {
+            if (city.getSerializableState) {
+                state.cities[city.id] = city.getSerializableState();
+            }
+        }
+
+        // Serialize contracts
+        const contractManager = this.purchaseManager?.contractManager;
+        if (contractManager) {
+            for (const contract of contractManager.contracts.values()) {
+                state.contracts.push(contract.toJSON());
+            }
+            state.pendingDeliveries = contractManager.pendingDeliveries || [];
+        }
+
+        return state;
+    }
+
+    /**
+     * Save game to IndexedDB with a named slot
+     * @param {string} slot - Save slot name (e.g., 'save1', 'quicksave')
+     * @returns {Promise<string>} Save ID
+     */
+    async saveToSlot(slot = 'quicksave') {
+        const state = this.getSerializableState();
+        return await gameStorage.saveGame(slot, state, { isAutosave: false });
+    }
+
+    /**
+     * Autosave to IndexedDB
+     * @returns {Promise<string>} Save ID
+     */
+    async autosave() {
+        const state = this.getSerializableState();
+        return await gameStorage.saveGame('autosave', state, { isAutosave: true, maxAutosaves: 5 });
+    }
+
+    /**
+     * Load game from IndexedDB slot
+     * @param {string} slotOrId - Slot name or save ID
+     * @returns {Promise<boolean>} Whether state was restored
+     */
+    async loadFromSlot(slotOrId) {
+        const state = await gameStorage.loadGame(slotOrId);
+        if (!state) {
+            console.warn(`No save found for: ${slotOrId}`);
+            return false;
+        }
+
+        return this.applyState(state);
+    }
+
+    /**
+     * Load the most recent save from IndexedDB
+     * @returns {Promise<boolean>} Whether state was restored
+     */
+    async loadLatestSave() {
+        const save = await gameStorage.getLatestSave();
+        if (!save) {
+            console.log('No saves found in IndexedDB');
+            return false;
+        }
+
+        console.log(`📂 Loading save from ${new Date(save.savedAt).toLocaleString()}`);
+        return this.applyState(save.state);
+    }
+
+    /**
+     * Apply a state object to the simulation
+     * @param {Object} state - State to apply
+     * @returns {boolean} Whether state was applied
+     */
+    applyState(state) {
+        try {
+            // Restore clock
+            if (state.clock && this.clock) {
+                this.clock.hour = state.clock.hour;
+                this.clock.day = state.clock.day;
+                this.clock.month = state.clock.month;
+                this.clock.year = state.clock.year;
+                this.clock.isPaused = state.clock.isPaused ?? false;
+                this.dailyTick = state.clock.hour;
+                this.monthlyTick = state.clock.day;
+            }
+
+            this.timeScale = state.timeScale || 1;
+
+            // Restore firms
+            if (state.firms) {
+                for (const [id, firmState] of Object.entries(state.firms)) {
+                    let firm = this.firms.get(id);
+                    if (!firm && firmState.type && firmState.cityId) {
+                        firm = this.recreateFirmFromState(id, firmState);
+                    }
+                    if (firm && firm.restoreState) {
+                        firm.restoreState(firmState);
+                    }
+                }
+            }
+
+            // Restore cities
+            if (state.cities) {
+                const cities = this.cityManager?.getAllCities() || [];
+                for (const city of cities) {
+                    const cityState = state.cities[city.id];
+                    if (cityState && city.restoreState) {
+                        city.restoreState(cityState);
+                    }
+                }
+            }
+
+            // Restore contracts
+            const contractManager = this.purchaseManager?.contractManager;
+            if (contractManager && state.contracts) {
+                contractManager.contracts.clear();
+                for (const contractData of state.contracts) {
+                    const contract = Contract.fromJSON(contractData);
+                    contractManager.contracts.set(contract.id, contract);
+                }
+                contractManager.rebuildIndices();
+                contractManager.pendingDeliveries = state.pendingDeliveries || [];
+            }
+
+            // Restore transaction log
+            if (state.recentTransactions && this.transactionLog) {
+                this.transactionLog.transactions = state.recentTransactions;
+            }
+
+            // Restore corporation manager
+            if (state.corporationManager && this.corporationManager) {
+                this.corporationManager.monthsElapsed = state.corporationManager.monthsElapsed || 0;
+                this.corporationManager.economicPhase = state.corporationManager.economicPhase || 'FOUNDATION';
+
+                const restoredPendingCreations = (state.corporationManager.pendingFirmCreations || []).map(project => {
+                    const restored = { ...project };
+                    if (project.cityId && this.cityManager) {
+                        restored.city = this.cityManager.getCityById(project.cityId);
+                        restored.country = restored.city?.country || null;
+                    }
+                    return restored;
+                });
+                this.corporationManager.pendingFirmCreations = restoredPendingCreations;
+
+                if (state.corporationManager.corporations) {
+                    for (const [id, corpState] of Object.entries(state.corporationManager.corporations)) {
+                        const corp = this.corporationManager.corporations.get(id);
+                        if (corp && corp.restoreState) {
+                            corp.restoreState(corpState);
+                        }
+                    }
+                }
+            }
+
+            console.log(`✅ State applied: Day ${this.clock.day}, Hour ${this.clock.hour}`);
+            return true;
+
+        } catch (e) {
+            console.error('Failed to apply state:', e);
+            return false;
+        }
+    }
+
+    /**
+     * List all available saves from IndexedDB
+     * @returns {Promise<Array>}
+     */
+    async listSaves() {
+        return await gameStorage.listSaves();
+    }
+
+    /**
+     * Delete a save from IndexedDB
+     * @param {string} saveId - Save ID to delete
+     * @returns {Promise<boolean>}
+     */
+    async deleteSave(saveId) {
+        return await gameStorage.deleteSave(saveId);
+    }
+
+    /**
+     * Get storage statistics
+     * @returns {Promise<Object>}
+     */
+    async getStorageStats() {
+        return await gameStorage.getStats();
+    }
+
+    /**
+     * Recreate a firm from saved state (for organic growth mode)
+     * @param {string} firmId - The firm ID
+     * @param {Object} firmState - Saved firm state including type, cityId, etc.
+     * @returns {Object|null} The recreated firm or null if failed
+     */
+    recreateFirmFromState(firmId, firmState) {
+        const city = this.cityManager?.getCityById(firmState.cityId);
+        if (!city) {
+            console.warn(`Cannot recreate firm ${firmId}: city ${firmState.cityId} not found`);
+            return null;
+        }
+
+        const country = city.country;
+        const firmGenerator = this.firmGenerator;
+        if (!firmGenerator) {
+            console.warn(`Cannot recreate firm ${firmId}: firmGenerator not available`);
+            return null;
+        }
+
+        let firm = null;
+        const type = firmState.type;
+
+        try {
+            switch (type) {
+                case 'MINING':
+                case 'MINING_COMPANY':
+                    firm = firmGenerator.createMiningFirmWithResource(
+                        city, country, firmId, firmState.resourceType
+                    );
+                    break;
+
+                case 'LOGGING':
+                case 'LOGGING_COMPANY':
+                    firm = firmGenerator.createLoggingFirmWithResource(
+                        city, country, firmId, firmState.timberType
+                    );
+                    break;
+
+                case 'FARM':
+                case 'FARM_CROP':
+                case 'FARM_LIVESTOCK':
+                    const resource = firmState.cropType || firmState.livestockType;
+                    firm = firmGenerator.createFarmFirmWithResource(
+                        city, country, firmId, resource, firmState.farmType
+                    );
+                    break;
+
+                case 'MANUFACTURING':
+                    firm = firmGenerator.createManufacturingFirm(city, country, firmId, false);
+                    break;
+
+                case 'RETAIL':
+                    firm = firmGenerator.createRetailFirm(city, country, firmId);
+                    break;
+
+                default:
+                    console.warn(`Unknown firm type for recreation: ${type}`);
+                    return null;
+            }
+
+            if (firm) {
+                // Set corporation association
+                firm.corporationId = firmState.corporationId;
+
+                // Find and associate with corporation
+                const corp = this.corporationManager?.corporations?.get(firmState.corporationId) ||
+                             this.corporationsById?.get(firmState.corporationId);
+                if (corp) {
+                    firm.corporationAbbreviation = corp.abbreviation;
+                    // Add to corporation's firms list if not already there
+                    if (typeof corp.addFirm === 'function') {
+                        corp.addFirm(firm);
+                    }
+                }
+
+                // Register the firm
+                this.firms.set(firm.id, firm);
+                city.firms = city.firms || [];
+                if (!city.firms.find(f => f.id === firm.id)) {
+                    city.firms.push(firm);
+                }
+
+                console.log(`   ✅ Recreated ${type} firm: ${firm.getDisplayName?.() || firm.id}`);
+            }
+        } catch (error) {
+            console.error(`Error recreating firm ${firmId}:`, error);
+            return null;
+        }
+
+        return firm;
     }
 
     destroy() {

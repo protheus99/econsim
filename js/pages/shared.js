@@ -198,6 +198,22 @@ export function setupControls(simulation) {
             }
         });
     }
+
+    // Save/Load buttons
+    const btnSave = document.getElementById('btn-save');
+    const btnLoad = document.getElementById('btn-load');
+
+    if (btnSave) {
+        btnSave.addEventListener('click', () => {
+            openSaveLoadModal(simulation, 'save');
+        });
+    }
+
+    if (btnLoad) {
+        btnLoad.addEventListener('click', () => {
+            openSaveLoadModal(simulation, 'load');
+        });
+    }
 }
 
 /**
@@ -309,6 +325,237 @@ export function cleanup() {
     }
     updateCallbacks = [];
     controlsInitialized = false;
+}
+
+// ==================== Save/Load Modal Functions ====================
+
+let currentSimulation = null;
+let modalMode = 'save';
+
+/**
+ * Open the save/load modal
+ * @param {SimulationEngine} simulation - The simulation instance
+ * @param {string} mode - 'save' or 'load'
+ */
+export function openSaveLoadModal(simulation, mode = 'save') {
+    currentSimulation = simulation;
+    modalMode = mode;
+
+    const modal = document.getElementById('save-load-modal');
+    const modalTitle = document.getElementById('modal-title');
+    const saveForm = document.getElementById('save-form');
+    const saveSlotName = document.getElementById('save-slot-name');
+
+    if (!modal) return;
+
+    // Set modal title and form visibility based on mode
+    if (mode === 'save') {
+        modalTitle.textContent = 'Save Game';
+        saveForm.style.display = 'block';
+        // Default save name based on current game time
+        const clock = simulation.clock;
+        saveSlotName.value = `Save ${clock.year}-${String(clock.month).padStart(2, '0')}-${String(clock.day).padStart(2, '0')}`;
+    } else {
+        modalTitle.textContent = 'Load Game';
+        saveForm.style.display = 'none';
+    }
+
+    // Show modal
+    modal.style.display = 'flex';
+
+    // Load saves list
+    refreshSavesList();
+
+    // Setup event listeners
+    setupModalEventListeners();
+}
+
+/**
+ * Close the save/load modal
+ */
+export function closeSaveLoadModal() {
+    const modal = document.getElementById('save-load-modal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+/**
+ * Setup modal event listeners
+ */
+function setupModalEventListeners() {
+    const modal = document.getElementById('save-load-modal');
+    const modalClose = document.getElementById('modal-close');
+    const btnSaveConfirm = document.getElementById('btn-save-confirm');
+
+    // Close button
+    if (modalClose) {
+        modalClose.onclick = closeSaveLoadModal;
+    }
+
+    // Click outside to close
+    if (modal) {
+        modal.onclick = (e) => {
+            if (e.target === modal) {
+                closeSaveLoadModal();
+            }
+        };
+    }
+
+    // Escape key to close
+    document.onkeydown = (e) => {
+        if (e.key === 'Escape') {
+            closeSaveLoadModal();
+        }
+    };
+
+    // Save confirm button
+    if (btnSaveConfirm) {
+        btnSaveConfirm.onclick = async () => {
+            const saveSlotName = document.getElementById('save-slot-name');
+            const slotName = saveSlotName.value.trim() || 'quicksave';
+
+            try {
+                btnSaveConfirm.disabled = true;
+                btnSaveConfirm.textContent = 'Saving...';
+
+                await currentSimulation.saveToSlot(slotName);
+
+                btnSaveConfirm.textContent = 'Saved!';
+                setTimeout(() => {
+                    btnSaveConfirm.disabled = false;
+                    btnSaveConfirm.textContent = 'Save Game';
+                    refreshSavesList();
+                }, 1000);
+
+            } catch (error) {
+                console.error('Save failed:', error);
+                btnSaveConfirm.textContent = 'Save Failed';
+                btnSaveConfirm.disabled = false;
+                setTimeout(() => {
+                    btnSaveConfirm.textContent = 'Save Game';
+                }, 2000);
+            }
+        };
+    }
+}
+
+/**
+ * Refresh the saves list in the modal
+ */
+async function refreshSavesList() {
+    const savesItems = document.getElementById('saves-items');
+    const storageStats = document.getElementById('storage-stats');
+
+    if (!savesItems || !currentSimulation) return;
+
+    savesItems.innerHTML = '<div class="loading">Loading saves...</div>';
+
+    try {
+        const saves = await currentSimulation.listSaves();
+        const stats = await currentSimulation.getStorageStats();
+
+        // Update storage stats
+        if (storageStats) {
+            storageStats.textContent = `${saves.length} saves (${stats.totalSizeFormatted})`;
+        }
+
+        if (saves.length === 0) {
+            savesItems.innerHTML = `
+                <div class="saves-empty">
+                    <div class="empty-icon">📂</div>
+                    <div>No saved games yet</div>
+                </div>
+            `;
+            return;
+        }
+
+        // Render saves list
+        savesItems.innerHTML = saves.map(save => {
+            const savedDate = new Date(save.savedAt);
+            const gameTime = save.gameTime
+                ? `Year ${save.gameTime.year}, Month ${save.gameTime.month}, Day ${save.gameTime.day}`
+                : 'Unknown';
+            const sizeKB = save.size ? (save.size / 1024).toFixed(1) : '?';
+
+            return `
+                <div class="save-item" data-save-id="${save.id}">
+                    <div class="save-item-info">
+                        <div class="save-item-name">
+                            ${save.slot}
+                            ${save.isAutosave ? '<span class="autosave-badge">AUTO</span>' : ''}
+                        </div>
+                        <div class="save-item-meta">
+                            ${gameTime} | ${savedDate.toLocaleString()} | ${sizeKB}KB
+                        </div>
+                    </div>
+                    <div class="save-item-actions">
+                        <button class="btn-load-save" data-save-id="${save.id}">Load</button>
+                        <button class="btn-delete-save" data-save-id="${save.id}">Delete</button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        // Add event listeners to buttons
+        savesItems.querySelectorAll('.btn-load-save').forEach(btn => {
+            btn.onclick = () => loadSave(btn.dataset.saveId);
+        });
+
+        savesItems.querySelectorAll('.btn-delete-save').forEach(btn => {
+            btn.onclick = () => deleteSave(btn.dataset.saveId);
+        });
+
+    } catch (error) {
+        console.error('Failed to load saves:', error);
+        savesItems.innerHTML = `<div class="saves-empty">Failed to load saves</div>`;
+    }
+}
+
+/**
+ * Load a save
+ * @param {string} saveId - The save ID to load
+ */
+async function loadSave(saveId) {
+    if (!currentSimulation) return;
+
+    if (!confirm('Load this save? Current progress will be lost.')) {
+        return;
+    }
+
+    try {
+        const success = await currentSimulation.loadFromSlot(saveId);
+        if (success) {
+            closeSaveLoadModal();
+            // Reload page to reinitialize UI with new state
+            window.location.reload();
+        } else {
+            alert('Failed to load save');
+        }
+    } catch (error) {
+        console.error('Load failed:', error);
+        alert('Failed to load save: ' + error.message);
+    }
+}
+
+/**
+ * Delete a save
+ * @param {string} saveId - The save ID to delete
+ */
+async function deleteSave(saveId) {
+    if (!currentSimulation) return;
+
+    if (!confirm('Delete this save?')) {
+        return;
+    }
+
+    try {
+        await currentSimulation.deleteSave(saveId);
+        refreshSavesList();
+    } catch (error) {
+        console.error('Delete failed:', error);
+        alert('Failed to delete save');
+    }
 }
 
 // Auto-cleanup on page unload

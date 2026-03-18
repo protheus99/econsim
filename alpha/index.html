@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EconSim Alpha - Server-Driven</title>
+    <link rel="stylesheet" href="../css/styles.css">
+    <style>
+        .alpha-banner {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 10px 20px;
+            text-align: center;
+            font-weight: bold;
+        }
+        .connection-panel {
+            background: #1a1a2e;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px;
+        }
+        .connection-panel h3 {
+            margin-top: 0;
+            color: #4fc3f7;
+        }
+        .status-row {
+            display: flex;
+            align-items: center;
+            margin: 10px 0;
+        }
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+        .status-dot.connected { background: #4caf50; }
+        .status-dot.disconnected { background: #f44336; }
+        .status-dot.pending { background: #ff9800; }
+        .btn {
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .btn-primary { background: #4fc3f7; color: #1a1a2e; }
+        .btn-success { background: #4caf50; color: white; }
+        .btn-danger { background: #f44336; color: white; }
+        .btn-warning { background: #ff9800; color: white; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .games-list {
+            margin-top: 20px;
+        }
+        .game-card {
+            background: #16213e;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .game-info h4 {
+            margin: 0 0 5px 0;
+            color: #e0e0e0;
+        }
+        .game-info p {
+            margin: 0;
+            color: #888;
+            font-size: 0.9em;
+        }
+        .sim-panel {
+            background: #1a1a2e;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px;
+            display: none;
+        }
+        .sim-panel.active { display: block; }
+        .clock-display {
+            font-size: 2em;
+            font-family: monospace;
+            color: #4fc3f7;
+            text-align: center;
+            padding: 20px;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .stat-card {
+            background: #16213e;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 1.5em;
+            color: #4fc3f7;
+        }
+        .stat-label {
+            color: #888;
+            font-size: 0.9em;
+        }
+        .controls-row {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin: 20px 0;
+        }
+        .speed-buttons {
+            display: flex;
+            gap: 5px;
+        }
+        .btn-speed {
+            padding: 8px 12px;
+            background: #16213e;
+            color: #e0e0e0;
+            border: 1px solid #333;
+        }
+        .btn-speed.active {
+            background: #4fc3f7;
+            color: #1a1a2e;
+        }
+        .log-panel {
+            background: #0a0a0a;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 0.85em;
+        }
+        .log-entry {
+            padding: 2px 0;
+            border-bottom: 1px solid #222;
+        }
+        .log-entry.info { color: #4fc3f7; }
+        .log-entry.success { color: #4caf50; }
+        .log-entry.error { color: #f44336; }
+        .log-entry.warn { color: #ff9800; }
+    </style>
+</head>
+<body>
+    <div class="alpha-banner">
+        🚀 ALPHA BUILD - Server-Driven Architecture
+    </div>
+
+    <main class="container">
+        <!-- Connection Panel -->
+        <div class="connection-panel" id="connection-panel">
+            <h3>🔌 Server Connection</h3>
+            <div class="status-row">
+                <div class="status-dot disconnected" id="ws-status-dot"></div>
+                <span id="ws-status-text">Disconnected</span>
+            </div>
+            <div style="margin: 15px 0;">
+                <label>Server URL:</label>
+                <input type="text" id="server-url" value="ws://localhost:3001/ws" style="width: 300px; padding: 8px;">
+            </div>
+            <button class="btn btn-primary" id="btn-connect">Connect</button>
+            <button class="btn btn-danger" id="btn-disconnect" disabled>Disconnect</button>
+
+            <div class="games-list" id="games-list" style="display: none;">
+                <h4>📂 Available Games</h4>
+                <div id="games-container"></div>
+                <button class="btn btn-success" id="btn-new-game">+ New Game</button>
+            </div>
+        </div>
+
+        <!-- Simulation Panel (shown when in session) -->
+        <div class="sim-panel" id="sim-panel">
+            <h3>🎮 Simulation: <span id="session-name">--</span></h3>
+
+            <div class="clock-display" id="clock-display">
+                <span id="game-date">----</span>
+            </div>
+
+            <div class="controls-row">
+                <button class="btn btn-success" id="btn-play">▶ Play</button>
+                <button class="btn btn-warning" id="btn-pause">⏸ Pause</button>
+                <div class="speed-buttons">
+                    <button class="btn btn-speed" data-speed="1">1x</button>
+                    <button class="btn btn-speed active" data-speed="2">2x</button>
+                    <button class="btn btn-speed" data-speed="4">4x</button>
+                    <button class="btn btn-speed" data-speed="8">8x</button>
+                    <button class="btn btn-speed" data-speed="24">24x</button>
+                </div>
+                <button class="btn btn-primary" id="btn-save">💾 Save</button>
+                <button class="btn btn-danger" id="btn-leave">🚪 Leave</button>
+            </div>
+
+            <div class="stats-grid" id="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="stat-firms">0</div>
+                    <div class="stat-label">Firms</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="stat-cities">0</div>
+                    <div class="stat-label">Cities</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="stat-population">0</div>
+                    <div class="stat-label">Population</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="stat-speed">1x</div>
+                    <div class="stat-label">Speed</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Log Panel -->
+        <div class="log-panel" id="log-panel">
+            <div id="log-container"></div>
+        </div>
+    </main>
+
+    <script type="module">
+        import { wsClient } from './client/js/WebSocketClient.js';
+        import { stateManager } from './client/js/StateManager.js';
+
+        // Initialize state manager
+        stateManager.init(wsClient);
+
+        // DOM elements
+        const serverUrlInput = document.getElementById('server-url');
+        const btnConnect = document.getElementById('btn-connect');
+        const btnDisconnect = document.getElementById('btn-disconnect');
+        const wsStatusDot = document.getElementById('ws-status-dot');
+        const wsStatusText = document.getElementById('ws-status-text');
+        const gamesList = document.getElementById('games-list');
+        const gamesContainer = document.getElementById('games-container');
+        const btnNewGame = document.getElementById('btn-new-game');
+        const simPanel = document.getElementById('sim-panel');
+        const sessionName = document.getElementById('session-name');
+        const gameDate = document.getElementById('game-date');
+        const logContainer = document.getElementById('log-container');
+
+        // Logging
+        function log(message, type = 'info') {
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logContainer.appendChild(entry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        // Format numbers
+        function formatNumber(num) {
+            if (num >= 1e6) return (num / 1e6).toFixed(1) + 'M';
+            if (num >= 1e3) return (num / 1e3).toFixed(1) + 'K';
+            return num.toString();
+        }
+
+        // Update connection status
+        function updateConnectionStatus(connected) {
+            wsStatusDot.className = `status-dot ${connected ? 'connected' : 'disconnected'}`;
+            wsStatusText.textContent = connected ? 'Connected' : 'Disconnected';
+            btnConnect.disabled = connected;
+            btnDisconnect.disabled = !connected;
+            gamesList.style.display = connected ? 'block' : 'none';
+        }
+
+        // Load games list
+        async function loadGames() {
+            try {
+                const response = await fetch('http://localhost:3001/api/v1/games');
+                const data = await response.json();
+                gamesContainer.innerHTML = '';
+
+                if (data.games.length === 0) {
+                    gamesContainer.innerHTML = '<p style="color: #888;">No games yet. Create one!</p>';
+                } else {
+                    data.games.forEach(game => {
+                        const card = document.createElement('div');
+                        card.className = 'game-card';
+                        card.innerHTML = `
+                            <div class="game-info">
+                                <h4>${game.name}</h4>
+                                <p>Seed: ${game.seed} | Status: ${game.status}</p>
+                            </div>
+                            <div>
+                                <button class="btn btn-primary btn-load" data-id="${game.id}">Load</button>
+                                <button class="btn btn-danger btn-delete" data-id="${game.id}">Delete</button>
+                            </div>
+                        `;
+                        gamesContainer.appendChild(card);
+                    });
+
+                    // Add event listeners
+                    document.querySelectorAll('.btn-load').forEach(btn => {
+                        btn.addEventListener('click', () => loadGame(btn.dataset.id));
+                    });
+                    document.querySelectorAll('.btn-delete').forEach(btn => {
+                        btn.addEventListener('click', () => deleteGame(btn.dataset.id));
+                    });
+                }
+            } catch (error) {
+                log('Failed to load games: ' + error.message, 'error');
+            }
+        }
+
+        // Create new game
+        async function createGame() {
+            try {
+                const response = await fetch('http://localhost:3001/api/v1/games', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: `Game ${new Date().toLocaleDateString()}` })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    log('Created game: ' + data.game.id, 'success');
+                    loadGames();
+                    // Auto-join new game
+                    await loadGame(data.game.id);
+                }
+            } catch (error) {
+                log('Failed to create game: ' + error.message, 'error');
+            }
+        }
+
+        // Load game into session
+        async function loadGame(gameId) {
+            try {
+                // Load game via API
+                const response = await fetch(`http://localhost:3001/api/v1/games/${gameId}/load`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                if (data.success) {
+                    log('Loaded game: ' + gameId, 'success');
+                    // Join via WebSocket
+                    wsClient.send({ type: 'JOIN_SESSION', sessionId: gameId });
+                }
+            } catch (error) {
+                log('Failed to load game: ' + error.message, 'error');
+            }
+        }
+
+        // Delete game
+        async function deleteGame(gameId) {
+            if (!confirm('Delete this game?')) return;
+            try {
+                await fetch(`http://localhost:3001/api/v1/games/${gameId}`, { method: 'DELETE' });
+                log('Deleted game: ' + gameId, 'success');
+                loadGames();
+            } catch (error) {
+                log('Failed to delete game: ' + error.message, 'error');
+            }
+        }
+
+        // Connect to server
+        btnConnect.addEventListener('click', async () => {
+            wsClient.url = serverUrlInput.value;
+            log('Connecting to ' + serverUrlInput.value);
+            try {
+                await wsClient.connect();
+            } catch (error) {
+                log('Connection failed: ' + error.message, 'error');
+            }
+        });
+
+        // Disconnect
+        btnDisconnect.addEventListener('click', () => {
+            wsClient.disconnect();
+        });
+
+        // New game
+        btnNewGame.addEventListener('click', createGame);
+
+        // WebSocket events
+        wsClient.on('connected', (data) => {
+            log('Connected! Client ID: ' + data.clientId, 'success');
+            updateConnectionStatus(true);
+            loadGames();
+        });
+
+        wsClient.on('disconnected', () => {
+            log('Disconnected', 'warn');
+            updateConnectionStatus(false);
+            simPanel.classList.remove('active');
+        });
+
+        wsClient.on('error', (error) => {
+            log('Error: ' + (error.message || JSON.stringify(error)), 'error');
+        });
+
+        wsClient.on('sessionJoined', (data) => {
+            log('Joined session: ' + data.sessionId, 'success');
+            simPanel.classList.add('active');
+            sessionName.textContent = data.session?.name || data.sessionId;
+        });
+
+        wsClient.on('initialState', (data) => {
+            log('Received initial state', 'info');
+            updateSimDisplay(data);
+        });
+
+        wsClient.on('tick', (data) => {
+            updateSimDisplay(data);
+        });
+
+        wsClient.on('controlUpdate', (data) => {
+            log(`Control: ${data.event} (speed: ${data.speed}x)`, 'info');
+        });
+
+        // Update simulation display
+        function updateSimDisplay(data) {
+            gameDate.textContent = data.formatted || data.clockFormatted || '--';
+            document.getElementById('stat-firms').textContent = data.firmCount || data.stats?.totalFirms || 0;
+            document.getElementById('stat-speed').textContent = (data.speed || 1) + 'x';
+
+            if (data.stats) {
+                document.getElementById('stat-population').textContent = formatNumber(data.stats.totalPopulation || 0);
+            }
+            if (data.displayData) {
+                document.getElementById('stat-cities').textContent = data.displayData.cities?.length || 0;
+            }
+        }
+
+        // Simulation controls
+        document.getElementById('btn-play').addEventListener('click', () => wsClient.resume());
+        document.getElementById('btn-pause').addEventListener('click', () => wsClient.pause());
+        document.getElementById('btn-save').addEventListener('click', async () => {
+            try {
+                await wsClient.save('manual_save');
+                log('Game saved', 'success');
+            } catch (e) {
+                log('Save failed: ' + e.message, 'error');
+            }
+        });
+        document.getElementById('btn-leave').addEventListener('click', () => {
+            wsClient.leaveSession();
+            simPanel.classList.remove('active');
+            loadGames();
+        });
+
+        document.querySelectorAll('.btn-speed').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const speed = parseInt(btn.dataset.speed);
+                wsClient.setSpeed(speed);
+                document.querySelectorAll('.btn-speed').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+            });
+        });
+
+        // Initial log
+        log('Alpha client ready. Click Connect to start.', 'info');
+    </script>
+</body>
+</html>

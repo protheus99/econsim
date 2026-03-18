@@ -164,6 +164,10 @@ export class Firm {
     getSerializableState() {
         return {
             id: this.id,
+            type: this.type,
+            cityId: this.city?.id || null,
+            countryName: this.city?.country?.name || null,
+            corporationId: this.corporationId,
             cash: this.cash,
             revenue: this.revenue,
             expenses: this.expenses,
