@@ -15,6 +15,7 @@ export function createGamesRouter(sessionManager, database) {
      * Body: { name?, seed?, config? }
      */
     router.post('/', async (req, res) => {
+        console.log('[POST /games] Creating new game...');
         try {
             const { name, seed, config } = req.body;
 
@@ -22,16 +23,22 @@ export function createGamesRouter(sessionManager, database) {
             const gameName = name || `Game ${new Date().toLocaleDateString()}`;
             const gameSeed = seed || Date.now();
 
-            // Create database record
-            const game = database.createGame(gameId, gameName, gameSeed, config);
+            console.log('[POST /games] Game ID:', gameId);
 
-            // Create active session
+            // Create database record
+            console.log('[POST /games] Creating database record...');
+            const game = database.createGame(gameId, gameName, gameSeed, config);
+            console.log('[POST /games] Database record created');
+
+            // Create active session (this loads the simulation engine)
+            console.log('[POST /games] Creating session (this may take a moment)...');
             const session = await sessionManager.createSession({
                 id: gameId,
                 name: gameName,
                 seed: gameSeed,
                 config
             });
+            console.log('[POST /games] Session created');
 
             res.status(201).json({
                 success: true,
@@ -46,7 +53,8 @@ export function createGamesRouter(sessionManager, database) {
             });
 
         } catch (error) {
-            console.error('Error creating game:', error);
+            console.error('[POST /games] Error creating game:', error);
+            console.error('[POST /games] Stack:', error.stack);
             res.status(500).json({
                 success: false,
                 error: error.message

@@ -92,6 +92,221 @@ export const documentPolyfill = {
 };
 
 /**
+ * IndexedDB polyfill - mock implementation for Node.js
+ * Server uses SQLite for persistence, so this just provides a compatible interface
+ */
+class IDBRequestPolyfill {
+    constructor() {
+        this.result = null;
+        this.error = null;
+        this.onsuccess = null;
+        this.onerror = null;
+    }
+
+    _succeed(result) {
+        this.result = result;
+        if (this.onsuccess) {
+            setTimeout(() => this.onsuccess({ target: this }), 0);
+        }
+    }
+
+    _fail(error) {
+        this.error = error;
+        if (this.onerror) {
+            setTimeout(() => this.onerror({ target: this }), 0);
+        }
+    }
+}
+
+class IDBIndexPolyfill {
+    constructor(store, keyPath) {
+        this._store = store;
+        this._keyPath = keyPath;
+    }
+
+    get(key) {
+        const request = new IDBRequestPolyfill();
+        // Find first item matching the index key
+        for (const value of this._store._data.values()) {
+            if (value && value[this._keyPath] === key) {
+                request._succeed(value);
+                return request;
+            }
+        }
+        request._succeed(undefined);
+        return request;
+    }
+
+    getAll(key) {
+        const request = new IDBRequestPolyfill();
+        const results = [];
+        for (const value of this._store._data.values()) {
+            if (key === undefined || (value && value[this._keyPath] === key)) {
+                results.push(value);
+            }
+        }
+        request._succeed(results);
+        return request;
+    }
+}
+
+class IDBObjectStorePolyfill {
+    constructor() {
+        this._data = new Map();
+        this._indexes = new Map();
+        this._autoIncrement = 0;
+    }
+
+    createIndex(name, keyPath, options) {
+        const index = new IDBIndexPolyfill(this, keyPath);
+        this._indexes.set(name, index);
+        return index;
+    }
+
+    index(name) {
+        return this._indexes.get(name);
+    }
+
+    put(value, key) {
+        const request = new IDBRequestPolyfill();
+        const actualKey = key !== undefined ? key : value.id || ++this._autoIncrement;
+        this._data.set(actualKey, value);
+        request._succeed(actualKey);
+        return request;
+    }
+
+    add(value, key) {
+        return this.put(value, key);
+    }
+
+    get(key) {
+        const request = new IDBRequestPolyfill();
+        request._succeed(this._data.get(key));
+        return request;
+    }
+
+    delete(key) {
+        const request = new IDBRequestPolyfill();
+        this._data.delete(key);
+        request._succeed(undefined);
+        return request;
+    }
+
+    clear() {
+        const request = new IDBRequestPolyfill();
+        this._data.clear();
+        request._succeed(undefined);
+        return request;
+    }
+
+    getAll() {
+        const request = new IDBRequestPolyfill();
+        request._succeed([...this._data.values()]);
+        return request;
+    }
+
+    getAllKeys() {
+        const request = new IDBRequestPolyfill();
+        request._succeed([...this._data.keys()]);
+        return request;
+    }
+
+    count() {
+        const request = new IDBRequestPolyfill();
+        request._succeed(this._data.size);
+        return request;
+    }
+}
+
+class IDBTransactionPolyfill {
+    constructor(store) {
+        this._store = store;
+        this.oncomplete = null;
+        this.onerror = null;
+    }
+
+    objectStore(name) {
+        return this._store;
+    }
+}
+
+class IDBDatabasePolyfill {
+    constructor(name) {
+        this.name = name;
+        this._stores = new Map();
+        this.onversionchange = null;
+    }
+
+    createObjectStore(name, options) {
+        const store = new IDBObjectStorePolyfill();
+        this._stores.set(name, store);
+        return store;
+    }
+
+    transaction(storeNames, mode) {
+        const storeName = Array.isArray(storeNames) ? storeNames[0] : storeNames;
+        let store = this._stores.get(storeName);
+        if (!store) {
+            store = new IDBObjectStorePolyfill();
+            this._stores.set(storeName, store);
+        }
+        const tx = new IDBTransactionPolyfill(store);
+        setTimeout(() => {
+            if (tx.oncomplete) tx.oncomplete({});
+        }, 0);
+        return tx;
+    }
+
+    close() {}
+
+    get objectStoreNames() {
+        return {
+            contains: (name) => this._stores.has(name)
+        };
+    }
+}
+
+class IDBOpenDBRequestPolyfill extends IDBRequestPolyfill {
+    constructor() {
+        super();
+        this.onupgradeneeded = null;
+    }
+}
+
+export const indexedDBPolyfill = {
+    _databases: new Map(),
+
+    open(name, version) {
+        const request = new IDBOpenDBRequestPolyfill();
+
+        setTimeout(() => {
+            let db = this._databases.get(name);
+            const isNew = !db;
+
+            if (isNew) {
+                db = new IDBDatabasePolyfill(name);
+                this._databases.set(name, db);
+            }
+
+            if (isNew && request.onupgradeneeded) {
+                request.onupgradeneeded({ target: { result: db } });
+            }
+
+            request._succeed(db);
+        }, 0);
+
+        return request;
+    },
+
+    deleteDatabase(name) {
+        const request = new IDBRequestPolyfill();
+        this._databases.delete(name);
+        request._succeed(undefined);
+        return request;
+    }
+};
+
+/**
  * Install polyfills globally (optional - for maximum compatibility)
  */
 export function installGlobalPolyfills() {
@@ -110,8 +325,11 @@ export function installGlobalPolyfills() {
     if (typeof globalThis.document === 'undefined') {
         globalThis.document = documentPolyfill;
     }
-    
-    console.log('✅ Browser polyfills installed');
+    if (typeof globalThis.indexedDB === 'undefined') {
+        globalThis.indexedDB = indexedDBPolyfill;
+    }
+
+    console.log('✅ Browser polyfills installed (including indexedDB)');
 }
 
 /**
@@ -146,6 +364,7 @@ export default {
     sessionStoragePolyfill,
     localStoragePolyfill,
     documentPolyfill,
+    indexedDBPolyfill,
     installGlobalPolyfills,
     SimulationEventEmitter
 };
