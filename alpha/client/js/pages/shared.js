@@ -14,7 +14,7 @@ let clockIntervalId = null;
 let controlsInitialized = false;
 
 // Server configuration
-const SERVER_URL = window.ECONSIM_SERVER_URL || 'ws://localhost:3001/ws';
+const SERVER_URL = window.ECONSIM_SERVER_URL || 'ws://localhost:3000/ws';
 
 /**
  * Connect to server and initialize state management
@@ -241,7 +241,7 @@ export async function resetSimulation() {
         wsClient.leaveSession();
 
         // Create new game via API
-        const response = await fetch('http://localhost:3001/api/v1/games', {
+        const response = await fetch('http://localhost:3000/api/v1/games', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

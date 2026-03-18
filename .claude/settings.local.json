@@ -12,7 +12,8 @@
       "Bash(powershell -Command:*)",
       "Bash(node tests/run-t0-tests.js:*)",
       "Bash(python:*)",
-      "Bash(where:*)"
+      "Bash(where:*)",
+      "Bash(cmd.exe /c \"cd alpha\\\\server && npm install\")"
     ]
   }
 }

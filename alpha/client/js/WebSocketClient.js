@@ -42,7 +42,7 @@ export class WebSocketClient {
      */
     _getDefaultUrl() {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        return `${protocol}//localhost:3001/ws`;
+        return `${protocol}//localhost:3000/ws`;
     }
 
     /**
