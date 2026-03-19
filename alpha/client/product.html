@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Product Details - EconSim</title>
+    <style>
+        body { background: #121212; color: #fff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 0; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        header { margin-bottom: 20px; }
+        header h1 { margin: 0; }
+        nav { margin-top: 10px; }
+        nav a { color: #00d4ff; margin-right: 15px; text-decoration: none; }
+        nav a:hover { text-decoration: underline; }
+        .back-link { color: #00d4ff; text-decoration: none; margin-bottom: 20px; display: inline-block; }
+        .back-link:hover { text-decoration: underline; }
+
+        .product-header { background: #1e1e1e; border-radius: 8px; padding: 25px; margin-bottom: 20px; border: 1px solid #333; }
+        .product-title { display: flex; justify-content: space-between; align-items: flex-start; }
+        .product-name { font-size: 28px; font-weight: bold; margin: 0; }
+        .product-tier { font-size: 12px; padding: 5px 12px; border-radius: 4px; }
+        .tier-RAW { background: #3a2a1a; color: #ffa500; }
+        .tier-SEMI_RAW { background: #2a2a3a; color: #00bfff; }
+        .tier-MANUFACTURED { background: #2a3a2a; color: #90ee90; }
+        .product-category { color: #888; margin-top: 8px; font-size: 14px; }
+
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-top: 20px; }
+        .stat-card { background: #2a2a2a; border-radius: 6px; padding: 15px; text-align: center; }
+        .stat-value { font-size: 22px; font-weight: bold; color: #00d4ff; }
+        .stat-label { font-size: 11px; color: #666; text-transform: uppercase; margin-top: 5px; }
+        .positive { color: #4caf50; }
+        .negative { color: #f44336; }
+
+        .section { background: #1e1e1e; border-radius: 8px; padding: 20px; margin-bottom: 20px; border: 1px solid #333; }
+        .section-title { font-size: 16px; font-weight: bold; margin: 0 0 15px 0; color: #00d4ff; }
+
+        .info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+        .info-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #333; }
+        .info-label { color: #888; }
+        .info-value { color: #fff; font-weight: 500; }
+
+        .supply-demand-visual { margin-top: 20px; }
+        .sd-bar-container { display: flex; align-items: center; gap: 15px; margin: 10px 0; }
+        .sd-label { width: 80px; font-size: 13px; color: #888; }
+        .sd-bar { flex: 1; height: 24px; background: #333; border-radius: 4px; overflow: hidden; }
+        .sd-bar-fill { height: 100%; transition: width 0.3s; }
+        .sd-bar-fill.supply { background: linear-gradient(90deg, #f44336, #ff7043); }
+        .sd-bar-fill.demand { background: linear-gradient(90deg, #4caf50, #81c784); }
+        .sd-value { width: 50px; text-align: right; font-weight: bold; }
+
+        .producers-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; margin-top: 15px; }
+        .producer-card { background: #2a2a2a; border-radius: 6px; padding: 12px; }
+        .producer-card a { color: #00d4ff; text-decoration: none; }
+        .producer-card a:hover { text-decoration: underline; }
+        .producer-info { font-size: 12px; color: #888; margin-top: 5px; }
+
+        .loading { text-align: center; padding: 50px; color: #888; }
+        .error { color: #f44336; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Product Details <span style="color: #00d4ff; font-size: 14px;">EconSim ALPHA</span></h1>
+            <nav>
+                <a href="index.html">Dashboard</a>
+                <a href="firms.html">Firms</a>
+                <a href="cities.html">Cities</a>
+                <a href="corporations.html">Corporations</a>
+                <a href="products.html">Products</a>
+            </nav>
+        </header>
+
+        <a href="products.html" class="back-link">&larr; Back to Products</a>
+
+        <div class="game-controls-bar" id="game-controls">
+            <div class="game-controls-left">
+                <button class="gc-btn gc-btn-play" id="gc-play" title="Resume">&#9658; Play</button>
+                <button class="gc-btn gc-btn-pause" id="gc-pause" title="Pause">&#10074;&#10074; Pause</button>
+                <span class="gc-separator">|</span>
+                <button class="gc-btn gc-speed" data-speed="1">1x</button>
+                <button class="gc-btn gc-speed" data-speed="2">2x</button>
+                <button class="gc-btn gc-speed" data-speed="4">4x</button>
+                <button class="gc-btn gc-speed" data-speed="8">8x</button>
+                <button class="gc-btn gc-speed" data-speed="24">1D</button>
+                <button class="gc-btn gc-speed" data-speed="168">1W</button>
+            </div>
+            <div class="game-controls-right">
+                <span class="gc-status gc-status-paused" id="gc-status">
+                    <span class="gc-status-indicator gc-indicator-paused" id="gc-indicator"></span>
+                    <span id="gc-status-text">Paused</span>
+                </span>
+                <span class="gc-clock" id="gc-clock">--</span>
+            </div>
+        </div>
+
+        <div id="content">
+            <div class="loading">Loading product details...</div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { wsClient } from './js/WebSocketClient.js';
+        import { stateManager } from './js/StateManager.js';
+        import { setupGameControls, injectControlStyles } from './js/GameControls.js';
+
+        stateManager.init(wsClient);
+        injectControlStyles();
+
+        const content = document.getElementById('content');
+        const urlParams = new URLSearchParams(window.location.search);
+        const productId = urlParams.get('id');
+
+        function formatCurrency(num) {
+            if (num == null || isNaN(num)) return '$0';
+            if (num >= 1e9) return '$' + (num / 1e9).toFixed(2) + 'B';
+            if (num >= 1e6) return '$' + (num / 1e6).toFixed(2) + 'M';
+            if (num >= 1e3) return '$' + (num / 1e3).toFixed(1) + 'K';
+            return '$' + num.toFixed(2);
+        }
+
+        function formatNumber(num) {
+            if (num == null || isNaN(num)) return '0';
+            if (num >= 1e6) return (num / 1e6).toFixed(2) + 'M';
+            if (num >= 1e3) return (num / 1e3).toFixed(1) + 'K';
+            return Math.floor(num).toLocaleString();
+        }
+
+        function getTierClass(tier) {
+            return 'tier-' + (tier || 'RAW');
+        }
+
+        function renderProduct(product, firms) {
+            if (!product) {
+                content.innerHTML = '<div class="loading error">Product not found</div>';
+                return;
+            }
+
+            // Find producers of this product
+            const producers = firms ? Object.values(firms).filter(f => {
+                return f.resourceType === product.name ||
+                       f.cropType === product.name ||
+                       f.livestockType === product.name ||
+                       f.productName === product.name ||
+                       f.timberType === product.name;
+            }) : [];
+
+            const priceChange = product.currentPrice - product.basePrice;
+            const priceChangePercent = product.basePrice > 0 ? (priceChange / product.basePrice) * 100 : 0;
+            const priceClass = priceChange >= 0 ? 'positive' : 'negative';
+            const priceSign = priceChange >= 0 ? '+' : '';
+
+            // Normalize supply/demand to percentage
+            const maxSD = Math.max(product.supply || 50, product.demand || 50, 100);
+            const supplyPct = ((product.supply || 50) / maxSD) * 100;
+            const demandPct = ((product.demand || 50) / maxSD) * 100;
+
+            content.innerHTML = `
+                <div class="product-header">
+                    <div class="product-title">
+                        <div>
+                            <h2 class="product-name">${product.name}</h2>
+                            <div class="product-category">${product.category || 'Unknown Category'}</div>
+                        </div>
+                        <span class="product-tier ${getTierClass(product.tier)}">${product.tier || 'RAW'}</span>
+                    </div>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-value">${formatCurrency(product.currentPrice)}</div>
+                            <div class="stat-label">Current Price</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value ${priceClass}">${priceSign}${priceChangePercent.toFixed(1)}%</div>
+                            <div class="stat-label">Price Change</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" style="color: #f44336;">${product.supply || 50}</div>
+                            <div class="stat-label">Supply Index</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" style="color: #4caf50;">${product.demand || 50}</div>
+                            <div class="stat-label">Demand Index</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h3 class="section-title">Market Data</h3>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="info-label">Product ID</span>
+                            <span class="info-value">${product.id}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Base Price</span>
+                            <span class="info-value">${formatCurrency(product.basePrice)}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Total Produced</span>
+                            <span class="info-value">${formatNumber(product.totalProduced)}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Total Consumed</span>
+                            <span class="info-value">${formatNumber(product.totalConsumed)}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Net Balance</span>
+                            <span class="info-value ${(product.totalProduced - product.totalConsumed) >= 0 ? 'positive' : 'negative'}">
+                                ${formatNumber(product.totalProduced - product.totalConsumed)}
+                            </span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Producers</span>
+                            <span class="info-value">${producers.length}</span>
+                        </div>
+                    </div>
+
+                    <div class="supply-demand-visual">
+                        <h4 style="color: #888; font-size: 13px; margin-bottom: 10px;">Supply vs Demand</h4>
+                        <div class="sd-bar-container">
+                            <span class="sd-label">Supply</span>
+                            <div class="sd-bar">
+                                <div class="sd-bar-fill supply" style="width: ${supplyPct}%;"></div>
+                            </div>
+                            <span class="sd-value" style="color: #f44336;">${product.supply || 50}</span>
+                        </div>
+                        <div class="sd-bar-container">
+                            <span class="sd-label">Demand</span>
+                            <div class="sd-bar">
+                                <div class="sd-bar-fill demand" style="width: ${demandPct}%;"></div>
+                            </div>
+                            <span class="sd-value" style="color: #4caf50;">${product.demand || 50}</span>
+                        </div>
+                        <p style="font-size: 12px; color: #666; margin-top: 10px;">
+                            ${product.supply > product.demand
+                                ? 'Oversupply - prices may decrease'
+                                : product.demand > product.supply
+                                    ? 'High demand - prices may increase'
+                                    : 'Market is balanced'}
+                        </p>
+                    </div>
+                </div>
+
+                ${renderProducers(producers)}
+            `;
+        }
+
+        function renderProducers(producers) {
+            if (!producers || producers.length === 0) {
+                return `
+                    <div class="section">
+                        <h3 class="section-title">Producers</h3>
+                        <p style="color: #888;">No producers found for this product.</p>
+                    </div>
+                `;
+            }
+
+            // Group by type
+            const byType = {};
+            producers.forEach(p => {
+                const type = p.type || 'OTHER';
+                if (!byType[type]) byType[type] = [];
+                byType[type].push(p);
+            });
+
+            return `
+                <div class="section">
+                    <h3 class="section-title">Producers (${producers.length})</h3>
+                    ${Object.entries(byType).map(([type, typeFirms]) => `
+                        <h4 style="color: #888; font-size: 13px; margin: 15px 0 10px 0;">${type} (${typeFirms.length})</h4>
+                        <div class="producers-list">
+                            ${typeFirms.slice(0, 12).map(firm => `
+                                <div class="producer-card">
+                                    <a href="firm.html?id=${firm.id}">${firm.displayName || firm.name || firm.id}</a>
+                                    <div class="producer-info">
+                                        ${firm.cityName || 'Unknown'} | ${firm.corporationAbbreviation || 'Independent'}
+                                    </div>
+                                    <div class="producer-info">
+                                        Cash: ${formatCurrency(firm.cash)}
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                        ${typeFirms.length > 12 ? `<p style="color: #888; font-size: 12px; margin-top: 10px;">...and ${typeFirms.length - 12} more</p>` : ''}
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        stateManager.subscribeAll((state) => {
+            if (state.productMarketData && productId) {
+                const product = state.productMarketData[productId];
+                renderProduct(product, state.firms);
+            }
+        });
+
+        async function init() {
+            if (!productId) {
+                content.innerHTML = '<div class="loading error">No product ID provided. <a href="products.html" style="color: #00d4ff;">Go to Products</a></div>';
+                return;
+            }
+
+            const sessionId = sessionStorage.getItem('activeSessionId');
+            if (!sessionId) {
+                content.innerHTML = '<div class="loading">No active session. <a href="index.html" style="color: #00d4ff;">Go to Dashboard</a></div>';
+                return;
+            }
+
+            try {
+                await wsClient.connect();
+                setupGameControls(wsClient, stateManager);
+                await fetch('/api/v1/games/' + sessionId + '/load', { method: 'POST' });
+                await wsClient.joinSession(sessionId);
+            } catch (e) {
+                console.error('Error:', e);
+                content.innerHTML = '<div class="loading error">Error connecting. <a href="index.html" style="color: #00d4ff;">Go to Dashboard</a></div>';
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>

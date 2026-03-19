@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firms - EconSim</title>
+    <style>
+        body { background: #121212; color: #fff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 0; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+        header { margin-bottom: 20px; }
+        header h1 { margin: 0; }
+        nav { margin-top: 10px; }
+        nav a { color: #00d4ff; margin-right: 15px; text-decoration: none; }
+        nav a:hover { text-decoration: underline; }
+        .clock-bar { background: #1e1e1e; padding: 10px 20px; border-radius: 6px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+        .clock-display { font-size: 20px; font-weight: bold; color: #00d4ff; font-family: monospace; }
+        .filters { background: #1e1e1e; padding: 15px; border-radius: 6px; margin-bottom: 20px; display: flex; gap: 15px; flex-wrap: wrap; }
+        .filters label { color: #888; font-size: 12px; }
+        .filters select, .filters input { background: #2a2a2a; border: 1px solid #444; color: #fff; padding: 8px 12px; border-radius: 4px; }
+        .firms-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 15px; }
+        .firm-card { background: #1e1e1e; border-radius: 8px; padding: 15px; border: 1px solid #333; cursor: pointer; text-decoration: none; display: block; }
+        .firm-card:hover { border-color: #00d4ff; }
+        .firm-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+        .firm-name { font-size: 16px; font-weight: bold; color: #fff; margin: 0; }
+        .firm-type { font-size: 11px; color: #888; text-transform: uppercase; background: #2a2a2a; padding: 3px 8px; border-radius: 3px; }
+        .firm-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+        .firm-stat { font-size: 12px; }
+        .firm-stat .label { color: #666; }
+        .firm-stat .value { color: #fff; font-weight: 500; }
+        .positive { color: #4caf50; }
+        .negative { color: #f44336; }
+        .firm-city { font-size: 12px; color: #00d4ff; margin-top: 5px; }
+        .loading { text-align: center; padding: 50px; color: #888; }
+        #firm-count { color: #888; font-size: 14px; margin-left: auto; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Firms <span style="color: #00d4ff; font-size: 14px;">EconSim ALPHA</span></h1>
+            <nav>
+                <a href="index.html">Dashboard</a>
+                <a href="firms.html" style="color: #fff;">Firms</a>
+                <a href="cities.html">Cities</a>
+                <a href="corporations.html">Corporations</a>
+                <a href="products.html">Products</a>
+            </nav>
+        </header>
+
+        <div class="game-controls-bar" id="game-controls">
+            <div class="game-controls-left">
+                <button class="gc-btn gc-btn-play" id="gc-play" title="Resume">&#9658; Play</button>
+                <button class="gc-btn gc-btn-pause" id="gc-pause" title="Pause">&#10074;&#10074; Pause</button>
+                <span class="gc-separator">|</span>
+                <button class="gc-btn gc-speed" data-speed="1">1x</button>
+                <button class="gc-btn gc-speed" data-speed="2">2x</button>
+                <button class="gc-btn gc-speed" data-speed="4">4x</button>
+                <button class="gc-btn gc-speed" data-speed="8">8x</button>
+                <button class="gc-btn gc-speed" data-speed="24">1D</button>
+                <button class="gc-btn gc-speed" data-speed="168">1W</button>
+            </div>
+            <div class="game-controls-right">
+                <span id="firm-count">-- firms</span>
+                <span class="gc-status gc-status-paused" id="gc-status">
+                    <span class="gc-status-indicator gc-indicator-paused" id="gc-indicator"></span>
+                    <span id="gc-status-text">Paused</span>
+                </span>
+                <span class="gc-clock" id="gc-clock">--</span>
+            </div>
+        </div>
+
+        <div class="filters">
+            <div>
+                <label>Type</label><br>
+                <select id="filter-type">
+                    <option value="">All Types</option>
+                    <option value="MINING">Mining</option>
+                    <option value="LOGGING">Logging</option>
+                    <option value="FARM">Farm</option>
+                    <option value="MANUFACTURING">Manufacturing</option>
+                    <option value="RETAIL">Retail</option>
+                    <option value="BANK">Bank</option>
+                </select>
+            </div>
+            <div>
+                <label>Search</label><br>
+                <input type="text" id="filter-search" placeholder="Search firms...">
+            </div>
+        </div>
+
+        <div id="firms-container" class="firms-grid">
+            <div class="loading">Connecting to server...</div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { wsClient } from './js/WebSocketClient.js';
+        import { stateManager } from './js/StateManager.js';
+        import { setupGameControls, injectControlStyles } from './js/GameControls.js';
+
+        stateManager.init(wsClient);
+        injectControlStyles();
+
+        const firmsContainer = document.getElementById('firms-container');
+        const filterType = document.getElementById('filter-type');
+        const filterSearch = document.getElementById('filter-search');
+        let allFirms = [];
+
+        function formatCurrency(num) {
+            if (num == null || isNaN(num)) return '$0';
+            if (num >= 1e9) return '$' + (num / 1e9).toFixed(1) + 'B';
+            if (num >= 1e6) return '$' + (num / 1e6).toFixed(1) + 'M';
+            if (num >= 1e3) return '$' + (num / 1e3).toFixed(1) + 'K';
+            return '$' + Math.floor(num).toLocaleString();
+        }
+
+        function getFirmTypeName(firm) {
+            if (!firm) return 'Unknown';
+            switch (firm.type) {
+                case 'MINING': return 'Mining';
+                case 'LOGGING': return 'Logging';
+                case 'FARM': return firm.farmType === 'CROP' ? 'Crop Farm' : 'Livestock';
+                case 'MANUFACTURING': return 'Manufacturing';
+                case 'RETAIL': return firm.storeType || 'Retail';
+                case 'BANK': return firm.bankType || 'Bank';
+                default: return firm.type || 'Unknown';
+            }
+        }
+
+        function renderFirms() {
+            const typeFilter = filterType.value;
+            const searchFilter = filterSearch.value.toLowerCase();
+
+            let filtered = allFirms;
+            if (typeFilter) {
+                filtered = filtered.filter(f => f.type === typeFilter);
+            }
+            if (searchFilter) {
+                filtered = filtered.filter(f =>
+                    (f.name || '').toLowerCase().includes(searchFilter) ||
+                    (f.displayName || '').toLowerCase().includes(searchFilter)
+                );
+            }
+
+            document.getElementById('firm-count').textContent = filtered.length + ' firms';
+
+            if (filtered.length === 0) {
+                firmsContainer.innerHTML = '<div class="loading">No firms found</div>';
+                return;
+            }
+
+            firmsContainer.innerHTML = filtered.map(firm => {
+                const profit = firm.currentProfit || firm.profit || 0;
+                const profitClass = profit >= 0 ? 'positive' : 'negative';
+                return `
+                    <a href="firm.html?id=${firm.id}" class="firm-card">
+                        <div class="firm-header">
+                            <h3 class="firm-name">${firm.displayName || firm.name || firm.id}</h3>
+                            <span class="firm-type">${getFirmTypeName(firm)}</span>
+                        </div>
+                        <div class="firm-city">📍 ${firm.cityName || firm.city || 'Unknown'}</div>
+                        <div class="firm-stats">
+                            <div class="firm-stat">
+                                <span class="label">Cash:</span>
+                                <span class="value">${formatCurrency(firm.cash)}</span>
+                            </div>
+                            <div class="firm-stat">
+                                <span class="label">Profit:</span>
+                                <span class="value ${profitClass}">${formatCurrency(profit)}</span>
+                            </div>
+                            <div class="firm-stat">
+                                <span class="label">Employees:</span>
+                                <span class="value">${firm.employees || 0}</span>
+                            </div>
+                            <div class="firm-stat">
+                                <span class="label">Revenue:</span>
+                                <span class="value">${formatCurrency(firm.revenue || 0)}</span>
+                            </div>
+                        </div>
+                    </a>
+                `;
+            }).join('');
+        }
+
+        filterType.addEventListener('change', renderFirms);
+        filterSearch.addEventListener('input', renderFirms);
+
+        stateManager.subscribeAll((state) => {
+            if (state.firms) {
+                allFirms = Object.values(state.firms);
+                renderFirms();
+            }
+        });
+
+        async function init() {
+            const sessionId = sessionStorage.getItem('activeSessionId');
+            if (!sessionId) {
+                firmsContainer.innerHTML = '<div class="loading">No active session. <a href="index.html" style="color: #00d4ff;">Go to Dashboard</a> and select a game.</div>';
+                return;
+            }
+
+            try {
+                await wsClient.connect();
+                setupGameControls(wsClient, stateManager);
+
+                // Load the session
+                await fetch('/api/v1/games/' + sessionId + '/load', { method: 'POST' });
+                await wsClient.joinSession(sessionId);
+
+                firmsContainer.innerHTML = '<div class="loading">Loading firms...</div>';
+            } catch (e) {
+                console.error('Error:', e);
+                firmsContainer.innerHTML = '<div class="loading">Error connecting. <a href="index.html" style="color: #00d4ff;">Go to Dashboard</a></div>';
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>

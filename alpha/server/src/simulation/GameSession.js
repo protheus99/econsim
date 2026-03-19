@@ -146,6 +146,25 @@ export class GameSession extends EventEmitter {
      * Add a WebSocket client to this session
      */
     addClient(ws) {
+        // Check if already in this session
+        if (this.clients.has(ws)) {
+            console.log(`👤 Client already in session ${this.id}, resending state`);
+            // Resend current state
+            const initialState = this.engine?.getFullState();
+            if (initialState) {
+                this._send(ws, {
+                    type: 'INITIAL_STATE',
+                    payload: {
+                        sessionId: this.id,
+                        name: this.name,
+                        ...initialState,
+                        displayData: this.engine.getDisplayData()
+                    }
+                });
+            }
+            return;
+        }
+
         this.clients.add(ws);
         console.log(`👤 Client joined session ${this.id} (${this.clients.size} connected)`);
 
@@ -163,10 +182,14 @@ export class GameSession extends EventEmitter {
             });
         }
 
-        // Handle client disconnect
-        ws.on('close', () => {
-            this.removeClient(ws);
-        });
+        // Handle client disconnect - use 'once' since close only fires once
+        // Store reference to avoid duplicate listeners
+        if (!ws._gameSessionCloseHandler) {
+            ws._gameSessionCloseHandler = () => {
+                this.removeClient(ws);
+            };
+            ws.once('close', ws._gameSessionCloseHandler);
+        }
     }
 
     /**

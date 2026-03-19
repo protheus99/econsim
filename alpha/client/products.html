@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Products - EconSim</title>
+    <style>
+        body { background: #121212; color: #fff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 0; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+        header { margin-bottom: 20px; }
+        header h1 { margin: 0; }
+        nav { margin-top: 10px; }
+        nav a { color: #00d4ff; margin-right: 15px; text-decoration: none; }
+        nav a:hover { text-decoration: underline; }
+        .clock-bar { background: #1e1e1e; padding: 10px 20px; border-radius: 6px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+        .clock-display { font-size: 20px; font-weight: bold; color: #00d4ff; font-family: monospace; }
+
+        .view-tabs { display: flex; gap: 5px; margin-bottom: 20px; }
+        .view-tab { padding: 12px 24px; background: #2a2a2a; border: none; color: #888; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: bold; }
+        .view-tab.active { background: #00d4ff; color: #000; }
+        .view-tab:hover:not(.active) { color: #fff; background: #333; }
+
+        .filters { background: #1e1e1e; padding: 15px; border-radius: 6px; margin-bottom: 20px; display: flex; gap: 15px; flex-wrap: wrap; align-items: center; }
+        .filters label { color: #888; font-size: 12px; }
+        .filters select, .filters input { background: #2a2a2a; border: 1px solid #444; color: #fff; padding: 8px 12px; border-radius: 4px; }
+
+        .tier-tabs { display: flex; gap: 5px; margin-bottom: 20px; }
+        .tier-tab { padding: 10px 20px; background: #2a2a2a; border: none; color: #888; border-radius: 6px 6px 0 0; cursor: pointer; font-size: 14px; }
+        .tier-tab.active { background: #1e1e1e; color: #00d4ff; }
+        .tier-tab:hover { color: #fff; }
+
+        .products-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 15px; }
+        .product-card { background: #1e1e1e; border-radius: 8px; padding: 15px; border: 1px solid #333; cursor: pointer; text-decoration: none; display: block; color: inherit; }
+        .product-card:hover { border-color: #00d4ff; }
+        .product-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+        .product-icon { font-size: 24px; margin-right: 10px; }
+        .product-name { font-size: 16px; font-weight: bold; color: #fff; }
+        .product-tier { font-size: 10px; padding: 3px 8px; border-radius: 3px; }
+        .tier-RAW { background: #3a2a1a; color: #ffa500; }
+        .tier-SEMI_RAW { background: #2a2a3a; color: #00bfff; }
+        .tier-MANUFACTURED { background: #2a3a2a; color: #90ee90; }
+        .product-category { font-size: 11px; color: #888; margin-top: 3px; }
+
+        .product-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 12px; }
+        .product-stat { }
+        .product-stat .label { font-size: 10px; color: #666; text-transform: uppercase; }
+        .product-stat .value { font-size: 14px; font-weight: bold; color: #fff; }
+        .positive { color: #4caf50; }
+        .negative { color: #f44336; }
+
+        .price-change { font-size: 11px; margin-left: 5px; }
+        .supply-demand-bar { height: 6px; background: #333; border-radius: 3px; margin-top: 5px; overflow: hidden; position: relative; }
+        .supply-bar { position: absolute; left: 0; top: 0; height: 100%; background: #f44336; }
+
+        .active-badge { background: #4caf50; color: #fff; font-size: 9px; padding: 2px 6px; border-radius: 3px; margin-left: 8px; }
+        .inactive-badge { background: #666; color: #ccc; font-size: 9px; padding: 2px 6px; border-radius: 3px; margin-left: 8px; }
+
+        .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .section-title { font-size: 18px; font-weight: bold; color: #00d4ff; margin: 0; }
+        .section-count { color: #888; font-size: 14px; }
+
+        .loading { text-align: center; padding: 50px; color: #888; }
+        #product-count { color: #888; font-size: 14px; margin-left: auto; }
+
+        .inputs-preview { font-size: 11px; color: #666; margin-top: 8px; }
+        .inputs-preview span { background: #2a2a2a; padding: 2px 6px; border-radius: 3px; margin-right: 4px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Products <span style="color: #00d4ff; font-size: 14px;">EconSim ALPHA</span></h1>
+            <nav>
+                <a href="index.html">Dashboard</a>
+                <a href="firms.html">Firms</a>
+                <a href="cities.html">Cities</a>
+                <a href="corporations.html">Corporations</a>
+                <a href="products.html" style="color: #fff;">Products</a>
+            </nav>
+        </header>
+
+        <div class="game-controls-bar" id="game-controls">
+            <div class="game-controls-left">
+                <button class="gc-btn gc-btn-play" id="gc-play" title="Resume">&#9658; Play</button>
+                <button class="gc-btn gc-btn-pause" id="gc-pause" title="Pause">&#10074;&#10074; Pause</button>
+                <span class="gc-separator">|</span>
+                <button class="gc-btn gc-speed" data-speed="1">1x</button>
+                <button class="gc-btn gc-speed" data-speed="2">2x</button>
+                <button class="gc-btn gc-speed" data-speed="4">4x</button>
+                <button class="gc-btn gc-speed" data-speed="8">8x</button>
+                <button class="gc-btn gc-speed" data-speed="24">1D</button>
+                <button class="gc-btn gc-speed" data-speed="168">1W</button>
+            </div>
+            <div class="game-controls-right">
+                <span id="product-count">-- products</span>
+                <span class="gc-status gc-status-paused" id="gc-status">
+                    <span class="gc-status-indicator gc-indicator-paused" id="gc-indicator"></span>
+                    <span id="gc-status-text">Paused</span>
+                </span>
+                <span class="gc-clock" id="gc-clock">--</span>
+            </div>
+        </div>
+
+        <div class="view-tabs">
+            <button class="view-tab active" data-view="active">Active Products</button>
+            <button class="view-tab" data-view="catalog">Product Catalog</button>
+        </div>
+
+        <div class="filters">
+            <div>
+                <label>Search</label><br>
+                <input type="text" id="filter-search" placeholder="Search products...">
+            </div>
+            <div>
+                <label>Category</label><br>
+                <select id="filter-category">
+                    <option value="">All Categories</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="tier-tabs">
+            <button class="tier-tab active" data-tier="">All Tiers</button>
+            <button class="tier-tab" data-tier="RAW">Raw Materials</button>
+            <button class="tier-tab" data-tier="SEMI_RAW">Semi-Processed</button>
+            <button class="tier-tab" data-tier="MANUFACTURED">Manufactured</button>
+        </div>
+
+        <div id="products-container" class="products-grid">
+            <div class="loading">Connecting to server...</div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { wsClient } from './js/WebSocketClient.js';
+        import { stateManager } from './js/StateManager.js';
+        import { setupGameControls, injectControlStyles } from './js/GameControls.js';
+
+        stateManager.init(wsClient);
+        injectControlStyles();
+
+        const productsContainer = document.getElementById('products-container');
+        const filterSearch = document.getElementById('filter-search');
+        const filterCategory = document.getElementById('filter-category');
+        let productMarketData = {};
+        let productCatalog = {};
+        let currentTier = '';
+        let currentView = 'active';
+
+        function formatCurrency(num) {
+            if (num == null || isNaN(num)) return '$0';
+            if (num >= 1e9) return '$' + (num / 1e9).toFixed(1) + 'B';
+            if (num >= 1e6) return '$' + (num / 1e6).toFixed(1) + 'M';
+            if (num >= 1e3) return '$' + (num / 1e3).toFixed(1) + 'K';
+            return '$' + num.toFixed(2);
+        }
+
+        function formatNumber(num) {
+            if (num == null || isNaN(num)) return '0';
+            if (num >= 1e6) return (num / 1e6).toFixed(1) + 'M';
+            if (num >= 1e3) return (num / 1e3).toFixed(1) + 'K';
+            return Math.floor(num).toLocaleString();
+        }
+
+        function getTierClass(tier) {
+            return 'tier-' + (tier || 'RAW');
+        }
+
+        function isProductActive(productId) {
+            const market = productMarketData[productId];
+            return market && (market.totalProduced > 0 || market.totalConsumed > 0);
+        }
+
+        function renderProducts() {
+            const searchFilter = filterSearch.value.toLowerCase();
+            const categoryFilter = filterCategory.value;
+
+            let products;
+            if (currentView === 'active') {
+                // Show only products with market activity
+                products = Object.values(productMarketData).filter(p =>
+                    p.totalProduced > 0 || p.totalConsumed > 0
+                );
+            } else {
+                // Show full catalog
+                products = Object.values(productCatalog);
+            }
+
+            if (currentTier) {
+                products = products.filter(p => p.tier === currentTier);
+            }
+            if (categoryFilter) {
+                products = products.filter(p => p.category === categoryFilter);
+            }
+            if (searchFilter) {
+                products = products.filter(p =>
+                    (p.name || '').toLowerCase().includes(searchFilter) ||
+                    (p.category || '').toLowerCase().includes(searchFilter)
+                );
+            }
+
+            document.getElementById('product-count').textContent = products.length + ' products';
+
+            if (products.length === 0) {
+                productsContainer.innerHTML = '<div class="loading">No products found</div>';
+                return;
+            }
+
+            // Sort by tier, then by name
+            const tierOrder = { RAW: 0, SEMI_RAW: 1, MANUFACTURED: 2 };
+            products.sort((a, b) => {
+                const tierDiff = (tierOrder[a.tier] || 0) - (tierOrder[b.tier] || 0);
+                if (tierDiff !== 0) return tierDiff;
+                return (a.name || '').localeCompare(b.name || '');
+            });
+
+            if (currentView === 'active') {
+                renderActiveProducts(products);
+            } else {
+                renderCatalogProducts(products);
+            }
+        }
+
+        function renderActiveProducts(products) {
+            productsContainer.innerHTML = products.map(product => {
+                const priceChange = product.currentPrice - product.basePrice;
+                const priceChangePercent = product.basePrice > 0 ? (priceChange / product.basePrice) * 100 : 0;
+                const priceClass = priceChange >= 0 ? 'positive' : 'negative';
+                const priceSign = priceChange >= 0 ? '+' : '';
+
+                const total = (product.supply || 50) + (product.demand || 50);
+                const supplyPct = total > 0 ? ((product.supply || 50) / total) * 100 : 50;
+
+                // Get full product info from catalog
+                const catalogInfo = productCatalog[product.id] || {};
+
+                return `
+                    <a href="product.html?id=${product.id}" class="product-card">
+                        <div class="product-header">
+                            <div style="display: flex; align-items: center;">
+                                <span class="product-icon">${catalogInfo.icon || ''}</span>
+                                <div>
+                                    <div class="product-name">${product.name}</div>
+                                    <div class="product-category">${catalogInfo.category || 'Unknown'}</div>
+                                </div>
+                            </div>
+                            <span class="product-tier ${getTierClass(catalogInfo.tier)}">${catalogInfo.tier || 'RAW'}</span>
+                        </div>
+                        <div class="product-stats">
+                            <div class="product-stat">
+                                <div class="label">Current Price</div>
+                                <div class="value">
+                                    ${formatCurrency(product.currentPrice)}
+                                    <span class="price-change ${priceClass}">${priceSign}${priceChangePercent.toFixed(1)}%</span>
+                                </div>
+                            </div>
+                            <div class="product-stat">
+                                <div class="label">Base Price</div>
+                                <div class="value">${formatCurrency(product.basePrice)}</div>
+                            </div>
+                            <div class="product-stat">
+                                <div class="label">Total Produced</div>
+                                <div class="value">${formatNumber(product.totalProduced)}</div>
+                            </div>
+                            <div class="product-stat">
+                                <div class="label">Total Consumed</div>
+                                <div class="value">${formatNumber(product.totalConsumed)}</div>
+                            </div>
+                        </div>
+                        <div style="margin-top: 12px;">
+                            <div style="display: flex; justify-content: space-between; font-size: 10px; color: #888;">
+                                <span>Supply: ${product.supply || 50}</span>
+                                <span>Demand: ${product.demand || 50}</span>
+                            </div>
+                            <div class="supply-demand-bar">
+                                <div class="supply-bar" style="width: ${supplyPct}%;"></div>
+                            </div>
+                        </div>
+                    </a>
+                `;
+            }).join('');
+        }
+
+        function renderCatalogProducts(products) {
+            productsContainer.innerHTML = products.map(product => {
+                const isActive = isProductActive(product.id);
+                const marketData = productMarketData[product.id] || {};
+
+                // Render inputs for manufactured/semi-raw products
+                let inputsHtml = '';
+                if (product.inputs && product.inputs.length > 0) {
+                    inputsHtml = `
+                        <div class="inputs-preview">
+                            Requires: ${product.inputs.map(i => `<span>${i.material} (${i.quantity})</span>`).join('')}
+                        </div>
+                    `;
+                }
+
+                return `
+                    <a href="product.html?id=${product.id}" class="product-card">
+                        <div class="product-header">
+                            <div style="display: flex; align-items: center;">
+                                <span class="product-icon">${product.icon || ''}</span>
+                                <div>
+                                    <div class="product-name">
+                                        ${product.name}
+                                        ${isActive ? '<span class="active-badge">ACTIVE</span>' : '<span class="inactive-badge">NOT PRODUCED</span>'}
+                                    </div>
+                                    <div class="product-category">${product.category || 'Unknown'}</div>
+                                </div>
+                            </div>
+                            <span class="product-tier ${getTierClass(product.tier)}">${product.tier || 'RAW'}</span>
+                        </div>
+                        <div class="product-stats">
+                            <div class="product-stat">
+                                <div class="label">Base Price</div>
+                                <div class="value">${formatCurrency(product.basePrice)}</div>
+                            </div>
+                            <div class="product-stat">
+                                <div class="label">Unit</div>
+                                <div class="value">${product.unit || 'unit'}</div>
+                            </div>
+                            <div class="product-stat">
+                                <div class="label">Production Rate</div>
+                                <div class="value">${product.baseProductionRate || 0}/hr</div>
+                            </div>
+                            <div class="product-stat">
+                                <div class="label">Tech Required</div>
+                                <div class="value">Level ${product.technologyRequired || 1}</div>
+                            </div>
+                        </div>
+                        ${inputsHtml}
+                        ${isActive ? `
+                            <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #333; font-size: 11px; color: #4caf50;">
+                                Produced: ${formatNumber(marketData.totalProduced)} | Consumed: ${formatNumber(marketData.totalConsumed)}
+                            </div>
+                        ` : ''}
+                    </a>
+                `;
+            }).join('');
+        }
+
+        // Setup view tabs
+        document.querySelectorAll('.view-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.view-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                currentView = tab.dataset.view;
+                renderProducts();
+            });
+        });
+
+        // Setup tier tabs
+        document.querySelectorAll('.tier-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.tier-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                currentTier = tab.dataset.tier;
+                renderProducts();
+            });
+        });
+
+        filterSearch.addEventListener('input', renderProducts);
+        filterCategory.addEventListener('change', renderProducts);
+
+        stateManager.subscribeAll((state) => {
+            if (state.productMarketData) {
+                productMarketData = state.productMarketData;
+            }
+            if (state.productCatalog) {
+                productCatalog = state.productCatalog;
+
+                // Build category filter options from catalog
+                const categories = [...new Set(Object.values(productCatalog).map(p => p.category).filter(Boolean))].sort();
+                filterCategory.innerHTML = '<option value="">All Categories</option>' +
+                    categories.map(c => `<option value="${c}">${c}</option>`).join('');
+            }
+
+            if (state.productMarketData || state.productCatalog) {
+                renderProducts();
+            }
+        });
+
+        async function init() {
+            const sessionId = sessionStorage.getItem('activeSessionId');
+            if (!sessionId) {
+                productsContainer.innerHTML = '<div class="loading">No active session. <a href="index.html" style="color: #00d4ff;">Go to Dashboard</a> and select a game.</div>';
+                return;
+            }
+
+            try {
+                await wsClient.connect();
+                setupGameControls(wsClient, stateManager);
+                await fetch('/api/v1/games/' + sessionId + '/load', { method: 'POST' });
+                await wsClient.joinSession(sessionId);
+                productsContainer.innerHTML = '<div class="loading">Loading products...</div>';
+            } catch (e) {
+                console.error('Error:', e);
+                productsContainer.innerHTML = '<div class="loading">Error connecting. <a href="index.html" style="color: #00d4ff;">Go to Dashboard</a></div>';
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>

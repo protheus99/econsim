@@ -136,16 +136,35 @@ export class SessionManager extends EventEmitter {
             throw new Error(`Session ${sessionId} not found`);
         }
 
+        // Check if already connected to this session
+        const existingSessionId = this.clientSessions.get(ws);
+        if (existingSessionId === sessionId) {
+            // Already connected to this session, just return it
+            return session;
+        }
+
+        // If connected to a different session, leave it first
+        if (existingSessionId) {
+            const oldSession = this.sessions.get(existingSessionId);
+            if (oldSession) {
+                oldSession.removeClient(ws);
+            }
+        }
+
         // Track client -> session mapping
         this.clientSessions.set(ws, sessionId);
 
         // Add client to session
         session.addClient(ws);
 
-        // Handle disconnect
-        ws.on('close', () => {
-            this.clientSessions.delete(ws);
-        });
+        // Handle disconnect - use 'once' since close only fires once per connection
+        // and check if we haven't already added a listener for this ws
+        if (!ws._sessionManagerCloseHandler) {
+            ws._sessionManagerCloseHandler = () => {
+                this.clientSessions.delete(ws);
+            };
+            ws.once('close', ws._sessionManagerCloseHandler);
+        }
 
         return session;
     }

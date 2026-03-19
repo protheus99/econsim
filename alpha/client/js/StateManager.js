@@ -28,6 +28,10 @@ export class StateManager {
             cities: {},
             corporations: [],
 
+            // Product data
+            productMarketData: {},
+            productCatalog: {},
+
             // Display summaries
             firmsSummary: null,
             citiesSummary: null
@@ -109,7 +113,9 @@ export class StateManager {
             stats: data.stats,
             firms: data.firms || {},
             cities: data.cities || {},
-            corporations: data.corporations || []
+            corporations: data.corporations || [],
+            productMarketData: data.productMarketData || {},
+            productCatalog: data.productCatalog || {}
         };
 
         // Add display data if present

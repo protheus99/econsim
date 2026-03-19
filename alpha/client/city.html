@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>City Details - EconSim</title>
+    <style>
+        body { background: #121212; color: #fff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 0; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        header { margin-bottom: 20px; }
+        header h1 { margin: 0; }
+        nav { margin-top: 10px; }
+        nav a { color: #00d4ff; margin-right: 15px; text-decoration: none; }
+        nav a:hover { text-decoration: underline; }
+        .back-link { color: #00d4ff; text-decoration: none; margin-bottom: 20px; display: inline-block; }
+        .back-link:hover { text-decoration: underline; }
+
+        .city-header { background: #1e1e1e; border-radius: 8px; padding: 25px; margin-bottom: 20px; border: 1px solid #333; }
+        .city-title { display: flex; justify-content: space-between; align-items: flex-start; }
+        .city-name { font-size: 28px; font-weight: bold; margin: 0; }
+        .city-country { color: #888; margin-top: 5px; font-size: 14px; }
+
+        .infra-badges { display: flex; gap: 10px; margin-top: 15px; }
+        .infra-badge { font-size: 12px; padding: 5px 12px; border-radius: 4px; background: #2a2a2a; color: #666; }
+        .infra-badge.active { background: #1a3a2a; color: #4caf50; }
+
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-top: 20px; }
+        .stat-card { background: #2a2a2a; border-radius: 6px; padding: 15px; text-align: center; }
+        .stat-value { font-size: 22px; font-weight: bold; color: #00d4ff; }
+        .stat-label { font-size: 11px; color: #666; text-transform: uppercase; margin-top: 5px; }
+
+        .section { background: #1e1e1e; border-radius: 8px; padding: 20px; margin-bottom: 20px; border: 1px solid #333; }
+        .section-title { font-size: 16px; font-weight: bold; margin: 0 0 15px 0; color: #00d4ff; }
+
+        .info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+        .info-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #333; }
+        .info-label { color: #888; }
+        .info-value { color: #fff; font-weight: 500; }
+
+        .class-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        .class-table th, .class-table td { padding: 10px; text-align: left; border-bottom: 1px solid #333; }
+        .class-table th { color: #888; font-size: 11px; text-transform: uppercase; }
+        .class-table td { color: #fff; }
+        .class-bar { height: 8px; background: #333; border-radius: 4px; overflow: hidden; }
+        .class-bar-fill { height: 100%; background: #00d4ff; }
+
+        .firms-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+        .firm-link { font-size: 12px; padding: 5px 10px; background: #2a2a2a; border-radius: 4px; color: #00d4ff; text-decoration: none; }
+        .firm-link:hover { background: #3a3a3a; }
+
+        .loading { text-align: center; padding: 50px; color: #888; }
+        .error { color: #f44336; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>City Details <span style="color: #00d4ff; font-size: 14px;">EconSim ALPHA</span></h1>
+            <nav>
+                <a href="index.html">Dashboard</a>
+                <a href="firms.html">Firms</a>
+                <a href="cities.html">Cities</a>
+                <a href="corporations.html">Corporations</a>
+                <a href="products.html">Products</a>
+            </nav>
+        </header>
+
+        <a href="cities.html" class="back-link">&larr; Back to Cities</a>
+
+        <div class="game-controls-bar" id="game-controls">
+            <div class="game-controls-left">
+                <button class="gc-btn gc-btn-play" id="gc-play" title="Resume">&#9658; Play</button>
+                <button class="gc-btn gc-btn-pause" id="gc-pause" title="Pause">&#10074;&#10074; Pause</button>
+                <span class="gc-separator">|</span>
+                <button class="gc-btn gc-speed" data-speed="1">1x</button>
+                <button class="gc-btn gc-speed" data-speed="2">2x</button>
+                <button class="gc-btn gc-speed" data-speed="4">4x</button>
+                <button class="gc-btn gc-speed" data-speed="8">8x</button>
+                <button class="gc-btn gc-speed" data-speed="24">1D</button>
+                <button class="gc-btn gc-speed" data-speed="168">1W</button>
+            </div>
+            <div class="game-controls-right">
+                <span class="gc-status gc-status-paused" id="gc-status">
+                    <span class="gc-status-indicator gc-indicator-paused" id="gc-indicator"></span>
+                    <span id="gc-status-text">Paused</span>
+                </span>
+                <span class="gc-clock" id="gc-clock">--</span>
+            </div>
+        </div>
+
+        <div id="content">
+            <div class="loading">Loading city details...</div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { wsClient } from './js/WebSocketClient.js';
+        import { stateManager } from './js/StateManager.js';
+        import { setupGameControls, injectControlStyles } from './js/GameControls.js';
+
+        stateManager.init(wsClient);
+        injectControlStyles();
+
+        const content = document.getElementById('content');
+        const urlParams = new URLSearchParams(window.location.search);
+        const cityId = urlParams.get('id');
+
+        function formatCurrency(num) {
+            if (num == null || isNaN(num)) return '$0';
+            if (num >= 1e12) return '$' + (num / 1e12).toFixed(2) + 'T';
+            if (num >= 1e9) return '$' + (num / 1e9).toFixed(2) + 'B';
+            if (num >= 1e6) return '$' + (num / 1e6).toFixed(2) + 'M';
+            if (num >= 1e3) return '$' + (num / 1e3).toFixed(1) + 'K';
+            return '$' + Math.floor(num).toLocaleString();
+        }
+
+        function formatNumber(num) {
+            if (num == null || isNaN(num)) return '0';
+            if (num >= 1e6) return (num / 1e6).toFixed(2) + 'M';
+            if (num >= 1e3) return (num / 1e3).toFixed(1) + 'K';
+            return Math.floor(num).toLocaleString();
+        }
+
+        function renderCity(city, firms) {
+            if (!city) {
+                content.innerHTML = '<div class="loading error">City not found</div>';
+                return;
+            }
+
+            const cityFirms = firms ? Object.values(firms).filter(f => f.cityId === city.id) : [];
+            const demographics = city.demographics || {};
+            const unemploymentRate = demographics.workingAge > 0
+                ? ((demographics.unemployed / demographics.workingAge) * 100).toFixed(1)
+                : (city.unemploymentRate * 100 || 0).toFixed(1);
+
+            content.innerHTML = `
+                <div class="city-header">
+                    <div class="city-title">
+                        <div>
+                            <h2 class="city-name">${city.name}</h2>
+                            <div class="city-country">${city.countryName || 'Unknown Country'}</div>
+                        </div>
+                        <div style="text-align: right;">
+                            <div class="stat-value" style="font-size: 32px;">${formatNumber(city.population)}</div>
+                            <div class="stat-label">Population</div>
+                        </div>
+                    </div>
+                    <div class="infra-badges">
+                        <span class="infra-badge ${city.hasAirport ? 'active' : ''}">&#9992; Airport</span>
+                        <span class="infra-badge ${city.hasSeaport ? 'active' : ''}">&#128674; Seaport</span>
+                        <span class="infra-badge ${city.hasRailway ? 'active' : ''}">&#128646; Railway</span>
+                        <span class="infra-badge ${city.isCoastal ? 'active' : ''}">&#127754; Coastal</span>
+                    </div>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-value">${formatCurrency(city.totalPurchasingPower)}</div>
+                            <div class="stat-label">Purchasing Power</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">${formatNumber(demographics.employed || 0)}</div>
+                            <div class="stat-label">Employed</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">${unemploymentRate}%</div>
+                            <div class="stat-label">Unemployment</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">${cityFirms.length}</div>
+                            <div class="stat-label">Firms</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h3 class="section-title">Demographics</h3>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="info-label">Total Population</span>
+                            <span class="info-value">${formatNumber(demographics.total || city.population)}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Working Age Population</span>
+                            <span class="info-value">${formatNumber(demographics.workingAge)}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Employed</span>
+                            <span class="info-value">${formatNumber(demographics.employed)}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Unemployed</span>
+                            <span class="info-value">${formatNumber(demographics.unemployed)}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Non-Working (children, retired)</span>
+                            <span class="info-value">${formatNumber(demographics.nonWorking)}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Employment Rate</span>
+                            <span class="info-value">${((demographics.employedPercent || 0.85) * 100).toFixed(1)}%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h3 class="section-title">Economic Indicators</h3>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="info-label">Salary Level</span>
+                            <span class="info-value">${((city.salaryLevel || 0.5) * 100).toFixed(0)}%</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Cost of Living</span>
+                            <span class="info-value">${(city.costOfLiving || 1).toFixed(2)}x</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Consumer Confidence</span>
+                            <span class="info-value">${((city.consumerConfidence || 0.7) * 100).toFixed(0)}%</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Local Preference</span>
+                            <span class="info-value">${((city.localPreference || 0.3) * 100).toFixed(0)}%</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Market Size</span>
+                            <span class="info-value">${formatNumber(city.marketSize)}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Infrastructure Quality</span>
+                            <span class="info-value">${((city.infrastructureQuality || 0.5) * 100).toFixed(0)}%</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Climate</span>
+                            <span class="info-value">${city.climate || 'Temperate'}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Coordinates</span>
+                            <span class="info-value">${city.coordinates ? `(${city.coordinates.x}, ${city.coordinates.y})` : 'Unknown'}</span>
+                        </div>
+                    </div>
+                </div>
+
+                ${renderEconomicClasses(city.economicClasses)}
+
+                <div class="section">
+                    <h3 class="section-title">Monthly Statistics</h3>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="info-label">Total Sales</span>
+                            <span class="info-value">${formatCurrency(city.monthlyStats?.totalSales)}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Avg Product Price</span>
+                            <span class="info-value">${formatCurrency(city.monthlyStats?.avgProductPrice)}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Employment Change</span>
+                            <span class="info-value">${city.monthlyStats?.employmentChange || 0}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Population Growth</span>
+                            <span class="info-value">${((city.monthlyStats?.populationGrowth || 0) * 100).toFixed(2)}%</span>
+                        </div>
+                    </div>
+                </div>
+
+                ${renderCityFirms(cityFirms)}
+            `;
+        }
+
+        function renderEconomicClasses(classes) {
+            if (!classes) return '';
+
+            const classOrder = ['lower', 'working', 'lowerMiddle', 'upperMiddle', 'upper', 'rich'];
+            const classNames = {
+                lower: 'Lower Class',
+                working: 'Working Class',
+                lowerMiddle: 'Lower Middle',
+                upperMiddle: 'Upper Middle',
+                upper: 'Upper Class',
+                rich: 'Wealthy'
+            };
+
+            const maxCount = Math.max(...Object.values(classes).map(c => c.count || 0));
+
+            return `
+                <div class="section">
+                    <h3 class="section-title">Economic Classes</h3>
+                    <table class="class-table">
+                        <thead>
+                            <tr>
+                                <th>Class</th>
+                                <th>Population</th>
+                                <th>Distribution</th>
+                                <th>Avg Salary</th>
+                                <th>Disposable Income</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${classOrder.map(key => {
+                                const c = classes[key];
+                                if (!c) return '';
+                                const pct = maxCount > 0 ? (c.count / maxCount) * 100 : 0;
+                                return `
+                                    <tr>
+                                        <td>${classNames[key] || key}</td>
+                                        <td>${formatNumber(c.count)}</td>
+                                        <td style="width: 200px;">
+                                            <div class="class-bar"><div class="class-bar-fill" style="width: ${pct}%"></div></div>
+                                            <span style="font-size: 11px; color: #888;">${(c.percentage || 0).toFixed(1)}%</span>
+                                        </td>
+                                        <td>${formatCurrency(c.avgSalary)}</td>
+                                        <td>${formatCurrency(c.disposableIncome)}</td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        function renderCityFirms(firms) {
+            if (!firms || firms.length === 0) return '';
+
+            const firmsByType = {};
+            firms.forEach(f => {
+                const type = f.type || 'OTHER';
+                if (!firmsByType[type]) firmsByType[type] = [];
+                firmsByType[type].push(f);
+            });
+
+            return `
+                <div class="section">
+                    <h3 class="section-title">Firms in City (${firms.length})</h3>
+                    ${Object.entries(firmsByType).map(([type, typeFirms]) => `
+                        <div style="margin-bottom: 15px;">
+                            <div style="color: #888; font-size: 12px; margin-bottom: 8px;">${type} (${typeFirms.length})</div>
+                            <div class="firms-list">
+                                ${typeFirms.slice(0, 15).map(f =>
+                                    `<a href="firm.html?id=${f.id}" class="firm-link">${f.displayName || f.name || f.id.substring(0, 15)}</a>`
+                                ).join('')}
+                                ${typeFirms.length > 15 ? `<span class="firm-link" style="color: #888;">+${typeFirms.length - 15} more</span>` : ''}
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        stateManager.subscribeAll((state) => {
+            if (state.cities && cityId) {
+                const city = state.cities[cityId];
+                renderCity(city, state.firms);
+            }
+        });
+
+        async function init() {
+            if (!cityId) {
+                content.innerHTML = '<div class="loading error">No city ID provided. <a href="cities.html" style="color: #00d4ff;">Go to Cities</a></div>';
+                return;
+            }
+
+            const sessionId = sessionStorage.getItem('activeSessionId');
+            if (!sessionId) {
+                content.innerHTML = '<div class="loading">No active session. <a href="index.html" style="color: #00d4ff;">Go to Dashboard</a></div>';
+                return;
+            }
+
+            try {
+                await wsClient.connect();
+                setupGameControls(wsClient, stateManager);
+                await fetch('/api/v1/games/' + sessionId + '/load', { method: 'POST' });
+                await wsClient.joinSession(sessionId);
+            } catch (e) {
+                console.error('Error:', e);
+                content.innerHTML = '<div class="loading error">Error connecting. <a href="index.html" style="color: #00d4ff;">Go to Dashboard</a></div>';
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>

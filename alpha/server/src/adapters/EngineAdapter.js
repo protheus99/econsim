@@ -83,6 +83,12 @@ export class EngineAdapter extends EventEmitter {
     async initialize() {
         console.log('🔧 EngineAdapter initializing...');
 
+        // IMPORTANT: Clear sessionStorage polyfill before creating a new engine
+        // This prevents SimulationEngine.restoreState() from loading state from a previous game
+        // State restoration is handled explicitly via restoreState() after initialization
+        sessionStorage.clear();
+        console.log('🧹 Cleared sessionStorage (fresh engine start)');
+
         // Override global fetch to use file system for config
         const originalFetch = globalThis.fetch;
         const configData = this.loadConfigFromFile();
@@ -113,6 +119,14 @@ export class EngineAdapter extends EventEmitter {
             // Initialize (this calls loadConfig internally, which now uses our file system fetch)
             await this.engine.initialize();
 
+            // CRITICAL: Clear the SimulationEngine's own intervals
+            // The engine creates its own tick loop in setupIntervals() which would conflict
+            // with our server-controlled tick loop. We manage ticks via EngineAdapter instead.
+            this._clearEngineIntervals();
+
+            // Ensure the clock starts paused (server controls when to run)
+            this.engine.clock.pause();
+
             console.log('✅ EngineAdapter initialized');
             return true;
         } catch (error) {
@@ -136,14 +150,47 @@ export class EngineAdapter extends EventEmitter {
     }
 
     /**
+     * Clear the SimulationEngine's internal intervals
+     * The engine sets up its own tick loops in setupIntervals() which would
+     * conflict with our server-controlled ticking. We clear them here.
+     */
+    _clearEngineIntervals() {
+        if (!this.engine) return;
+
+        // Clear the main hourly tick interval
+        if (this.engine.hourlyInterval) {
+            clearInterval(this.engine.hourlyInterval);
+            this.engine.hourlyInterval = null;
+            console.log('🧹 Cleared engine hourlyInterval');
+        }
+
+        // Clear the autosave interval (server handles saves via SessionManager)
+        if (this.engine.autosaveInterval) {
+            clearInterval(this.engine.autosaveInterval);
+            this.engine.autosaveInterval = null;
+            console.log('🧹 Cleared engine autosaveInterval');
+        }
+
+        // Clear the page lifecycle autosave interval
+        if (this.engine.autoSaveInterval) {
+            clearInterval(this.engine.autoSaveInterval);
+            this.engine.autoSaveInterval = null;
+            console.log('🧹 Cleared engine autoSaveInterval');
+        }
+    }
+
+    /**
      * Start the simulation tick loop
+     * Note: This also ensures the clock is resumed. Use pause() to stop.
      */
     start() {
         if (this.tickInterval) {
             return; // Already running
         }
 
+        // Sync both isPaused states
         this.isPaused = false;
+        this.engine?.clock?.resume();
         this.lastTickTime = Date.now();
 
         // Get base interval from config (default 1000ms = 1 game hour per second)
@@ -166,6 +213,7 @@ export class EngineAdapter extends EventEmitter {
             clearInterval(this.tickInterval);
             this.tickInterval = null;
         }
+        // Sync both isPaused states
         this.isPaused = true;
         this.engine?.clock?.pause();
 
@@ -177,7 +225,7 @@ export class EngineAdapter extends EventEmitter {
      * Resume the simulation
      */
     resume() {
-        this.engine?.clock?.resume();
+        // start() now handles clock.resume() internally
         this.start();
         this.emit('resumed');
     }
@@ -199,11 +247,23 @@ export class EngineAdapter extends EventEmitter {
 
         // Restart interval with new speed if running
         if (!this.isPaused && this.tickInterval) {
-            this.pause();
-            this.start();
+            // Clear the old interval
+            clearInterval(this.tickInterval);
+            this.tickInterval = null;
+
+            // Recalculate and start new interval (don't pause/resume the clock)
+            const baseInterval = this.engine?.config?.simulation?.timeScale?.realSecond || 1000;
+            const interval = Math.max(10, Math.floor(baseInterval / this.speed));
+
+            this.tickInterval = setInterval(() => {
+                this._tick();
+            }, interval);
+
+            console.log(`⏩ Speed changed to ${speed}x (interval: ${interval}ms)`);
+        } else {
+            console.log(`⏩ Speed set to ${speed}x (will apply when resumed)`);
         }
 
-        console.log(`⏩ Speed set to ${speed}x`);
         this.emit('speedChanged', { speed });
     }
 
@@ -214,6 +274,9 @@ export class EngineAdapter extends EventEmitter {
         if (!this.engine || this.isPaused) return;
 
         try {
+            // Advance the clock first (this is what the original SimulationEngine does)
+            this.engine.clock.tick();
+
             // Call the engine's hourly update
             this.engine.updateHourly();
 
@@ -245,22 +308,25 @@ export class EngineAdapter extends EventEmitter {
 
     /**
      * Get full simulation state for initial sync or save
+     * Includes ALL simulation data for complete persistence
      */
     getFullState() {
         if (!this.engine) return null;
 
         const state = {
-            version: 1,
+            version: 2,  // Incremented for comprehensive save format
             savedAt: Date.now(),
             seed: this.options.seed,
 
-            // Clock state
+            // Clock state (complete)
             clock: {
                 hour: this.engine.clock.hour,
                 day: this.engine.clock.day,
                 month: this.engine.clock.month,
                 year: this.engine.clock.year,
-                isPaused: this.engine.clock.isPaused
+                totalHours: this.engine.clock.totalHours,
+                isPaused: this.engine.clock.isPaused,
+                startYear: this.engine.clock.startYear || 2025
             },
 
             // Control state
@@ -269,75 +335,471 @@ export class EngineAdapter extends EventEmitter {
             // Statistics
             stats: this.engine.stats,
 
-            // Firms
+            // Firms - use built-in getSerializableState() for complete data
             firms: {},
 
-            // Cities
+            // Cities - comprehensive serialization
             cities: {},
 
             // Corporations
             corporations: [],
 
-            // Contracts
+            // Contracts (complete)
             contracts: [],
-            pendingDeliveries: []
+            pendingDeliveries: [],
+
+            // Lot Registry (global lot tracking)
+            lotRegistry: this._serializeLotRegistry(),
+
+            // Transportation network config (if customized)
+            transportConfig: this._serializeTransportConfig(),
+
+            // Product market data (prices, supply/demand)
+            productMarketData: this._serializeProductMarketData(),
+
+            // Full product catalog (all possible products)
+            productCatalog: this._serializeProductCatalog()
         };
 
-        // Serialize firms
+        // Serialize firms using their built-in serialization (includes lot inventories!)
         for (const [id, firm] of this.engine.firms) {
-            if (firm.getSerializableState) {
+            // Use firm's own getSerializableState if available, otherwise fall back
+            if (typeof firm.getSerializableState === 'function') {
                 state.firms[id] = firm.getSerializableState();
+            } else {
+                state.firms[id] = this._serializeFirm(firm);
             }
         }
 
-        // Serialize cities
+        // Serialize cities with full economic data
         const cities = this.engine.cityManager?.getAllCities() || [];
         for (const city of cities) {
-            if (city.getSerializableState) {
-                state.cities[city.id] = city.getSerializableState();
-            }
+            state.cities[city.id] = this._serializeCityFull(city);
         }
 
         // Serialize corporations
         for (const corp of this.engine.corporations) {
-            if (corp.getSerializableState) {
-                state.corporations.push(corp.getSerializableState());
-            }
+            state.corporations.push(this._serializeCorporationFull(corp));
         }
 
-        // Serialize contracts
+        // Serialize contracts (complete with fulfillment history)
         const contractManager = this.engine.purchaseManager?.contractManager;
         if (contractManager) {
             for (const contract of contractManager.contracts.values()) {
                 state.contracts.push(contract.toJSON());
             }
-            state.pendingDeliveries = contractManager.pendingDeliveries || [];
+            // Serialize pending deliveries with all details
+            state.pendingDeliveries = this._serializePendingDeliveries(contractManager);
         }
 
         return state;
     }
 
     /**
+     * Serialize LotRegistry for persistence
+     */
+    _serializeLotRegistry() {
+        const registry = this.engine.lotRegistry;
+        if (!registry) return null;
+
+        const lotsArray = [];
+        for (const lot of registry.allLots.values()) {
+            lotsArray.push(lot.toJSON ? lot.toJSON() : {
+                id: lot.id,
+                productName: lot.productName,
+                productId: lot.productId,
+                producerId: lot.producerId,
+                quantity: lot.quantity,
+                unit: lot.unit,
+                quality: lot.quality,
+                status: lot.status,
+                createdAt: lot.createdAt,
+                createdDay: lot.createdDay,
+                expiresDay: lot.expiresDay,
+                reservedFor: lot.reservedFor,
+                deliveryId: lot.deliveryId
+            });
+        }
+
+        return {
+            lotCounter: registry.lotCounter,
+            lots: lotsArray
+        };
+    }
+
+    /**
+     * Serialize transportation configuration
+     */
+    _serializeTransportConfig() {
+        const network = this.engine.transportationNetwork;
+        if (!network) return null;
+
+        // Transport types are typically static config, but include for completeness
+        return {
+            transportTypes: network.transportTypes
+        };
+    }
+
+    /**
+     * Serialize product market data (prices, supply/demand)
+     */
+    _serializeProductMarketData() {
+        const registry = this.engine.productRegistry;
+        if (!registry) return null;
+
+        const marketData = {};
+        for (const [id, product] of registry.products) {
+            marketData[id] = {
+                id: product.id,
+                name: product.name,
+                currentPrice: product.currentPrice,
+                basePrice: product.basePrice,
+                demand: product.demand,
+                supply: product.supply,
+                totalProduced: product.totalProduced,
+                totalConsumed: product.totalConsumed
+            };
+        }
+        return marketData;
+    }
+
+    /**
+     * Serialize full product catalog (all possible products)
+     */
+    _serializeProductCatalog() {
+        const registry = this.engine.productRegistry;
+        if (!registry) return null;
+
+        const catalog = {};
+        for (const [id, product] of registry.products) {
+            catalog[id] = {
+                id: product.id,
+                name: product.name,
+                category: product.category,
+                tier: product.tier,
+                icon: product.icon,
+                basePrice: product.basePrice,
+                weight: product.weight,
+                unit: product.unit,
+                necessityIndex: product.necessityIndex,
+                minB2BQuantity: product.minB2BQuantity,
+                minRetailQuantity: product.minRetailQuantity,
+                baseProductionRate: product.baseProductionRate,
+                productionTime: product.productionTime,
+                technologyRequired: product.technologyRequired,
+                inputs: product.inputs || [],
+                // Retail attributes
+                purchaseFrequency: product.purchaseFrequency,
+                publicDemand: product.publicDemand,
+                publicNecessity: product.publicNecessity,
+                publicLuxury: product.publicLuxury,
+                priceConcern: product.priceConcern,
+                qualityConcern: product.qualityConcern,
+                reputationConcern: product.reputationConcern,
+                mainCategory: product.mainCategory,
+                subcategory: product.subcategory
+            };
+        }
+        return catalog;
+    }
+
+    /**
+     * Serialize pending deliveries with full details
+     */
+    _serializePendingDeliveries(contractManager) {
+        if (!contractManager?.pendingDeliveries) return [];
+
+        return contractManager.pendingDeliveries.map(delivery => ({
+            id: delivery.id,
+            contractId: delivery.contractId,
+            supplierId: delivery.supplierId,
+            buyerId: delivery.buyerId,
+            product: delivery.product,
+            quantity: delivery.quantity,
+            quality: delivery.quality,
+            pricePerUnit: delivery.pricePerUnit,
+            totalValue: delivery.totalValue,
+            departureHour: delivery.departureHour,
+            arrivalHour: delivery.arrivalHour,
+            transportType: delivery.transportType,
+            transportCost: delivery.transportCost,
+            status: delivery.status,
+            lotIds: delivery.lotIds || [],
+            lots: delivery.lots?.map(l => l.toJSON ? l.toJSON() : l) || []
+        }));
+    }
+
+    /**
      * Restore simulation state from saved data
+     * Comprehensive restore including all simulation components
      */
     async restoreState(state) {
         if (!this.engine) {
             throw new Error('Engine not initialized');
         }
 
-        // Use engine's built-in restore logic
-        // First, store in sessionStorage so restoreState() can read it
-        sessionStorage.setItem('gameState', JSON.stringify(state));
+        console.log('🔄 Restoring simulation state (version:', state.version, ')');
 
-        // Call engine's restore
-        const restored = this.engine.restoreState();
+        try {
+            // 1. Restore clock state
+            if (state.clock) {
+                this._restoreClock(state.clock);
+            }
 
-        // Restore control state
-        if (state.speed) {
-            this.setSpeed(state.speed);
+            // 2. Restore control state
+            if (state.speed) {
+                this.setSpeed(state.speed);
+            }
+
+            // 3. Restore statistics
+            if (state.stats) {
+                Object.assign(this.engine.stats, state.stats);
+            }
+
+            // 4. Restore lot registry first (firms reference lots)
+            if (state.lotRegistry) {
+                this._restoreLotRegistry(state.lotRegistry);
+            }
+
+            // 5. Restore firms with their lot inventories
+            if (state.firms) {
+                this._restoreFirms(state.firms);
+            }
+
+            // 6. Restore cities
+            if (state.cities) {
+                this._restoreCities(state.cities);
+            }
+
+            // 7. Restore corporations
+            if (state.corporations) {
+                this._restoreCorporations(state.corporations);
+            }
+
+            // 8. Restore contracts
+            if (state.contracts) {
+                this._restoreContracts(state.contracts);
+            }
+
+            // 9. Restore pending deliveries
+            if (state.pendingDeliveries) {
+                this._restorePendingDeliveries(state.pendingDeliveries);
+            }
+
+            // 10. Restore product market data
+            if (state.productMarketData) {
+                this._restoreProductMarketData(state.productMarketData);
+            }
+
+            console.log('✅ State restoration complete');
+            return true;
+
+        } catch (error) {
+            console.error('❌ State restoration failed:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Restore clock state
+     */
+    _restoreClock(clockState) {
+        const clock = this.engine.clock;
+        if (!clock) return;
+
+        // Set the start year first if present (needed for totalHours calculation)
+        if (clockState.startYear) {
+            clock._startYear = clockState.startYear;
         }
 
-        return restored;
+        // Restore time components (totalHours is a computed getter, not settable)
+        clock.hour = clockState.hour ?? clock.hour;
+        clock.day = clockState.day ?? clock.day;
+        clock.month = clockState.month ?? clock.month;
+        clock.year = clockState.year ?? clock.year;
+
+        // Always start paused after loading - user must click Play to resume
+        // This keeps both isPaused states in sync
+        clock.isPaused = true;
+        this.isPaused = true;
+
+        console.log(`🕐 Clock restored to ${clock.year}-${String(clock.month).padStart(2, '0')}-${String(clock.day).padStart(2, '0')} ${String(clock.hour).padStart(2, '0')}:00`);
+    }
+
+    /**
+     * Restore LotRegistry
+     */
+    _restoreLotRegistry(registryData) {
+        const registry = this.engine.lotRegistry;
+        if (!registry || !registryData) return;
+
+        // Clear existing lots
+        registry.allLots.clear();
+        registry.lotsByProducer.clear();
+        registry.lotsByProduct.clear();
+
+        // Restore counter
+        registry.lotCounter = registryData.lotCounter || 0;
+
+        // Dynamically import Lot class
+        // Note: The lots will be properly linked when firms are restored
+        for (const lotData of registryData.lots || []) {
+            // We'll rebuild lot tracking when firms restore their inventories
+            // For now, just store the raw data
+            registry.allLots.set(lotData.id, lotData);
+        }
+    }
+
+    /**
+     * Restore firms with their complete state
+     */
+    _restoreFirms(firmsData) {
+        for (const [firmId, firmState] of Object.entries(firmsData)) {
+            const firm = this.engine.firms.get(firmId);
+            if (firm && typeof firm.restoreState === 'function') {
+                firm.restoreState(firmState);
+            } else if (firm) {
+                // Manual restoration for firms without restoreState method
+                this._manualFirmRestore(firm, firmState);
+            }
+        }
+    }
+
+    /**
+     * Manual firm state restoration for backward compatibility
+     */
+    _manualFirmRestore(firm, state) {
+        // Financial
+        firm.cash = state.cash ?? firm.cash;
+        firm.revenue = state.revenue ?? firm.revenue;
+        firm.expenses = state.expenses ?? firm.expenses;
+        firm.profit = state.profit ?? firm.profit;
+        firm.monthlyRevenue = state.monthlyRevenue ?? firm.monthlyRevenue;
+        firm.monthlyExpenses = state.monthlyExpenses ?? firm.monthlyExpenses;
+        firm.monthlyProfit = state.monthlyProfit ?? firm.monthlyProfit;
+
+        // Performance
+        firm.brandRating = state.brandRating ?? firm.brandRating;
+        firm.technologyLevel = state.technologyLevel ?? firm.technologyLevel;
+        firm.efficiency = state.efficiency ?? firm.efficiency;
+
+        // Lot inventory restoration
+        if (state.lotInventory && firm.lotInventory) {
+            firm.lotInventory.restoreFromJSON?.(state.lotInventory, this.engine.lotRegistry);
+        }
+    }
+
+    /**
+     * Restore cities
+     */
+    _restoreCities(citiesData) {
+        const cityManager = this.engine.cityManager;
+        if (!cityManager) return;
+
+        for (const [cityId, cityState] of Object.entries(citiesData)) {
+            const city = cityManager.cities?.get(cityId) ||
+                         cityManager.getAllCities?.().find(c => c.id === cityId);
+
+            if (city) {
+                // Restore economic data
+                city.population = cityState.population ?? city.population;
+                city.unemploymentRate = cityState.unemploymentRate ?? city.unemploymentRate;
+                city.totalPurchasingPower = cityState.totalPurchasingPower ?? city.totalPurchasingPower;
+                city.consumerConfidence = cityState.consumerConfidence ?? city.consumerConfidence;
+                city.costOfLiving = cityState.costOfLiving ?? city.costOfLiving;
+                city.localPreference = cityState.localPreference ?? city.localPreference;
+
+                // Restore demographics
+                if (cityState.demographics && city.demographics) {
+                    Object.assign(city.demographics, cityState.demographics);
+                }
+
+                // Restore economic classes
+                if (cityState.economicClasses && city.economicClasses) {
+                    Object.assign(city.economicClasses, cityState.economicClasses);
+                }
+
+                // Restore monthly stats
+                if (cityState.monthlyStats && city.monthlyStats) {
+                    Object.assign(city.monthlyStats, cityState.monthlyStats);
+                }
+            }
+        }
+    }
+
+    /**
+     * Restore corporations
+     */
+    _restoreCorporations(corporationsData) {
+        for (const corpState of corporationsData) {
+            const corp = this.engine.corporations.find(c => c.id === corpState.id);
+            if (corp) {
+                corp.totalValue = corpState.totalValue ?? corp.totalValue;
+                corp.totalProfit = corpState.totalProfit ?? corp.totalProfit;
+                corp.employeeCount = corpState.employeeCount ?? corp.employeeCount;
+                corp.totalCash = corpState.totalCash ?? corp.totalCash;
+                corp.totalRevenue = corpState.totalRevenue ?? corp.totalRevenue;
+                corp.totalExpenses = corpState.totalExpenses ?? corp.totalExpenses;
+            }
+        }
+    }
+
+    /**
+     * Restore contracts
+     */
+    _restoreContracts(contractsData) {
+        const contractManager = this.engine.purchaseManager?.contractManager;
+        if (!contractManager) return;
+
+        // Clear existing contracts
+        contractManager.contracts.clear();
+
+        // Restore each contract
+        for (const contractData of contractsData) {
+            // Use Contract.fromJSON if available
+            const Contract = contractManager.contracts.constructor === Map
+                ? null
+                : contractManager.contracts.values().next().value?.constructor;
+
+            if (Contract?.fromJSON) {
+                const contract = Contract.fromJSON(contractData);
+                contractManager.contracts.set(contract.id, contract);
+            } else {
+                // Manual restoration - just store the data
+                contractManager.contracts.set(contractData.id, contractData);
+            }
+        }
+    }
+
+    /**
+     * Restore pending deliveries
+     */
+    _restorePendingDeliveries(deliveriesData) {
+        const contractManager = this.engine.purchaseManager?.contractManager;
+        if (!contractManager) return;
+
+        contractManager.pendingDeliveries = deliveriesData || [];
+    }
+
+    /**
+     * Restore product market data
+     */
+    _restoreProductMarketData(marketData) {
+        const registry = this.engine.productRegistry;
+        if (!registry || !marketData) return;
+
+        for (const [productId, data] of Object.entries(marketData)) {
+            const product = registry.products.get(Number(productId)) ||
+                           registry.products.get(productId);
+
+            if (product) {
+                product.currentPrice = data.currentPrice ?? product.currentPrice;
+                product.demand = data.demand ?? product.demand;
+                product.supply = data.supply ?? product.supply;
+                product.totalProduced = data.totalProduced ?? product.totalProduced;
+                product.totalConsumed = data.totalConsumed ?? product.totalConsumed;
+            }
+        }
     }
 
     /**
@@ -402,14 +864,307 @@ export class EngineAdapter extends EventEmitter {
     }
 
     /**
+     * Serialize a firm without circular references
+     */
+    _serializeFirm(firm) {
+        if (!firm) return null;
+        return {
+            id: firm.id,
+            type: firm.type,
+            name: firm.name,
+            displayName: firm.displayName || firm.name,
+            cityId: firm.cityId || firm.city?.id,
+            cityName: firm.city?.name,
+            corporationId: firm.corporationId || firm.corporation?.id,
+            corporationAbbreviation: firm.corporation?.abbreviation,
+            cash: firm.cash || 0,
+            revenue: firm.revenue || 0,
+            expenses: firm.expenses || 0,
+            profit: firm.profit || 0,
+            currentProfit: typeof firm.getCurrentProfit === 'function' ? firm.getCurrentProfit() : (firm.profit || 0),
+            employees: firm.employees || 0,
+            storeType: firm.storeType,
+            farmType: firm.farmType,
+            cropType: firm.cropType,
+            livestockType: firm.livestockType,
+            bankType: firm.bankType,
+            resourceType: firm.resourceType,
+            timberType: firm.timberType,
+            productName: firm.product?.name
+        };
+    }
+
+    /**
+     * Serialize a city without circular references (basic - for display)
+     */
+    _serializeCity(city) {
+        if (!city) return null;
+        return {
+            id: city.id,
+            name: city.name,
+            countryId: city.countryId || city.country?.id,
+            countryName: city.country?.name,
+            population: city.population || city.demographics?.population || 0,
+            demographics: city.demographics ? {
+                population: city.demographics.population,
+                employed: city.demographics.employed,
+                unemployed: city.demographics.unemployed
+            } : null,
+            hasAirport: !!city.hasAirport,
+            hasSeaport: !!city.hasSeaport,
+            hasRailway: !!city.hasRailway,
+            totalPurchasingPower: city.totalPurchasingPower || 0,
+            coordinates: city.coordinates ? { x: city.coordinates.x, y: city.coordinates.y } : null
+        };
+    }
+
+    /**
+     * Serialize a city with FULL economic data (for persistence)
+     */
+    _serializeCityFull(city) {
+        if (!city) return null;
+        return {
+            id: city.id,
+            name: city.name,
+            countryId: city.countryId || city.country?.id,
+            countryName: city.country?.name,
+            population: city.population || 0,
+
+            // Full demographics
+            demographics: city.demographics ? {
+                total: city.demographics.total,
+                population: city.demographics.population,
+                nonWorking: city.demographics.nonWorking,
+                workingAge: city.demographics.workingAge,
+                employed: city.demographics.employed,
+                unemployed: city.demographics.unemployed,
+                nonWorkingPercent: city.demographics.nonWorkingPercent,
+                employedPercent: city.demographics.employedPercent
+            } : null,
+
+            // Full economic classes
+            economicClasses: city.economicClasses ? this._serializeEconomicClasses(city.economicClasses) : null,
+
+            // Economic indicators
+            salaryLevel: city.salaryLevel,
+            unemploymentRate: city.unemploymentRate,
+            totalPurchasingPower: city.totalPurchasingPower || 0,
+            costOfLiving: city.costOfLiving,
+            marketSize: city.marketSize,
+            consumerConfidence: city.consumerConfidence,
+            localPreference: city.localPreference,
+
+            // Infrastructure
+            hasAirport: !!city.hasAirport,
+            hasSeaport: !!city.hasSeaport,
+            hasRailway: !!city.hasRailway,
+            isCoastal: !!city.isCoastal,
+            infrastructureQuality: city.infrastructureQuality,
+            climate: city.climate,
+
+            // Location
+            coordinates: city.coordinates ? { x: city.coordinates.x, y: city.coordinates.y } : null,
+
+            // Statistics
+            monthlyStats: city.monthlyStats ? {
+                totalSales: city.monthlyStats.totalSales,
+                avgProductPrice: city.monthlyStats.avgProductPrice,
+                employmentChange: city.monthlyStats.employmentChange,
+                populationGrowth: city.monthlyStats.populationGrowth
+            } : null,
+
+            // Firms in city (just IDs to avoid circular refs)
+            firmIds: city.firms?.map(f => f.id || f) || []
+        };
+    }
+
+    /**
+     * Serialize economic classes
+     */
+    _serializeEconomicClasses(classes) {
+        if (!classes) return null;
+        const serialized = {};
+        for (const [className, data] of Object.entries(classes)) {
+            serialized[className] = {
+                name: data.name,
+                count: data.count,
+                percentage: data.percentage,
+                salaryRange: data.salaryRange,
+                avgSalary: data.avgSalary,
+                totalIncome: data.totalIncome,
+                disposableIncome: data.disposableIncome
+            };
+        }
+        return serialized;
+    }
+
+    /**
+     * Serialize a corporation without circular references (basic - for display)
+     */
+    _serializeCorporation(corp) {
+        if (!corp) return null;
+        return {
+            id: corp.id,
+            name: corp.name,
+            abbreviation: corp.abbreviation || corp.abbr,
+            headquartersCity: corp.headquartersCity?.name || corp.headquarters,
+            headquartersCityId: corp.headquartersCity?.id,
+            totalValue: corp.totalValue || 0,
+            totalProfit: corp.totalProfit || 0,
+            employeeCount: corp.employeeCount || 0,
+            firmCount: corp.firms?.length || 0,
+            firmIds: corp.firms?.map(f => f.id) || []
+        };
+    }
+
+    /**
+     * Serialize a corporation with FULL data (for persistence)
+     */
+    _serializeCorporationFull(corp) {
+        if (!corp) return null;
+        return {
+            id: corp.id,
+            name: corp.name,
+            abbreviation: corp.abbreviation || corp.abbr,
+            type: corp.type,
+
+            // Location
+            headquartersCity: corp.headquartersCity?.name || corp.headquarters,
+            headquartersCityId: corp.headquartersCity?.id,
+
+            // Financials
+            totalValue: corp.totalValue || 0,
+            capital: corp.capital || 0,
+            cash: corp.cash || 0,
+            totalCash: corp.totalCash || 0,
+            totalRevenue: corp.totalRevenue || 0,
+            monthlyRevenue: corp.monthlyRevenue || 0,
+            totalExpenses: corp.totalExpenses || 0,
+            monthlyExpenses: corp.monthlyExpenses || 0,
+            totalProfit: corp.totalProfit || 0,
+            monthlyProfit: corp.monthlyProfit || 0,
+            totalAssets: corp.totalAssets || 0,
+            totalLiabilities: corp.totalLiabilities || 0,
+            debt: corp.debt || 0,
+            creditRating: corp.creditRating,
+
+            // Operations
+            employeeCount: corp.employeeCount || 0,
+            firmCount: corp.firms?.length || 0,
+            firmIds: corp.firms?.map(f => f.id) || [],
+
+            // Strategy/Settings
+            expansionStrategy: corp.expansionStrategy,
+            reinvestmentRate: corp.reinvestmentRate,
+
+            // Strategic Goals
+            strategicGoals: corp.strategicGoals ? {
+                primary: corp.strategicGoals.primary,
+                targetFirms: corp.strategicGoals.targetFirms,
+                targetRevenue: corp.strategicGoals.targetRevenue,
+                targetMarketShare: corp.strategicGoals.targetMarketShare,
+                expansionPriority: corp.strategicGoals.expansionPriority,
+                phase: corp.strategicGoals.phase,
+                completedGoals: corp.strategicGoals.completedGoals || []
+            } : null,
+
+            // Corporation Attributes
+            attributes: corp.attributes ? {
+                riskTolerance: corp.attributes.riskTolerance,
+                qualityFocus: corp.attributes.qualityFocus,
+                efficiencyFocus: corp.attributes.efficiencyFocus,
+                growthOrientation: corp.attributes.growthOrientation,
+                integrationPreference: corp.attributes.integrationPreference,
+                contractPreference: corp.attributes.contractPreference
+            } : null,
+
+            // Board Meeting State
+            boardMeeting: corp.boardMeeting ? {
+                lastMeeting: corp.boardMeeting.lastMeeting ? this._serializeMeeting(corp.boardMeeting.lastMeeting) : null,
+                nextMeeting: corp.boardMeeting.nextMeeting,
+                activeProjects: (corp.boardMeeting.activeProjects || []).map(p => ({
+                    id: p.id,
+                    type: p.type,
+                    firmType: p.firmType,
+                    productName: p.productName,
+                    cost: p.cost,
+                    approvedAt: p.approvedAt,
+                    expectedCompletion: p.expectedCompletion,
+                    cityName: p.city?.name || p.cityName,
+                    countryName: p.country?.name || p.countryName
+                })),
+                meetingHistory: (corp.boardMeeting.meetingHistory || []).map(m => this._serializeMeeting(m))
+            } : null,
+
+            // Personas (industry focus)
+            personas: corp.personas?.map(p => ({
+                tier: p.tier,
+                category: p.category,
+                products: p.products,
+                firmTypes: p.firmTypes
+            })) || [],
+
+            // Creation info
+            createdAt: corp.createdAt,
+            foundedYear: corp.foundedYear,
+            firstFirmAt: corp.firstFirmAt
+        };
+    }
+
+    /**
+     * Serialize a board meeting record
+     */
+    _serializeMeeting(meeting) {
+        if (!meeting) return null;
+        return {
+            date: meeting.date,
+            corporationId: meeting.corporationId,
+            approvedProjects: (meeting.approvedProjects || []).map(p => ({
+                id: p.id,
+                type: p.type,
+                firmType: p.firmType,
+                productName: p.productName,
+                cost: p.cost,
+                cityName: p.city?.name || p.cityName,
+                countryName: p.country?.name || p.countryName,
+                rationale: p.rationale
+            })),
+            deferredProjects: (meeting.deferredProjects || []).map(p => ({
+                id: p.id,
+                type: p.type,
+                firmType: p.firmType,
+                productName: p.productName,
+                cost: p.cost,
+                reason: p.reason
+            })),
+            summary: meeting.summary ? {
+                financials: meeting.summary.financials,
+                operations: meeting.summary.operations,
+                goalProgress: meeting.summary.goalProgress,
+                currentGoal: meeting.summary.currentGoal,
+                optionsGenerated: meeting.summary.optionsGenerated,
+                approved: meeting.summary.approved,
+                deferred: meeting.summary.deferred
+            } : null
+        };
+    }
+
+    /**
      * Clean up resources
      */
     destroy() {
+        // Stop our tick interval
         this.pause();
+
+        // Clear any engine intervals that might exist
+        this._clearEngineIntervals();
+
         if (this.engine) {
-            this.engine.stop?.();
+            // Call engine's destroy if available (clears its intervals too)
+            this.engine.destroy?.();
             this.engine = null;
         }
+
         this.removeAllListeners();
         console.log('🗑️ EngineAdapter destroyed');
     }

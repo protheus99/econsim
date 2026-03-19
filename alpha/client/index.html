@@ -33,6 +33,18 @@
         .session-card.active { border-color: #00ff88; background: #1a3a2a; }
         .session-card h4 { margin: 0 0 8px 0; color: #fff; }
         .session-card .session-info { font-size: 12px; color: #888; }
+        .session-card .session-header { display: flex; justify-content: space-between; align-items: flex-start; }
+        .session-card .btn-delete {
+            background: transparent;
+            border: none;
+            color: #666;
+            cursor: pointer;
+            font-size: 16px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            line-height: 1;
+        }
+        .session-card .btn-delete:hover { background: #f44336; color: #fff; }
         .btn-new-game {
             background: #00d4ff;
             color: #000;
@@ -98,6 +110,13 @@
         <header>
             <h1>EconSim <span style="color: #00d4ff; font-size: 14px;">ALPHA</span></h1>
             <p style="color: #888;">Server-driven economic simulation</p>
+            <nav id="main-nav" style="margin-top: 10px; display: none;">
+                <a href="index.html" style="color: #fff; margin-right: 15px;">Dashboard</a>
+                <a href="firms.html" style="color: #00d4ff; margin-right: 15px;">Firms</a>
+                <a href="cities.html" style="color: #00d4ff; margin-right: 15px;">Cities</a>
+                <a href="corporations.html" style="color: #00d4ff; margin-right: 15px;">Corporations</a>
+                <a href="products.html" style="color: #00d4ff;">Products</a>
+            </nav>
         </header>
 
         <div class="session-selector">

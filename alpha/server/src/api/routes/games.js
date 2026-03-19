@@ -255,6 +255,17 @@ export function createGamesRouter(sessionManager, database) {
                 });
             }
 
+            // Log state summary
+            console.log('💾 Saving game state:');
+            console.log('  - Version:', state.version);
+            console.log('  - Firms:', Object.keys(state.firms || {}).length);
+            console.log('  - Cities:', Object.keys(state.cities || {}).length);
+            console.log('  - Corporations:', (state.corporations || []).length);
+            console.log('  - Contracts:', (state.contracts || []).length);
+            console.log('  - Pending Deliveries:', (state.pendingDeliveries || []).length);
+            console.log('  - Lot Registry Lots:', state.lotRegistry?.lots?.length || 0);
+            console.log('  - Products with Market Data:', Object.keys(state.productMarketData || {}).length);
+
             const slotName = req.body.slot || `save_${Date.now()}`;
             const gameHour = state.clock
                 ? (state.clock.year - 2025) * 8760 +
@@ -263,10 +274,13 @@ export function createGamesRouter(sessionManager, database) {
                   state.clock.hour
                 : 0;
 
+            const stateJson = JSON.stringify(state);
+            console.log('  - State JSON size:', (stateJson.length / 1024).toFixed(1), 'KB');
+
             const saveId = database.saveGameState(
                 req.params.id,
                 gameHour,
-                JSON.stringify(state),
+                stateJson,
                 false,
                 slotName
             );
@@ -275,7 +289,8 @@ export function createGamesRouter(sessionManager, database) {
                 success: true,
                 saveId,
                 slot: slotName,
-                gameHour
+                gameHour,
+                stateSize: stateJson.length
             });
 
         } catch (error) {
@@ -284,6 +299,172 @@ export function createGamesRouter(sessionManager, database) {
                 success: false,
                 error: error.message
             });
+        }
+    });
+
+    /**
+     * GET /api/v1/games/:id/state - Get current game state (for debugging)
+     * Query: ?summary=true for summary only
+     */
+    router.get('/:id/state', (req, res) => {
+        try {
+            const session = sessionManager.getSession(req.params.id);
+            if (!session) {
+                return res.status(404).json({
+                    success: false,
+                    error: 'No active session for this game'
+                });
+            }
+
+            const state = session.getState();
+            if (!state) {
+                return res.status(500).json({
+                    success: false,
+                    error: 'Could not get game state'
+                });
+            }
+
+            // If summary requested, return condensed view
+            if (req.query.summary === 'true') {
+                const firmTypes = {};
+                for (const firm of Object.values(state.firms || {})) {
+                    firmTypes[firm.type] = (firmTypes[firm.type] || 0) + 1;
+                }
+
+                return res.json({
+                    success: true,
+                    summary: {
+                        version: state.version,
+                        clock: state.clock,
+                        speed: state.speed,
+                        stats: state.stats,
+                        counts: {
+                            firms: Object.keys(state.firms || {}).length,
+                            cities: Object.keys(state.cities || {}).length,
+                            corporations: (state.corporations || []).length,
+                            contracts: (state.contracts || []).length,
+                            pendingDeliveries: (state.pendingDeliveries || []).length,
+                            lotRegistryLots: state.lotRegistry?.lots?.length || 0,
+                            productsWithMarketData: Object.keys(state.productMarketData || {}).length
+                        },
+                        firmsByType: firmTypes,
+                        stateSize: JSON.stringify(state).length
+                    }
+                });
+            }
+
+            // Return full state
+            res.json({
+                success: true,
+                state
+            });
+
+        } catch (error) {
+            console.error('Error getting state:', error);
+            res.status(500).json({
+                success: false,
+                error: error.message
+            });
+        }
+    });
+
+    /**
+     * GET /api/v1/games/:id/state/firms - Get all firms with full data
+     */
+    router.get('/:id/state/firms', (req, res) => {
+        try {
+            const session = sessionManager.getSession(req.params.id);
+            if (!session) {
+                return res.status(404).json({
+                    success: false,
+                    error: 'No active session for this game'
+                });
+            }
+
+            const state = session.getState();
+            res.json({
+                success: true,
+                count: Object.keys(state.firms || {}).length,
+                firms: state.firms || {}
+            });
+
+        } catch (error) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+    });
+
+    /**
+     * GET /api/v1/games/:id/state/cities - Get all cities with full data
+     */
+    router.get('/:id/state/cities', (req, res) => {
+        try {
+            const session = sessionManager.getSession(req.params.id);
+            if (!session) {
+                return res.status(404).json({
+                    success: false,
+                    error: 'No active session for this game'
+                });
+            }
+
+            const state = session.getState();
+            res.json({
+                success: true,
+                count: Object.keys(state.cities || {}).length,
+                cities: state.cities || {}
+            });
+
+        } catch (error) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+    });
+
+    /**
+     * GET /api/v1/games/:id/state/contracts - Get all contracts
+     */
+    router.get('/:id/state/contracts', (req, res) => {
+        try {
+            const session = sessionManager.getSession(req.params.id);
+            if (!session) {
+                return res.status(404).json({
+                    success: false,
+                    error: 'No active session for this game'
+                });
+            }
+
+            const state = session.getState();
+            res.json({
+                success: true,
+                count: (state.contracts || []).length,
+                contracts: state.contracts || [],
+                pendingDeliveries: state.pendingDeliveries || []
+            });
+
+        } catch (error) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+    });
+
+    /**
+     * GET /api/v1/games/:id/state/lots - Get lot registry
+     */
+    router.get('/:id/state/lots', (req, res) => {
+        try {
+            const session = sessionManager.getSession(req.params.id);
+            if (!session) {
+                return res.status(404).json({
+                    success: false,
+                    error: 'No active session for this game'
+                });
+            }
+
+            const state = session.getState();
+            res.json({
+                success: true,
+                lotRegistry: state.lotRegistry || { lots: [], lotCounter: 0 }
+            });
+
+        } catch (error) {
+            res.status(500).json({ success: false, error: error.message });
         }
     });
 

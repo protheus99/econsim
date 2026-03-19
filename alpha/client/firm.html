@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firm Details - EconSim</title>
+    <style>
+        body { background: #121212; color: #fff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 0; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        header { margin-bottom: 20px; }
+        header h1 { margin: 0; }
+        nav { margin-top: 10px; }
+        nav a { color: #00d4ff; margin-right: 15px; text-decoration: none; }
+        nav a:hover { text-decoration: underline; }
+        .back-link { color: #00d4ff; text-decoration: none; margin-bottom: 20px; display: inline-block; }
+        .back-link:hover { text-decoration: underline; }
+
+        .firm-header { background: #1e1e1e; border-radius: 8px; padding: 25px; margin-bottom: 20px; border: 1px solid #333; }
+        .firm-title { display: flex; justify-content: space-between; align-items: flex-start; }
+        .firm-name { font-size: 28px; font-weight: bold; margin: 0; }
+        .firm-type { font-size: 14px; color: #00d4ff; background: #1a2a3a; padding: 5px 12px; border-radius: 4px; }
+        .firm-subtitle { color: #888; margin-top: 8px; font-size: 14px; }
+
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 20px; }
+        .stat-card { background: #2a2a2a; border-radius: 6px; padding: 15px; text-align: center; }
+        .stat-value { font-size: 24px; font-weight: bold; color: #fff; }
+        .stat-label { font-size: 11px; color: #666; text-transform: uppercase; margin-top: 5px; }
+        .positive { color: #4caf50; }
+        .negative { color: #f44336; }
+
+        .section { background: #1e1e1e; border-radius: 8px; padding: 20px; margin-bottom: 20px; border: 1px solid #333; }
+        .section-title { font-size: 16px; font-weight: bold; margin: 0 0 15px 0; color: #00d4ff; }
+
+        .info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+        .info-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #333; }
+        .info-label { color: #888; }
+        .info-value { color: #fff; font-weight: 500; }
+
+        .lot-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        .lot-table th, .lot-table td { padding: 10px; text-align: left; border-bottom: 1px solid #333; }
+        .lot-table th { color: #888; font-size: 11px; text-transform: uppercase; }
+        .lot-table td { color: #fff; }
+
+        .loading { text-align: center; padding: 50px; color: #888; }
+        .error { color: #f44336; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Firm Details <span style="color: #00d4ff; font-size: 14px;">EconSim ALPHA</span></h1>
+            <nav>
+                <a href="index.html">Dashboard</a>
+                <a href="firms.html">Firms</a>
+                <a href="cities.html">Cities</a>
+                <a href="corporations.html">Corporations</a>
+                <a href="products.html">Products</a>
+            </nav>
+        </header>
+
+        <a href="firms.html" class="back-link">&larr; Back to Firms</a>
+
+        <div class="game-controls-bar" id="game-controls">
+            <div class="game-controls-left">
+                <button class="gc-btn gc-btn-play" id="gc-play" title="Resume">&#9658; Play</button>
+                <button class="gc-btn gc-btn-pause" id="gc-pause" title="Pause">&#10074;&#10074; Pause</button>
+                <span class="gc-separator">|</span>
+                <button class="gc-btn gc-speed" data-speed="1">1x</button>
+                <button class="gc-btn gc-speed" data-speed="2">2x</button>
+                <button class="gc-btn gc-speed" data-speed="4">4x</button>
+                <button class="gc-btn gc-speed" data-speed="8">8x</button>
+                <button class="gc-btn gc-speed" data-speed="24">1D</button>
+                <button class="gc-btn gc-speed" data-speed="168">1W</button>
+            </div>
+            <div class="game-controls-right">
+                <span class="gc-status gc-status-paused" id="gc-status">
+                    <span class="gc-status-indicator gc-indicator-paused" id="gc-indicator"></span>
+                    <span id="gc-status-text">Paused</span>
+                </span>
+                <span class="gc-clock" id="gc-clock">--</span>
+            </div>
+        </div>
+
+        <div id="content">
+            <div class="loading">Loading firm details...</div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { wsClient } from './js/WebSocketClient.js';
+        import { stateManager } from './js/StateManager.js';
+        import { setupGameControls, injectControlStyles } from './js/GameControls.js';
+
+        stateManager.init(wsClient);
+        injectControlStyles();
+
+        const content = document.getElementById('content');
+        const urlParams = new URLSearchParams(window.location.search);
+        const firmId = urlParams.get('id');
+
+        function formatCurrency(num) {
+            if (num == null || isNaN(num)) return '$0';
+            if (num >= 1e9) return '$' + (num / 1e9).toFixed(2) + 'B';
+            if (num >= 1e6) return '$' + (num / 1e6).toFixed(2) + 'M';
+            if (num >= 1e3) return '$' + (num / 1e3).toFixed(1) + 'K';
+            return '$' + Math.floor(num).toLocaleString();
+        }
+
+        function formatNumber(num) {
+            if (num == null || isNaN(num)) return '0';
+            return Math.floor(num).toLocaleString();
+        }
+
+        function getFirmTypeName(firm) {
+            switch (firm.type) {
+                case 'MINING': return `Mining (${firm.resourceType || 'Unknown'})`;
+                case 'LOGGING': return `Logging (${firm.timberType || 'Unknown'})`;
+                case 'FARM': return firm.farmType === 'CROP' ? `Crop Farm (${firm.cropType || 'Unknown'})` : `Livestock (${firm.livestockType || 'Unknown'})`;
+                case 'MANUFACTURING': return `Manufacturing (${firm.productName || 'Unknown'})`;
+                case 'RETAIL': return `Retail (${firm.storeType || 'Unknown'})`;
+                case 'BANK': return `Bank (${firm.bankType || 'Unknown'})`;
+                default: return firm.type || 'Unknown';
+            }
+        }
+
+        function renderFirm(firm) {
+            if (!firm) {
+                content.innerHTML = '<div class="loading error">Firm not found</div>';
+                return;
+            }
+
+            const profit = firm.profit || 0;
+            const currentProfit = firm.currentProfit || firm.profit || 0;
+            const profitClass = currentProfit >= 0 ? 'positive' : 'negative';
+
+            content.innerHTML = `
+                <div class="firm-header">
+                    <div class="firm-title">
+                        <div>
+                            <h2 class="firm-name">${firm.displayName || firm.name || firm.id}</h2>
+                            <div class="firm-subtitle">
+                                ${firm.corporationAbbreviation ? `<strong>${firm.corporationAbbreviation}</strong> | ` : ''}
+                                ${firm.cityName || 'Unknown Location'}
+                            </div>
+                        </div>
+                        <span class="firm-type">${getFirmTypeName(firm)}</span>
+                    </div>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-value">${formatCurrency(firm.cash)}</div>
+                            <div class="stat-label">Cash</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">${formatCurrency(firm.revenue)}</div>
+                            <div class="stat-label">Total Revenue</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">${formatCurrency(firm.expenses)}</div>
+                            <div class="stat-label">Total Expenses</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value ${profitClass}">${formatCurrency(currentProfit)}</div>
+                            <div class="stat-label">Current Profit</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h3 class="section-title">Financial Details</h3>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="info-label">Monthly Revenue</span>
+                            <span class="info-value">${formatCurrency(firm.monthlyRevenue)}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Monthly Expenses</span>
+                            <span class="info-value">${formatCurrency(firm.monthlyExpenses)}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Monthly Profit</span>
+                            <span class="info-value ${(firm.monthlyProfit || 0) >= 0 ? 'positive' : 'negative'}">${formatCurrency(firm.monthlyProfit)}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Total Assets</span>
+                            <span class="info-value">${formatCurrency(firm.totalAssets)}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Total Liabilities</span>
+                            <span class="info-value">${formatCurrency(firm.totalLiabilities)}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Brand Rating</span>
+                            <span class="info-value">${firm.brandRating?.toFixed(0) || 0}/100</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Technology Level</span>
+                            <span class="info-value">${firm.technologyLevel || 1}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Efficiency</span>
+                            <span class="info-value">${((firm.efficiency || 1) * 100).toFixed(0)}%</span>
+                        </div>
+                    </div>
+                </div>
+
+                ${renderTypeSpecificInfo(firm)}
+                ${renderLotInventory(firm)}
+                ${renderLoans(firm)}
+            `;
+        }
+
+        function renderTypeSpecificInfo(firm) {
+            let html = '<div class="section"><h3 class="section-title">Operations</h3><div class="info-grid">';
+
+            if (firm.type === 'MINING') {
+                html += `
+                    <div class="info-item"><span class="info-label">Resource Type</span><span class="info-value">${firm.resourceType}</span></div>
+                    <div class="info-item"><span class="info-label">Remaining Reserves</span><span class="info-value">${formatNumber(firm.remainingReserves)}</span></div>
+                    <div class="info-item"><span class="info-label">Depletion Rate</span><span class="info-value">${(firm.depletionRate || 0).toFixed(2)}%</span></div>
+                    <div class="info-item"><span class="info-label">Reserve Quality</span><span class="info-value">${(firm.reserveQuality || 0).toFixed(0)}</span></div>
+                    <div class="info-item"><span class="info-label">Equipment Efficiency</span><span class="info-value">${((firm.equipmentEfficiency || 1) * 100).toFixed(0)}%</span></div>
+                    <div class="info-item"><span class="info-label">Equipment Degradation</span><span class="info-value">${(firm.equipmentDegradation || 0).toFixed(0)}%</span></div>
+                `;
+            } else if (firm.type === 'FARM') {
+                html += `
+                    <div class="info-item"><span class="info-label">Farm Type</span><span class="info-value">${firm.farmType}</span></div>
+                    <div class="info-item"><span class="info-label">Product</span><span class="info-value">${firm.cropType || firm.livestockType || 'Unknown'}</span></div>
+                `;
+            } else if (firm.type === 'RETAIL') {
+                html += `
+                    <div class="info-item"><span class="info-label">Store Type</span><span class="info-value">${firm.storeType}</span></div>
+                `;
+            } else if (firm.type === 'MANUFACTURING') {
+                html += `
+                    <div class="info-item"><span class="info-label">Product</span><span class="info-value">${firm.productName}</span></div>
+                `;
+            }
+
+            html += `
+                <div class="info-item"><span class="info-label">Corporation ID</span><span class="info-value">${firm.corporationId || 'None'}</span></div>
+                <div class="info-item"><span class="info-label">City ID</span><span class="info-value">${firm.cityId || 'Unknown'}</span></div>
+            `;
+
+            html += '</div></div>';
+            return html;
+        }
+
+        function renderLotInventory(firm) {
+            if (!firm.lotInventory) return '';
+
+            const lots = firm.lotInventory.lots || [];
+            if (lots.length === 0) return '';
+
+            return `
+                <div class="section">
+                    <h3 class="section-title">Lot Inventory (${lots.length} lots)</h3>
+                    <table class="lot-table">
+                        <thead>
+                            <tr>
+                                <th>Lot ID</th>
+                                <th>Product</th>
+                                <th>Quantity</th>
+                                <th>Quality</th>
+                                <th>Status</th>
+                                <th>Created</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${lots.slice(0, 20).map(lot => `
+                                <tr>
+                                    <td style="font-family: monospace; font-size: 11px;">${lot.id?.substring(0, 20)}...</td>
+                                    <td>${lot.productName}</td>
+                                    <td>${formatNumber(lot.quantity)} ${lot.unit || ''}</td>
+                                    <td>${(lot.quality || 0).toFixed(0)}</td>
+                                    <td>${lot.status || 'available'}</td>
+                                    <td>Day ${lot.createdDay || '?'}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                    ${lots.length > 20 ? `<p style="color: #888; margin-top: 10px;">...and ${lots.length - 20} more lots</p>` : ''}
+                </div>
+            `;
+        }
+
+        function renderLoans(firm) {
+            if (!firm.loans || firm.loans.length === 0) return '';
+
+            return `
+                <div class="section">
+                    <h3 class="section-title">Loans (${firm.loans.length})</h3>
+                    <table class="lot-table">
+                        <thead>
+                            <tr>
+                                <th>Amount</th>
+                                <th>Remaining</th>
+                                <th>Interest Rate</th>
+                                <th>Monthly Payment</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${firm.loans.map(loan => `
+                                <tr>
+                                    <td>${formatCurrency(loan.amount)}</td>
+                                    <td>${formatCurrency(loan.remainingBalance)}</td>
+                                    <td>${((loan.interestRate || 0) * 100).toFixed(1)}%</td>
+                                    <td>${formatCurrency(loan.monthlyPayment)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        stateManager.subscribeAll((state) => {
+            if (state.firms && firmId) {
+                const firm = state.firms[firmId];
+                renderFirm(firm);
+            }
+        });
+
+        async function init() {
+            if (!firmId) {
+                content.innerHTML = '<div class="loading error">No firm ID provided. <a href="firms.html" style="color: #00d4ff;">Go to Firms</a></div>';
+                return;
+            }
+
+            const sessionId = sessionStorage.getItem('activeSessionId');
+            if (!sessionId) {
+                content.innerHTML = '<div class="loading">No active session. <a href="index.html" style="color: #00d4ff;">Go to Dashboard</a></div>';
+                return;
+            }
+
+            try {
+                await wsClient.connect();
+                setupGameControls(wsClient, stateManager);
+                await fetch('/api/v1/games/' + sessionId + '/load', { method: 'POST' });
+                await wsClient.joinSession(sessionId);
+            } catch (e) {
+                console.error('Error:', e);
+                content.innerHTML = '<div class="loading error">Error connecting. <a href="index.html" style="color: #00d4ff;">Go to Dashboard</a></div>';
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>

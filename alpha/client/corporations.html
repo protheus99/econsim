@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Corporations - EconSim</title>
+    <style>
+        body { background: #121212; color: #fff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 0; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+        header { margin-bottom: 20px; }
+        header h1 { margin: 0; }
+        nav { margin-top: 10px; }
+        nav a { color: #00d4ff; margin-right: 15px; text-decoration: none; }
+        nav a:hover { text-decoration: underline; }
+        .clock-bar { background: #1e1e1e; padding: 10px 20px; border-radius: 6px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+        .clock-display { font-size: 20px; font-weight: bold; color: #00d4ff; font-family: monospace; }
+        .corps-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(450px, 1fr)); gap: 15px; }
+        .corp-card { background: #1e1e1e; border-radius: 8px; padding: 20px; border: 1px solid #333; cursor: pointer; text-decoration: none; display: block; color: inherit; }
+        .corp-card:hover { border-color: #00d4ff; }
+        .corp-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px; }
+        .corp-name { font-size: 20px; font-weight: bold; color: #fff; margin: 0; }
+        .corp-abbr { font-size: 12px; color: #00d4ff; background: #1a2a3a; padding: 3px 8px; border-radius: 3px; margin-left: 10px; }
+        .corp-hq { font-size: 12px; color: #888; margin-top: 5px; }
+        .corp-value { font-size: 28px; color: #4caf50; font-weight: bold; }
+        .corp-value-label { font-size: 11px; color: #666; text-transform: uppercase; }
+        .corp-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-top: 15px; padding-top: 15px; border-top: 1px solid #333; }
+        .corp-stat { text-align: center; }
+        .corp-stat .value { font-size: 16px; font-weight: bold; color: #fff; }
+        .corp-stat .label { font-size: 10px; color: #666; text-transform: uppercase; }
+        .corp-firms { margin-top: 15px; padding-top: 15px; border-top: 1px solid #333; }
+        .corp-firms-title { font-size: 12px; color: #666; text-transform: uppercase; margin-bottom: 10px; }
+        .corp-firms-list { display: flex; flex-wrap: wrap; gap: 5px; }
+        .firm-tag { font-size: 11px; padding: 3px 8px; border-radius: 3px; background: #2a2a2a; color: #aaa; }
+        .loading { text-align: center; padding: 50px; color: #888; }
+        #corp-count { color: #888; font-size: 14px; margin-left: auto; }
+        .positive { color: #4caf50; }
+        .negative { color: #f44336; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Corporations <span style="color: #00d4ff; font-size: 14px;">EconSim ALPHA</span></h1>
+            <nav>
+                <a href="index.html">Dashboard</a>
+                <a href="firms.html">Firms</a>
+                <a href="cities.html">Cities</a>
+                <a href="corporations.html" style="color: #fff;">Corporations</a>
+                <a href="products.html">Products</a>
+            </nav>
+        </header>
+
+        <div class="game-controls-bar" id="game-controls">
+            <div class="game-controls-left">
+                <button class="gc-btn gc-btn-play" id="gc-play" title="Resume">&#9658; Play</button>
+                <button class="gc-btn gc-btn-pause" id="gc-pause" title="Pause">&#10074;&#10074; Pause</button>
+                <span class="gc-separator">|</span>
+                <button class="gc-btn gc-speed" data-speed="1">1x</button>
+                <button class="gc-btn gc-speed" data-speed="2">2x</button>
+                <button class="gc-btn gc-speed" data-speed="4">4x</button>
+                <button class="gc-btn gc-speed" data-speed="8">8x</button>
+                <button class="gc-btn gc-speed" data-speed="24">1D</button>
+                <button class="gc-btn gc-speed" data-speed="168">1W</button>
+            </div>
+            <div class="game-controls-right">
+                <span id="corp-count">-- corporations</span>
+                <span class="gc-status gc-status-paused" id="gc-status">
+                    <span class="gc-status-indicator gc-indicator-paused" id="gc-indicator"></span>
+                    <span id="gc-status-text">Paused</span>
+                </span>
+                <span class="gc-clock" id="gc-clock">--</span>
+            </div>
+        </div>
+
+        <div id="corps-container" class="corps-grid">
+            <div class="loading">Connecting to server...</div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { wsClient } from './js/WebSocketClient.js';
+        import { stateManager } from './js/StateManager.js';
+        import { setupGameControls, injectControlStyles } from './js/GameControls.js';
+
+        stateManager.init(wsClient);
+        injectControlStyles();
+
+        const corpsContainer = document.getElementById('corps-container');
+
+        function formatCurrency(num) {
+            if (num == null || isNaN(num)) return '$0';
+            if (num >= 1e9) return '$' + (num / 1e9).toFixed(1) + 'B';
+            if (num >= 1e6) return '$' + (num / 1e6).toFixed(1) + 'M';
+            if (num >= 1e3) return '$' + (num / 1e3).toFixed(1) + 'K';
+            return '$' + Math.floor(num).toLocaleString();
+        }
+
+        function renderCorporations(corporations, firms) {
+            if (!corporations || corporations.length === 0) {
+                corpsContainer.innerHTML = '<div class="loading">No corporations found</div>';
+                return;
+            }
+
+            document.getElementById('corp-count').textContent = corporations.length + ' corporations';
+
+            // Build firm lookup by corporation ID
+            const firmsByCorp = {};
+            if (firms) {
+                const firmList = Array.isArray(firms) ? firms : Object.values(firms);
+                firmList.forEach(firm => {
+                    const corpId = firm.corporationId;
+                    if (corpId) {
+                        if (!firmsByCorp[corpId]) firmsByCorp[corpId] = [];
+                        firmsByCorp[corpId].push(firm);
+                    }
+                });
+            }
+
+            corpsContainer.innerHTML = corporations.map(corp => {
+                const corpFirms = firmsByCorp[corp.id] || [];
+                const totalValue = corp.totalValue || corp.marketCap || 0;
+                const totalCash = corpFirms.reduce((sum, f) => sum + (f.cash || 0), 0);
+                const totalProfit = corp.totalProfit || corpFirms.reduce((sum, f) => sum + (f.currentProfit || f.profit || 0), 0);
+                const profitClass = totalProfit >= 0 ? 'positive' : 'negative';
+
+                return `
+                    <a href="corporation.html?id=${corp.id}" class="corp-card">
+                        <div class="corp-header">
+                            <div>
+                                <h3 class="corp-name">${corp.name}<span class="corp-abbr">${corp.abbreviation || corp.abbr || '???'}</span></h3>
+                                <div class="corp-hq">&#128205; HQ: ${corp.headquartersCity || corp.hq || 'Unknown'}</div>
+                            </div>
+                            <div style="text-align: right;">
+                                <div class="corp-value">${formatCurrency(totalValue)}</div>
+                                <div class="corp-value-label">Total Value</div>
+                            </div>
+                        </div>
+                        <div class="corp-stats">
+                            <div class="corp-stat">
+                                <div class="value">${corpFirms.length}</div>
+                                <div class="label">Firms</div>
+                            </div>
+                            <div class="corp-stat">
+                                <div class="value">${formatCurrency(totalCash)}</div>
+                                <div class="label">Total Cash</div>
+                            </div>
+                            <div class="corp-stat">
+                                <div class="value ${profitClass}">${formatCurrency(totalProfit)}</div>
+                                <div class="label">Profit</div>
+                            </div>
+                            <div class="corp-stat">
+                                <div class="value">${corp.employeeCount || corpFirms.reduce((sum, f) => sum + (f.employees || 0), 0)}</div>
+                                <div class="label">Employees</div>
+                            </div>
+                        </div>
+                        ${corpFirms.length > 0 ? `
+                            <div class="corp-firms">
+                                <div class="corp-firms-title">Subsidiaries</div>
+                                <div class="corp-firms-list">
+                                    ${corpFirms.slice(0, 10).map(f => `<span class="firm-tag">${f.displayName || f.name || f.type}</span>`).join('')}
+                                    ${corpFirms.length > 10 ? `<span class="firm-tag">+${corpFirms.length - 10} more</span>` : ''}
+                                </div>
+                            </div>
+                        ` : ''}
+                    </a>
+                `;
+            }).join('');
+        }
+
+        stateManager.subscribeAll((state) => {
+            if (state.corporations) {
+                renderCorporations(state.corporations, state.firms);
+            }
+        });
+
+        async function init() {
+            const sessionId = sessionStorage.getItem('activeSessionId');
+            if (!sessionId) {
+                corpsContainer.innerHTML = '<div class="loading">No active session. <a href="index.html" style="color: #00d4ff;">Go to Dashboard</a> and select a game.</div>';
+                return;
+            }
+
+            try {
+                await wsClient.connect();
+                setupGameControls(wsClient, stateManager);
+                await fetch('/api/v1/games/' + sessionId + '/load', { method: 'POST' });
+                await wsClient.joinSession(sessionId);
+                corpsContainer.innerHTML = '<div class="loading">Loading corporations...</div>';
+            } catch (e) {
+                console.error('Error:', e);
+                corpsContainer.innerHTML = '<div class="loading">Error connecting. <a href="index.html" style="color: #00d4ff;">Go to Dashboard</a></div>';
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>

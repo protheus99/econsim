@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Corporation Details - EconSim</title>
+    <style>
+        body { background: #121212; color: #fff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 0; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        header { margin-bottom: 20px; }
+        header h1 { margin: 0; }
+        nav { margin-top: 10px; }
+        nav a { color: #00d4ff; margin-right: 15px; text-decoration: none; }
+        nav a:hover { text-decoration: underline; }
+        .back-link { color: #00d4ff; text-decoration: none; margin-bottom: 20px; display: inline-block; }
+        .back-link:hover { text-decoration: underline; }
+
+        .corp-header { background: #1e1e1e; border-radius: 8px; padding: 25px; margin-bottom: 20px; border: 1px solid #333; }
+        .corp-title { display: flex; justify-content: space-between; align-items: flex-start; }
+        .corp-name { font-size: 28px; font-weight: bold; margin: 0; }
+        .corp-abbr { font-size: 14px; color: #00d4ff; background: #1a2a3a; padding: 5px 12px; border-radius: 4px; margin-left: 15px; }
+        .corp-hq { color: #888; margin-top: 8px; font-size: 14px; }
+
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-top: 20px; }
+        .stat-card { background: #2a2a2a; border-radius: 6px; padding: 15px; text-align: center; }
+        .stat-value { font-size: 22px; font-weight: bold; color: #4caf50; }
+        .stat-label { font-size: 11px; color: #666; text-transform: uppercase; margin-top: 5px; }
+        .positive { color: #4caf50; }
+        .negative { color: #f44336; }
+
+        .section { background: #1e1e1e; border-radius: 8px; padding: 20px; margin-bottom: 20px; border: 1px solid #333; }
+        .section-title { font-size: 16px; font-weight: bold; margin: 0 0 15px 0; color: #00d4ff; }
+
+        .info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+        .info-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #333; }
+        .info-label { color: #888; }
+        .info-value { color: #fff; font-weight: 500; }
+
+        .firm-card { background: #2a2a2a; border-radius: 6px; padding: 15px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+        .firm-card:hover { background: #333; }
+        .firm-info { flex: 1; }
+        .firm-name { font-weight: bold; color: #fff; margin-bottom: 5px; }
+        .firm-name a { color: #fff; text-decoration: none; }
+        .firm-name a:hover { color: #00d4ff; }
+        .firm-meta { font-size: 12px; color: #888; }
+        .firm-stats { display: flex; gap: 20px; text-align: right; }
+        .firm-stat-value { font-weight: bold; }
+        .firm-stat-label { font-size: 10px; color: #666; }
+
+        .type-summary { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
+        .type-badge { padding: 8px 15px; border-radius: 20px; font-size: 13px; background: #2a2a2a; }
+        .type-badge strong { color: #00d4ff; }
+
+        .loading { text-align: center; padding: 50px; color: #888; }
+        .error { color: #f44336; }
+
+        /* Board Meeting Styles */
+        .goals-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
+        .goal-card { background: #2a2a2a; border-radius: 6px; padding: 15px; }
+        .goal-card .goal-label { font-size: 11px; color: #666; text-transform: uppercase; margin-bottom: 5px; }
+        .goal-card .goal-value { font-size: 18px; font-weight: bold; color: #00d4ff; }
+        .goal-card .goal-progress { margin-top: 8px; }
+        .progress-bar { height: 6px; background: #333; border-radius: 3px; overflow: hidden; }
+        .progress-fill { height: 100%; background: #4caf50; transition: width 0.3s; }
+
+        .attributes-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+        .attribute-item { background: #2a2a2a; border-radius: 6px; padding: 12px; }
+        .attribute-label { font-size: 11px; color: #888; margin-bottom: 5px; }
+        .attribute-bar { height: 8px; background: #333; border-radius: 4px; overflow: hidden; }
+        .attribute-fill { height: 100%; background: linear-gradient(90deg, #f44336, #ff9800, #4caf50); }
+        .attribute-value { font-size: 12px; color: #fff; margin-top: 5px; text-align: right; }
+
+        .project-card { background: #2a2a2a; border-radius: 6px; padding: 15px; margin-bottom: 10px; border-left: 4px solid #00d4ff; }
+        .project-header { display: flex; justify-content: space-between; align-items: flex-start; }
+        .project-type { font-size: 12px; color: #00d4ff; text-transform: uppercase; font-weight: bold; }
+        .project-cost { font-size: 14px; color: #4caf50; font-weight: bold; }
+        .project-details { font-size: 13px; color: #fff; margin-top: 8px; }
+        .project-meta { font-size: 11px; color: #888; margin-top: 5px; }
+
+        .meeting-card { background: #2a2a2a; border-radius: 6px; padding: 15px; margin-bottom: 10px; }
+        .meeting-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .meeting-date { font-size: 14px; font-weight: bold; color: #00d4ff; }
+        .meeting-stats { display: flex; gap: 15px; }
+        .meeting-stat { font-size: 12px; }
+        .meeting-stat .count { font-weight: bold; }
+        .meeting-approved { color: #4caf50; }
+        .meeting-deferred { color: #ff9800; }
+        .meeting-decisions { margin-top: 10px; }
+        .decision-item { font-size: 12px; padding: 5px 10px; background: #333; border-radius: 4px; margin-bottom: 5px; display: flex; justify-content: space-between; }
+        .decision-approved { border-left: 3px solid #4caf50; }
+        .decision-deferred { border-left: 3px solid #ff9800; }
+
+        .phase-badge { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: bold; }
+        .phase-1 { background: #1a3a2a; color: #4caf50; }
+        .phase-2 { background: #3a3a1a; color: #ffc107; }
+        .phase-3 { background: #3a2a1a; color: #ff9800; }
+
+        .empty-state { color: #666; font-style: italic; padding: 20px; text-align: center; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Corporation Details <span style="color: #00d4ff; font-size: 14px;">EconSim ALPHA</span></h1>
+            <nav>
+                <a href="index.html">Dashboard</a>
+                <a href="firms.html">Firms</a>
+                <a href="cities.html">Cities</a>
+                <a href="corporations.html">Corporations</a>
+                <a href="products.html">Products</a>
+            </nav>
+        </header>
+
+        <a href="corporations.html" class="back-link">&larr; Back to Corporations</a>
+
+        <div class="game-controls-bar" id="game-controls">
+            <div class="game-controls-left">
+                <button class="gc-btn gc-btn-play" id="gc-play" title="Resume">&#9658; Play</button>
+                <button class="gc-btn gc-btn-pause" id="gc-pause" title="Pause">&#10074;&#10074; Pause</button>
+                <span class="gc-separator">|</span>
+                <button class="gc-btn gc-speed" data-speed="1">1x</button>
+                <button class="gc-btn gc-speed" data-speed="2">2x</button>
+                <button class="gc-btn gc-speed" data-speed="4">4x</button>
+                <button class="gc-btn gc-speed" data-speed="8">8x</button>
+                <button class="gc-btn gc-speed" data-speed="24">1D</button>
+                <button class="gc-btn gc-speed" data-speed="168">1W</button>
+            </div>
+            <div class="game-controls-right">
+                <span class="gc-status gc-status-paused" id="gc-status">
+                    <span class="gc-status-indicator gc-indicator-paused" id="gc-indicator"></span>
+                    <span id="gc-status-text">Paused</span>
+                </span>
+                <span class="gc-clock" id="gc-clock">--</span>
+            </div>
+        </div>
+
+        <div id="content">
+            <div class="loading">Loading corporation details...</div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { wsClient } from './js/WebSocketClient.js';
+        import { stateManager } from './js/StateManager.js';
+        import { setupGameControls, injectControlStyles } from './js/GameControls.js';
+
+        stateManager.init(wsClient);
+        injectControlStyles();
+
+        const content = document.getElementById('content');
+        const urlParams = new URLSearchParams(window.location.search);
+        const corpId = urlParams.get('id');
+
+        function formatCurrency(num) {
+            if (num == null || isNaN(num)) return '$0';
+            if (num >= 1e12) return '$' + (num / 1e12).toFixed(2) + 'T';
+            if (num >= 1e9) return '$' + (num / 1e9).toFixed(2) + 'B';
+            if (num >= 1e6) return '$' + (num / 1e6).toFixed(2) + 'M';
+            if (num >= 1e3) return '$' + (num / 1e3).toFixed(1) + 'K';
+            return '$' + Math.floor(num).toLocaleString();
+        }
+
+        function formatNumber(num) {
+            if (num == null || isNaN(num)) return '0';
+            return Math.floor(num).toLocaleString();
+        }
+
+        function formatDate(date) {
+            if (!date) return 'N/A';
+            return `${date.year}-${String(date.month).padStart(2, '0')}-${String(date.day).padStart(2, '0')}`;
+        }
+
+        function formatPercent(num) {
+            if (num == null || isNaN(num)) return '0%';
+            return (num * 100).toFixed(0) + '%';
+        }
+
+        function getPhaseLabel(phase) {
+            const phases = { 1: 'Establishment', 2: 'Growth', 3: 'Maturity' };
+            return phases[phase] || 'Unknown';
+        }
+
+        function renderStrategicGoals(corp, corpFirms) {
+            const goals = corp.strategicGoals;
+            if (!goals) return '<div class="empty-state">No strategic goals defined</div>';
+
+            const firmProgress = corpFirms.length / (goals.targetFirms || 1);
+            const revenueProgress = (corp.totalRevenue || 0) / (goals.targetRevenue || 1);
+
+            return `
+                <div class="goals-grid">
+                    <div class="goal-card">
+                        <div class="goal-label">Primary Goal</div>
+                        <div class="goal-value">${goals.primary || 'Establish Operations'}</div>
+                    </div>
+                    <div class="goal-card">
+                        <div class="goal-label">Current Phase</div>
+                        <div class="goal-value">
+                            <span class="phase-badge phase-${goals.phase || 1}">Phase ${goals.phase || 1}: ${getPhaseLabel(goals.phase)}</span>
+                        </div>
+                    </div>
+                    <div class="goal-card">
+                        <div class="goal-label">Expansion Priority</div>
+                        <div class="goal-value">${goals.expansionPriority || 'Standard'}</div>
+                    </div>
+                    <div class="goal-card">
+                        <div class="goal-label">Target Firms</div>
+                        <div class="goal-value">${corpFirms.length} / ${goals.targetFirms || 0}</div>
+                        <div class="goal-progress">
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: ${Math.min(firmProgress * 100, 100)}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="goal-card">
+                        <div class="goal-label">Target Revenue</div>
+                        <div class="goal-value">${formatCurrency(goals.targetRevenue)}</div>
+                        <div class="goal-progress">
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: ${Math.min(revenueProgress * 100, 100)}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="goal-card">
+                        <div class="goal-label">Target Market Share</div>
+                        <div class="goal-value">${formatPercent(goals.targetMarketShare)}</div>
+                    </div>
+                </div>
+                ${goals.completedGoals?.length > 0 ? `
+                    <div style="margin-top: 15px;">
+                        <div style="font-size: 12px; color: #888; margin-bottom: 8px;">Completed Goals</div>
+                        <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                            ${goals.completedGoals.map(g => `<span class="type-badge" style="background: #1a3a2a; color: #4caf50;">${g}</span>`).join('')}
+                        </div>
+                    </div>
+                ` : ''}
+            `;
+        }
+
+        function renderAttributes(attributes) {
+            if (!attributes) return '<div class="empty-state">No attributes defined</div>';
+
+            const attrLabels = {
+                riskTolerance: 'Risk Tolerance',
+                qualityFocus: 'Quality Focus',
+                efficiencyFocus: 'Efficiency Focus',
+                growthOrientation: 'Growth Orientation',
+                integrationPreference: 'Integration Preference',
+                contractPreference: 'Contract Preference'
+            };
+
+            return `
+                <div class="attributes-grid">
+                    ${Object.entries(attributes).map(([key, value]) => `
+                        <div class="attribute-item">
+                            <div class="attribute-label">${attrLabels[key] || key}</div>
+                            <div class="attribute-bar">
+                                <div class="attribute-fill" style="width: ${(value || 0) * 100}%"></div>
+                            </div>
+                            <div class="attribute-value">${formatPercent(value)}</div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        function calculateNextMeetingDate(lastMeeting, explicitNextMeeting) {
+            // If explicitly set, use that
+            if (explicitNextMeeting) return explicitNextMeeting;
+
+            // If no last meeting, meetings haven't started yet
+            if (!lastMeeting || !lastMeeting.date) return null;
+
+            // Board meetings happen on the 1st of each month
+            // Calculate next month from last meeting
+            let nextMonth = lastMeeting.date.month + 1;
+            let nextYear = lastMeeting.date.year;
+
+            if (nextMonth > 12) {
+                nextMonth = 1;
+                nextYear++;
+            }
+
+            return {
+                year: nextYear,
+                month: nextMonth,
+                day: 1
+            };
+        }
+
+        function renderBoardMeetingSchedule(boardMeeting, clockState) {
+            const lastMeeting = boardMeeting?.lastMeeting;
+            const nextMeeting = calculateNextMeetingDate(lastMeeting, boardMeeting?.nextMeeting);
+
+            // Calculate days until next meeting if we have clock state
+            let daysUntil = null;
+            if (nextMeeting && clockState) {
+                const currentDays = (clockState.year * 12 + clockState.month) * 30 + clockState.day;
+                const nextDays = (nextMeeting.year * 12 + nextMeeting.month) * 30 + nextMeeting.day;
+                daysUntil = nextDays - currentDays;
+            }
+
+            return `
+                <div class="goals-grid" style="grid-template-columns: repeat(2, 1fr);">
+                    <div class="goal-card">
+                        <div class="goal-label">Last Board Meeting</div>
+                        <div class="goal-value" style="font-size: 16px;">
+                            ${lastMeeting ? formatDate(lastMeeting.date) : 'No meetings yet'}
+                        </div>
+                        ${lastMeeting ? `
+                            <div style="font-size: 12px; color: #888; margin-top: 5px;">
+                                ${lastMeeting.approvedProjects?.length || 0} approved,
+                                ${lastMeeting.deferredProjects?.length || 0} deferred
+                            </div>
+                        ` : ''}
+                    </div>
+                    <div class="goal-card" style="border: 1px solid #00d4ff;">
+                        <div class="goal-label">Next Board Meeting</div>
+                        <div class="goal-value" style="font-size: 16px; color: #00d4ff;">
+                            ${nextMeeting ? formatDate(nextMeeting) : 'Not scheduled'}
+                        </div>
+                        ${daysUntil !== null ? `
+                            <div style="font-size: 12px; color: ${daysUntil <= 5 ? '#ff9800' : '#888'}; margin-top: 5px;">
+                                ${daysUntil <= 0 ? 'Meeting due!' : `In ${daysUntil} days`}
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+                <div style="font-size: 12px; color: #666; margin-top: 10px;">
+                    Board meetings are held on the 1st of each month to review performance and approve new projects.
+                </div>
+            `;
+        }
+
+        function renderActiveProjects(projects) {
+            if (!projects || projects.length === 0) {
+                return '<div class="empty-state">No active projects</div>';
+            }
+
+            return projects.map(project => `
+                <div class="project-card">
+                    <div class="project-header">
+                        <span class="project-type">${project.type || 'Project'}</span>
+                        <span class="project-cost">${formatCurrency(project.cost)}</span>
+                    </div>
+                    <div class="project-details">
+                        ${project.firmType ? `<strong>${project.firmType}</strong>` : ''}
+                        ${project.productName ? ` - ${project.productName}` : ''}
+                    </div>
+                    <div class="project-meta">
+                        ${project.cityName ? `Location: ${project.cityName}` : ''}
+                        ${project.approvedAt ? ` | Approved: ${formatDate(project.approvedAt)}` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderLastMeeting(meeting) {
+            if (!meeting) return '<div class="empty-state">No board meetings held yet</div>';
+
+            return `
+                <div class="meeting-card" style="border: 1px solid #00d4ff;">
+                    <div class="meeting-header">
+                        <span class="meeting-date">${formatDate(meeting.date)}</span>
+                        <div class="meeting-stats">
+                            <span class="meeting-stat meeting-approved"><span class="count">${meeting.summary?.approved || meeting.approvedProjects?.length || 0}</span> Approved</span>
+                            <span class="meeting-stat meeting-deferred"><span class="count">${meeting.summary?.deferred || meeting.deferredProjects?.length || 0}</span> Deferred</span>
+                        </div>
+                    </div>
+                    ${meeting.summary ? `
+                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 15px; font-size: 12px;">
+                            <div><span style="color: #888;">Options Generated:</span> ${meeting.summary.optionsGenerated || 0}</div>
+                            <div><span style="color: #888;">Current Goal:</span> ${meeting.summary.currentGoal || 'N/A'}</div>
+                            <div><span style="color: #888;">Goal Progress:</span> ${meeting.summary.goalProgress || 'N/A'}</div>
+                        </div>
+                    ` : ''}
+                    ${meeting.approvedProjects?.length > 0 ? `
+                        <div class="meeting-decisions">
+                            <div style="font-size: 11px; color: #4caf50; margin-bottom: 8px; font-weight: bold;">APPROVED PROJECTS</div>
+                            ${meeting.approvedProjects.map(p => `
+                                <div class="decision-item decision-approved">
+                                    <span>${p.firmType || p.type}${p.productName ? ` - ${p.productName}` : ''}</span>
+                                    <span>${formatCurrency(p.cost)}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : ''}
+                    ${meeting.deferredProjects?.length > 0 ? `
+                        <div class="meeting-decisions" style="margin-top: 10px;">
+                            <div style="font-size: 11px; color: #ff9800; margin-bottom: 8px; font-weight: bold;">DEFERRED PROJECTS</div>
+                            ${meeting.deferredProjects.map(p => `
+                                <div class="decision-item decision-deferred">
+                                    <span>${p.firmType || p.type}${p.productName ? ` - ${p.productName}` : ''}</span>
+                                    <span style="color: #888;">${p.reason || ''}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        function renderMeetingHistory(meetings) {
+            if (!meetings || meetings.length === 0) {
+                return '<div class="empty-state">No meeting history available</div>';
+            }
+
+            // Show most recent first, excluding the last meeting (shown separately)
+            const historyMeetings = [...meetings].reverse().slice(1);
+            if (historyMeetings.length === 0) {
+                return '<div class="empty-state">Only one meeting held so far</div>';
+            }
+
+            return historyMeetings.map(meeting => `
+                <div class="meeting-card">
+                    <div class="meeting-header">
+                        <span class="meeting-date">${formatDate(meeting.date)}</span>
+                        <div class="meeting-stats">
+                            <span class="meeting-stat meeting-approved"><span class="count">${meeting.approvedProjects?.length || 0}</span> Approved</span>
+                            <span class="meeting-stat meeting-deferred"><span class="count">${meeting.deferredProjects?.length || 0}</span> Deferred</span>
+                        </div>
+                    </div>
+                    ${meeting.approvedProjects?.length > 0 ? `
+                        <div style="font-size: 11px; color: #888;">
+                            ${meeting.approvedProjects.map(p => p.firmType || p.type).join(', ')}
+                        </div>
+                    ` : '<div style="font-size: 11px; color: #666;">No projects approved</div>'}
+                </div>
+            `).join('');
+        }
+
+        function renderCorporation(corp, firms, clockState) {
+            if (!corp) {
+                content.innerHTML = '<div class="loading error">Corporation not found</div>';
+                return;
+            }
+
+            // Get all firms belonging to this corporation
+            const corpFirms = firms
+                ? Object.values(firms).filter(f => f.corporationId === corp.id)
+                : [];
+
+            // Calculate aggregated stats from firms
+            const totalCash = corpFirms.reduce((sum, f) => sum + (f.cash || 0), 0);
+            const totalRevenue = corpFirms.reduce((sum, f) => sum + (f.revenue || 0), 0);
+            const totalExpenses = corpFirms.reduce((sum, f) => sum + (f.expenses || 0), 0);
+            const totalProfit = corp.totalProfit || corpFirms.reduce((sum, f) => sum + (f.profit || f.currentProfit || 0), 0);
+            const totalEmployees = corpFirms.reduce((sum, f) => sum + (f.employees || f.totalEmployees || 0), 0);
+
+            // Group firms by type
+            const firmsByType = {};
+            corpFirms.forEach(f => {
+                const type = f.type || 'OTHER';
+                if (!firmsByType[type]) firmsByType[type] = [];
+                firmsByType[type].push(f);
+            });
+
+            // Group firms by city
+            const firmsByCity = {};
+            corpFirms.forEach(f => {
+                const city = f.cityName || 'Unknown';
+                if (!firmsByCity[city]) firmsByCity[city] = [];
+                firmsByCity[city].push(f);
+            });
+
+            const profitClass = totalProfit >= 0 ? 'positive' : 'negative';
+
+            content.innerHTML = `
+                <div class="corp-header">
+                    <div class="corp-title">
+                        <div>
+                            <h2 class="corp-name">${corp.name}<span class="corp-abbr">${corp.abbreviation || '???'}</span></h2>
+                            <div class="corp-hq">HQ: ${corp.headquartersCity || 'Unknown'}</div>
+                        </div>
+                        <div style="text-align: right;">
+                            <div class="stat-value" style="font-size: 32px;">${formatCurrency(corp.totalValue || totalCash)}</div>
+                            <div class="stat-label">Total Value</div>
+                        </div>
+                    </div>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-value">${formatCurrency(totalCash)}</div>
+                            <div class="stat-label">Total Cash</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">${formatCurrency(totalRevenue)}</div>
+                            <div class="stat-label">Total Revenue</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value ${profitClass}">${formatCurrency(totalProfit)}</div>
+                            <div class="stat-label">Total Profit</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" style="color: #fff;">${formatNumber(totalEmployees)}</div>
+                            <div class="stat-label">Employees</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" style="color: #fff;">${corpFirms.length}</div>
+                            <div class="stat-label">Subsidiaries</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h3 class="section-title">Business Portfolio</h3>
+                    <div class="type-summary">
+                        ${Object.entries(firmsByType).map(([type, typeFirms]) =>
+                            `<span class="type-badge"><strong>${typeFirms.length}</strong> ${type}</span>`
+                        ).join('')}
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h3 class="section-title">Geographic Presence</h3>
+                    <div class="type-summary">
+                        ${Object.entries(firmsByCity)
+                            .sort((a, b) => b[1].length - a[1].length)
+                            .slice(0, 10)
+                            .map(([city, cityFirms]) =>
+                                `<span class="type-badge"><strong>${cityFirms.length}</strong> in ${city}</span>`
+                            ).join('')}
+                        ${Object.keys(firmsByCity).length > 10
+                            ? `<span class="type-badge" style="color: #888;">+${Object.keys(firmsByCity).length - 10} more cities</span>`
+                            : ''}
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h3 class="section-title">Corporate Details</h3>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="info-label">Corporation ID</span>
+                            <span class="info-value" style="font-family: monospace; font-size: 12px;">${corp.id}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Corporation Type</span>
+                            <span class="info-value">${corp.type || 'Standard'}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Headquarters City ID</span>
+                            <span class="info-value">${corp.headquartersCityId || 'N/A'}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Capital</span>
+                            <span class="info-value">${formatCurrency(corp.capital)}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Total Assets</span>
+                            <span class="info-value">${formatCurrency(corp.totalAssets)}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Total Liabilities</span>
+                            <span class="info-value">${formatCurrency(corp.totalLiabilities)}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Debt</span>
+                            <span class="info-value">${formatCurrency(corp.debt)}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Credit Rating</span>
+                            <span class="info-value">${corp.creditRating || 'N/A'}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Expansion Strategy</span>
+                            <span class="info-value">${corp.expansionStrategy || 'Standard'}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Reinvestment Rate</span>
+                            <span class="info-value">${((corp.reinvestmentRate || 0.3) * 100).toFixed(0)}%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h3 class="section-title">Board Meeting Schedule</h3>
+                    ${renderBoardMeetingSchedule(corp.boardMeeting, clockState)}
+                </div>
+
+                <div class="section">
+                    <h3 class="section-title">Strategic Goals</h3>
+                    ${renderStrategicGoals(corp, corpFirms)}
+                </div>
+
+                <div class="section">
+                    <h3 class="section-title">Corporation Attributes</h3>
+                    ${renderAttributes(corp.attributes)}
+                </div>
+
+                <div class="section">
+                    <h3 class="section-title">Active Projects (${corp.boardMeeting?.activeProjects?.length || 0})</h3>
+                    ${renderActiveProjects(corp.boardMeeting?.activeProjects)}
+                </div>
+
+                <div class="section">
+                    <h3 class="section-title">Last Board Meeting</h3>
+                    ${renderLastMeeting(corp.boardMeeting?.lastMeeting)}
+                </div>
+
+                <div class="section">
+                    <h3 class="section-title">Meeting History (${corp.boardMeeting?.meetingHistory?.length || 0} meetings)</h3>
+                    ${renderMeetingHistory(corp.boardMeeting?.meetingHistory)}
+                </div>
+
+                <div class="section">
+                    <h3 class="section-title">Subsidiaries (${corpFirms.length})</h3>
+                    ${Object.entries(firmsByType).map(([type, typeFirms]) => `
+                        <h4 style="color: #888; font-size: 13px; margin: 20px 0 10px 0;">${type} (${typeFirms.length})</h4>
+                        ${typeFirms
+                            .sort((a, b) => (b.cash || 0) - (a.cash || 0))
+                            .slice(0, 10)
+                            .map(firm => {
+                                const firmProfit = firm.currentProfit || firm.profit || 0;
+                                const profitClass = firmProfit >= 0 ? 'positive' : 'negative';
+                                return `
+                                    <div class="firm-card">
+                                        <div class="firm-info">
+                                            <div class="firm-name">
+                                                <a href="firm.html?id=${firm.id}">${firm.displayName || firm.name || firm.id}</a>
+                                            </div>
+                                            <div class="firm-meta">${firm.cityName || 'Unknown'} | ${firm.resourceType || firm.storeType || firm.productName || ''}</div>
+                                        </div>
+                                        <div class="firm-stats">
+                                            <div>
+                                                <div class="firm-stat-value">${formatCurrency(firm.cash)}</div>
+                                                <div class="firm-stat-label">Cash</div>
+                                            </div>
+                                            <div>
+                                                <div class="firm-stat-value ${profitClass}">${formatCurrency(firmProfit)}</div>
+                                                <div class="firm-stat-label">Profit</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        ${typeFirms.length > 10 ? `<p style="color: #888; font-size: 13px;">...and ${typeFirms.length - 10} more ${type} firms</p>` : ''}
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        stateManager.subscribeAll((state) => {
+            if (state.corporations && corpId) {
+                const corp = state.corporations.find(c => c.id === corpId);
+                renderCorporation(corp, state.firms, state.clock);
+            }
+        });
+
+        async function init() {
+            if (!corpId) {
+                content.innerHTML = '<div class="loading error">No corporation ID provided. <a href="corporations.html" style="color: #00d4ff;">Go to Corporations</a></div>';
+                return;
+            }
+
+            const sessionId = sessionStorage.getItem('activeSessionId');
+            if (!sessionId) {
+                content.innerHTML = '<div class="loading">No active session. <a href="index.html" style="color: #00d4ff;">Go to Dashboard</a></div>';
+                return;
+            }
+
+            try {
+                await wsClient.connect();
+                setupGameControls(wsClient, stateManager);
+                await fetch('/api/v1/games/' + sessionId + '/load', { method: 'POST' });
+                await wsClient.joinSession(sessionId);
+            } catch (e) {
+                console.error('Error:', e);
+                content.innerHTML = '<div class="loading error">Error connecting. <a href="index.html" style="color: #00d4ff;">Go to Dashboard</a></div>';
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>

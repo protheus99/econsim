@@ -34,21 +34,64 @@ async function loadGames() {
         const data = await response.json();
 
         if (data.success && data.games.length > 0) {
-            sessionList.innerHTML = data.games.map(game => 
+            sessionList.innerHTML = data.games.map(game =>
                 "<div class=\"session-card\" data-id=\"" + game.id + "\">" +
+                "<div class=\"session-header\">" +
                 "<h4>" + game.name + "</h4>" +
-                "<div class=\"session-info\">Status: " + game.status + 
+                "<button class=\"btn-delete\" data-id=\"" + game.id + "\" title=\"Delete game\">&times;</button>" +
+                "</div>" +
+                "<div class=\"session-info\">Status: " + game.status +
                 (game.hasActiveSession ? " (active)" : "") + "</div></div>"
             ).join("");
 
+            // Add click handlers for joining games
             sessionList.querySelectorAll(".session-card").forEach(card => {
-                card.addEventListener("click", () => joinGame(card.dataset.id));
+                card.addEventListener("click", (e) => {
+                    // Don't join if clicking delete button
+                    if (e.target.classList.contains("btn-delete")) return;
+                    joinGame(card.dataset.id);
+                });
+            });
+
+            // Add click handlers for delete buttons
+            sessionList.querySelectorAll(".btn-delete").forEach(btn => {
+                btn.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    deleteGame(btn.dataset.id);
+                });
             });
         } else {
             sessionList.innerHTML = "<div style=\"color: #888;\">No games found. Create one!</div>";
         }
     } catch (e) {
         sessionList.innerHTML = "<div style=\"color: #f44;\">Error loading games. Is the server running?</div>";
+    }
+}
+
+async function deleteGame(gameId) {
+    const confirmed = confirm("Are you sure you want to delete this game? This cannot be undone.");
+    if (!confirmed) return;
+
+    try {
+        const response = await fetch("/api/v1/games/" + gameId, {
+            method: "DELETE"
+        });
+        const data = await response.json();
+
+        if (data.success) {
+            // If we deleted the active game, clear the session
+            if (sessionStorage.getItem("activeSessionId") === gameId) {
+                sessionStorage.removeItem("activeSessionId");
+                gamePanel.style.display = "none";
+                const nav = document.getElementById("main-nav");
+                if (nav) nav.style.display = "none";
+            }
+            await loadGames();
+        } else {
+            alert("Failed to delete game: " + (data.error || "Unknown error"));
+        }
+    } catch (e) {
+        alert("Error deleting game: " + e.message);
     }
 }
 
@@ -71,12 +114,22 @@ async function createGame() {
 
 async function joinGame(gameId) {
     try {
+        // Ensure WebSocket is connected before joining
+        if (!wsClient.isConnected) {
+            await wsClient.connect();
+        }
+
         const loadResponse = await fetch("/api/v1/games/" + gameId + "/load", { method: "POST" });
         const loadData = await loadResponse.json();
 
         if (loadData.success) {
             await wsClient.joinSession(gameId);
             gamePanel.style.display = "block";
+            // Show navigation
+            const nav = document.getElementById("main-nav");
+            if (nav) nav.style.display = "block";
+            // Store session ID for other pages
+            sessionStorage.setItem("activeSessionId", gameId);
             sessionList.querySelectorAll(".session-card").forEach(card => {
                 card.classList.toggle("active", card.dataset.id === gameId);
             });

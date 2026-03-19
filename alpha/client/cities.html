@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cities - EconSim</title>
+    <style>
+        body { background: #121212; color: #fff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 0; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+        header { margin-bottom: 20px; }
+        header h1 { margin: 0; }
+        nav { margin-top: 10px; }
+        nav a { color: #00d4ff; margin-right: 15px; text-decoration: none; }
+        nav a:hover { text-decoration: underline; }
+        .clock-bar { background: #1e1e1e; padding: 10px 20px; border-radius: 6px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+        .clock-display { font-size: 20px; font-weight: bold; color: #00d4ff; font-family: monospace; }
+        .cities-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 15px; }
+        .city-card { background: #1e1e1e; border-radius: 8px; padding: 20px; border: 1px solid #333; cursor: pointer; text-decoration: none; display: block; color: inherit; }
+        .city-card:hover { border-color: #00d4ff; }
+        .city-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px; }
+        .city-name { font-size: 20px; font-weight: bold; color: #fff; margin: 0; }
+        .city-country { font-size: 12px; color: #888; }
+        .city-pop { font-size: 24px; color: #00d4ff; font-weight: bold; }
+        .city-pop-label { font-size: 11px; color: #666; text-transform: uppercase; }
+        .city-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-top: 15px; padding-top: 15px; border-top: 1px solid #333; }
+        .city-stat { text-align: center; }
+        .city-stat .value { font-size: 18px; font-weight: bold; color: #fff; }
+        .city-stat .label { font-size: 11px; color: #666; text-transform: uppercase; }
+        .city-infra { display: flex; gap: 10px; margin-top: 10px; }
+        .infra-badge { font-size: 11px; padding: 3px 8px; border-radius: 3px; background: #2a2a2a; color: #888; }
+        .infra-badge.active { background: #1a3a2a; color: #4caf50; }
+        .loading { text-align: center; padding: 50px; color: #888; }
+        #city-count { color: #888; font-size: 14px; margin-left: auto; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Cities <span style="color: #00d4ff; font-size: 14px;">EconSim ALPHA</span></h1>
+            <nav>
+                <a href="index.html">Dashboard</a>
+                <a href="firms.html">Firms</a>
+                <a href="cities.html" style="color: #fff;">Cities</a>
+                <a href="corporations.html">Corporations</a>
+                <a href="products.html">Products</a>
+            </nav>
+        </header>
+
+        <div class="game-controls-bar" id="game-controls">
+            <div class="game-controls-left">
+                <button class="gc-btn gc-btn-play" id="gc-play" title="Resume">&#9658; Play</button>
+                <button class="gc-btn gc-btn-pause" id="gc-pause" title="Pause">&#10074;&#10074; Pause</button>
+                <span class="gc-separator">|</span>
+                <button class="gc-btn gc-speed" data-speed="1">1x</button>
+                <button class="gc-btn gc-speed" data-speed="2">2x</button>
+                <button class="gc-btn gc-speed" data-speed="4">4x</button>
+                <button class="gc-btn gc-speed" data-speed="8">8x</button>
+                <button class="gc-btn gc-speed" data-speed="24">1D</button>
+                <button class="gc-btn gc-speed" data-speed="168">1W</button>
+            </div>
+            <div class="game-controls-right">
+                <span id="city-count">-- cities</span>
+                <span class="gc-status gc-status-paused" id="gc-status">
+                    <span class="gc-status-indicator gc-indicator-paused" id="gc-indicator"></span>
+                    <span id="gc-status-text">Paused</span>
+                </span>
+                <span class="gc-clock" id="gc-clock">--</span>
+            </div>
+        </div>
+
+        <div id="cities-container" class="cities-grid">
+            <div class="loading">Connecting to server...</div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { wsClient } from './js/WebSocketClient.js';
+        import { stateManager } from './js/StateManager.js';
+        import { setupGameControls, injectControlStyles } from './js/GameControls.js';
+
+        stateManager.init(wsClient);
+        injectControlStyles();
+
+        const citiesContainer = document.getElementById('cities-container');
+
+        function formatNumber(num) {
+            if (num == null || isNaN(num)) return '0';
+            if (num >= 1e6) return (num / 1e6).toFixed(1) + 'M';
+            if (num >= 1e3) return (num / 1e3).toFixed(1) + 'K';
+            return Math.floor(num).toLocaleString();
+        }
+
+        function formatCurrency(num) {
+            if (num == null || isNaN(num)) return '$0';
+            if (num >= 1e9) return '$' + (num / 1e9).toFixed(1) + 'B';
+            if (num >= 1e6) return '$' + (num / 1e6).toFixed(1) + 'M';
+            if (num >= 1e3) return '$' + (num / 1e3).toFixed(1) + 'K';
+            return '$' + Math.floor(num).toLocaleString();
+        }
+
+        function renderCities(cities) {
+            if (!cities || cities.length === 0) {
+                citiesContainer.innerHTML = '<div class="loading">No cities found</div>';
+                return;
+            }
+
+            document.getElementById('city-count').textContent = cities.length + ' cities';
+
+            citiesContainer.innerHTML = cities.map(city => {
+                const pop = city.population || city.demographics?.population || 0;
+                const employed = city.demographics?.employed || 0;
+                const unemploymentRate = pop > 0 ? ((pop - employed) / pop * 100).toFixed(1) : 0;
+
+                return `
+                    <a href="city.html?id=${city.id}" class="city-card">
+                        <div class="city-header">
+                            <div>
+                                <h3 class="city-name">${city.name}</h3>
+                                <div class="city-country">${city.countryName || city.country || ''}</div>
+                            </div>
+                            <div style="text-align: right;">
+                                <div class="city-pop">${formatNumber(pop)}</div>
+                                <div class="city-pop-label">Population</div>
+                            </div>
+                        </div>
+                        <div class="city-infra">
+                            <span class="infra-badge ${city.hasAirport ? 'active' : ''}">&#9992; Airport</span>
+                            <span class="infra-badge ${city.hasSeaport ? 'active' : ''}">&#128674; Seaport</span>
+                            <span class="infra-badge ${city.hasRailway ? 'active' : ''}">&#128646; Railway</span>
+                        </div>
+                        <div class="city-stats">
+                            <div class="city-stat">
+                                <div class="value">${formatNumber(employed)}</div>
+                                <div class="label">Employed</div>
+                            </div>
+                            <div class="city-stat">
+                                <div class="value">${unemploymentRate}%</div>
+                                <div class="label">Unemployment</div>
+                            </div>
+                            <div class="city-stat">
+                                <div class="value">${formatCurrency(city.totalPurchasingPower || 0)}</div>
+                                <div class="label">Purchasing Power</div>
+                            </div>
+                        </div>
+                    </a>
+                `;
+            }).join('');
+        }
+
+        stateManager.subscribeAll((state) => {
+            if (state.cities) {
+                const cities = Array.isArray(state.cities) ? state.cities : Object.values(state.cities);
+                renderCities(cities);
+            }
+        });
+
+        async function init() {
+            const sessionId = sessionStorage.getItem('activeSessionId');
+            if (!sessionId) {
+                citiesContainer.innerHTML = '<div class="loading">No active session. <a href="index.html" style="color: #00d4ff;">Go to Dashboard</a> and select a game.</div>';
+                return;
+            }
+
+            try {
+                await wsClient.connect();
+                setupGameControls(wsClient, stateManager);
+                await fetch('/api/v1/games/' + sessionId + '/load', { method: 'POST' });
+                await wsClient.joinSession(sessionId);
+                citiesContainer.innerHTML = '<div class="loading">Loading cities...</div>';
+            } catch (e) {
+                console.error('Error:', e);
+                citiesContainer.innerHTML = '<div class="loading">Error connecting. <a href="index.html" style="color: #00d4ff;">Go to Dashboard</a></div>';
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>
