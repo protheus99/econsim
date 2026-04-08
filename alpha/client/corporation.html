@@ -191,7 +191,7 @@
                 <div class="goals-grid">
                     <div class="goal-card">
                         <div class="goal-label">Primary Goal</div>
-                        <div class="goal-value">${goals.primary || 'Establish Operations'}</div>
+                        <div class="goal-value" style="font-size:16px">${goalLabel(goals.primary)}</div>
                     </div>
                     <div class="goal-card">
                         <div class="goal-label">Current Phase</div>
@@ -230,7 +230,7 @@
                     <div style="margin-top: 15px;">
                         <div style="font-size: 12px; color: #888; margin-bottom: 8px;">Completed Goals</div>
                         <div style="display: flex; flex-wrap: wrap; gap: 8px;">
-                            ${goals.completedGoals.map(g => `<span class="type-badge" style="background: #1a3a2a; color: #4caf50;">${g}</span>`).join('')}
+                            ${goals.completedGoals.map(g => `<span class="type-badge" style="background: #1a3a2a; color: #4caf50;">✓ ${goalLabel(g)}</span>`).join('')}
                         </div>
                     </div>
                 ` : ''}
@@ -355,6 +355,53 @@
             `).join('');
         }
 
+        const GOAL_LABELS = {
+            ESTABLISH_OPERATIONS: 'Establish Operations',
+            SECURE_SUPPLY: 'Secure Supply Chain',
+            EXPAND_CAPACITY: 'Expand Capacity',
+            OPTIMIZE_OPERATIONS: 'Optimize Operations',
+            MARKET_DOMINANCE: 'Market Dominance',
+            DIVERSIFY: 'Diversify Portfolio'
+        };
+
+        function goalLabel(key) {
+            return GOAL_LABELS[key] || (key ? key.replace(/_/g, ' ') : 'N/A');
+        }
+
+        function renderGoalProgressBlock(gp) {
+            if (!gp) return '';
+            const completion = Math.min(1, gp.completion || 0);
+            const pct = (completion * 100).toFixed(0);
+            const barColor = completion >= 1 ? '#4caf50' : completion >= 0.5 ? '#00d4ff' : '#ffa000';
+            const checks = [
+                { label: 'First firm founded', done: gp.hasFirstFirm },
+                { label: 'Profitable firm', done: gp.hasProfitableFirm },
+                { label: 'Sales contracts active', done: gp.hasSalesContracts }
+            ];
+            return `
+                <div style="background:#1a1a1a;border-radius:6px;padding:12px 14px;margin-top:10px">
+                    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
+                        <span style="font-size:12px;color:#aaa">Goal: <strong style="color:#fff">${goalLabel(gp.currentGoal)}</strong>
+                            &nbsp;<span style="font-size:11px;color:#666">Phase ${gp.phase || '?'}</span>
+                        </span>
+                        <span style="font-size:13px;font-weight:600;color:${barColor}">${pct}%</span>
+                    </div>
+                    <div style="background:#2a2a2a;border-radius:3px;height:8px;overflow:hidden;margin-bottom:10px">
+                        <div style="height:100%;width:${pct}%;background:${barColor};border-radius:3px;transition:width 0.4s"></div>
+                    </div>
+                    <div style="display:flex;gap:12px;flex-wrap:wrap">
+                        ${checks.map(c => `
+                            <span style="font-size:11px;color:${c.done ? '#4caf50' : '#555'}">
+                                ${c.done ? '✓' : '○'} ${c.label}
+                            </span>`).join('')}
+                        ${gp.targetFirms != null ? `
+                            <span style="font-size:11px;color:#888">
+                                Firms: <strong style="color:#ddd">${gp.firmCount || 0} / ${gp.targetFirms}</strong>
+                            </span>` : ''}
+                    </div>
+                </div>`;
+        }
+
         function renderLastMeeting(meeting) {
             if (!meeting) return '<div class="empty-state">No board meetings held yet</div>';
 
@@ -368,11 +415,11 @@
                         </div>
                     </div>
                     ${meeting.summary ? `
-                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 15px; font-size: 12px;">
-                            <div><span style="color: #888;">Options Generated:</span> ${meeting.summary.optionsGenerated || 0}</div>
-                            <div><span style="color: #888;">Current Goal:</span> ${meeting.summary.currentGoal || 'N/A'}</div>
-                            <div><span style="color: #888;">Goal Progress:</span> ${meeting.summary.goalProgress || 'N/A'}</div>
+                        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:10px;font-size:12px">
+                            <div><span style="color:#888">Current Goal:</span> <strong style="color:#ddd">${goalLabel(meeting.summary.currentGoal)}</strong></div>
+                            <div><span style="color:#888">Options Generated:</span> ${meeting.summary.optionsGenerated || 0}</div>
                         </div>
+                        ${renderGoalProgressBlock(meeting.summary.goalProgress)}
                     ` : ''}
                     ${meeting.approvedProjects?.length > 0 ? `
                         <div class="meeting-decisions">
@@ -427,6 +474,134 @@
                     ` : '<div style="font-size: 11px; color: #666;">No projects approved</div>'}
                 </div>
             `).join('');
+        }
+
+        const GOAL_LABELS_EXT = {
+            ESTABLISH_OPERATIONS: 'Establish Operations',
+            SECURE_SUPPLY: 'Secure Supply Chain',
+            EXPAND_CAPACITY: 'Expand Capacity',
+            VERTICAL_INTEGRATION: 'Vertical Integration',
+            HORIZONTAL_EXPANSION: 'Horizontal Expansion',
+            INCREASE_MARKET_SHARE: 'Increase Market Share',
+            IMPROVE_PROFITABILITY: 'Improve Profitability',
+            ENTER_NEW_MARKET: 'Enter New Market',
+            FULL_VERTICAL_MILESTONE: '🏆 Full Vertical'
+        };
+
+        const HORIZON_COLORS = { SHORT: '#4caf50', MEDIUM: '#00d4ff', LONG: '#ff9800' };
+        const STATUS_COLORS = { PENDING: '#888', IN_PROGRESS: '#00d4ff', COMPLETED: '#4caf50', CANCELLED: '#f44336' };
+
+        function renderRoadmapActions(actions, title, horizon) {
+            if (!actions || actions.length === 0) return '';
+            const color = HORIZON_COLORS[horizon] || '#888';
+            return `
+                <div style="margin-bottom:14px">
+                    <div style="font-size:11px;color:${color};text-transform:uppercase;font-weight:bold;margin-bottom:6px">${title}</div>
+                    ${actions.map(a => `
+                        <div style="background:#1a1a1a;border-radius:5px;padding:8px 12px;margin-bottom:5px;border-left:3px solid ${STATUS_COLORS[a.status] || '#555'}">
+                            <div style="display:flex;justify-content:space-between;align-items:baseline">
+                                <span style="font-weight:500;font-size:13px">${a.type?.replace(/_/g, ' ') || 'Action'}
+                                    ${a.personaType ? `<span style="color:#888;font-size:11px"> · ${a.personaType.replace(/_/g, ' ')}</span>` : ''}
+                                </span>
+                                <span style="font-size:11px;color:${STATUS_COLORS[a.status] || '#888'}">${a.status}</span>
+                            </div>
+                            ${a.goal ? `<div style="font-size:11px;color:#666;margin-top:2px">Goal: ${GOAL_LABELS_EXT[a.goal] || a.goal}</div>` : ''}
+                            ${a.rationale ? `<div style="font-size:11px;color:#555;margin-top:2px;font-style:italic">${a.rationale}</div>` : ''}
+                            ${a.cityName ? `<div style="font-size:11px;color:#666">📍 ${a.cityName}</div>` : ''}
+                        </div>`).join('')}
+                </div>`;
+        }
+
+        function renderRoadmap(corp) {
+            const roadmap = corp.roadmap;
+            const currentGoal = corp.currentGoal;
+            const goalHistory = corp.goalHistory || [];
+            const integrationMap = corp.integrationMap;
+
+            const currentGoalLabel = GOAL_LABELS_EXT[currentGoal] || (currentGoal?.replace(/_/g, ' ') || 'N/A');
+            const isFullyVertical = corp.isFullyVertical;
+
+            let html = `
+                <div style="display:flex;gap:15px;flex-wrap:wrap;margin-bottom:16px">
+                    <div class="goal-card" style="flex:1;min-width:180px;border:1px solid #00d4ff">
+                        <div class="goal-label">Current Goal</div>
+                        <div class="goal-value" style="font-size:17px;color:#00d4ff;font-weight:bold">${currentGoalLabel}</div>
+                    </div>
+                    ${isFullyVertical ? `
+                        <div class="goal-card" style="flex:1;min-width:180px;border:1px solid #ffd700">
+                            <div class="goal-label">Integration Status</div>
+                            <div class="goal-value" style="color:#ffd700">🏆 Fully Vertical</div>
+                        </div>` : ''}
+                </div>`;
+
+            if (integrationMap) {
+                const tiers = ['RAW', 'SEMI_RAW', 'MANUFACTURED', 'RETAIL'];
+                const tierLabels = { RAW: 'Raw', SEMI_RAW: 'Semi-Raw', MANUFACTURED: 'Mfg', RETAIL: 'Retail' };
+                html += `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">`;
+                for (const tier of tiers) {
+                    const count = integrationMap[tier]?.length || 0;
+                    const color = count > 0 ? '#4caf50' : '#333';
+                    html += `<div style="background:#1a1a1a;border:1px solid ${color};border-radius:4px;padding:5px 10px;font-size:12px">
+                        <span style="color:#888">${tierLabels[tier]}:</span>
+                        <span style="color:${color};font-weight:bold;margin-left:4px">${count} firm${count !== 1 ? 's' : ''}</span>
+                    </div>`;
+                }
+                html += `</div>`;
+            }
+
+            if (roadmap) {
+                html += renderRoadmapActions(roadmap.shortTerm, '⚡ Short-term (this month)', 'SHORT');
+                html += renderRoadmapActions(roadmap.mediumTerm, '📅 Medium-term (queued)', 'MEDIUM');
+                html += renderRoadmapActions(roadmap.longTerm, '🔭 Long-term (strategic)', 'LONG');
+
+                if (roadmap.completedActions?.length > 0) {
+                    html += `<details style="margin-top:8px">
+                        <summary style="cursor:pointer;font-size:12px;color:#666">Recent completed actions (${roadmap.completedActions.length})</summary>
+                        <div style="margin-top:8px">
+                            ${renderRoadmapActions(roadmap.completedActions, 'Completed', 'LONG')}
+                        </div>
+                    </details>`;
+                }
+            } else {
+                html += `<div class="empty-state">Roadmap not yet seeded — corporation is initializing.</div>`;
+            }
+
+            if (goalHistory.length > 0) {
+                html += `<div style="margin-top:16px;border-top:1px solid #2a2a2a;padding-top:12px">
+                    <div style="font-size:11px;color:#666;margin-bottom:6px;text-transform:uppercase">Goal History</div>
+                    ${[...goalHistory].reverse().slice(0, 5).map(h => `
+                        <div style="font-size:12px;color:#555;padding:3px 0">
+                            Month ${h.startMonth}–${h.endMonth ?? '?'}: <span style="color:#777">${GOAL_LABELS_EXT[h.goal] || h.goal}</span>
+                            <span style="color:#444;margin-left:6px">(${h.outcome || 'done'})</span>
+                        </div>`).join('')}
+                </div>`;
+            }
+
+            return html;
+        }
+
+        function renderCorpHistory(corp) {
+            const h = corp.monthlyHistory;
+            if (!h || h.length < 1) return '';
+            const rows = [...h].reverse().map(s => {
+                const pc = s.profit >= 0 ? '#4caf50' : '#f44336';
+                return `<tr>
+                    <td>Mo ${s.month}, Yr ${s.year}</td>
+                    <td>${formatCurrency(s.revenue)}</td>
+                    <td>${formatCurrency(s.expenses)}</td>
+                    <td style="color:${pc};font-weight:600">${formatCurrency(s.profit)}</td>
+                    <td>${formatCurrency(s.cash)}</td>
+                    <td>${s.firmCount}</td>
+                    <td>${(s.employees || 0).toLocaleString()}</td>
+                </tr>`;
+            }).join('');
+            return `<div class="section">
+                <h3 class="section-title">Performance History (${h.length} months)</h3>
+                <table class="firms-table" style="width:100%">
+                    <thead><tr><th>Period</th><th>Revenue</th><th>Expenses</th><th>Profit</th><th>Cash</th><th>Firms</th><th>Employees</th></tr></thead>
+                    <tbody>${rows}</tbody>
+                </table>
+            </div>`;
         }
 
         function renderCorporation(corp, firms, clockState) {
@@ -572,8 +747,8 @@
                 </div>
 
                 <div class="section">
-                    <h3 class="section-title">Board Meeting Schedule</h3>
-                    ${renderBoardMeetingSchedule(corp.boardMeeting, clockState)}
+                    <h3 class="section-title">Current Goal &amp; Roadmap</h3>
+                    ${renderRoadmap(corp)}
                 </div>
 
                 <div class="section">
@@ -586,20 +761,7 @@
                     ${renderAttributes(corp.attributes)}
                 </div>
 
-                <div class="section">
-                    <h3 class="section-title">Active Projects (${corp.boardMeeting?.activeProjects?.length || 0})</h3>
-                    ${renderActiveProjects(corp.boardMeeting?.activeProjects)}
-                </div>
-
-                <div class="section">
-                    <h3 class="section-title">Last Board Meeting</h3>
-                    ${renderLastMeeting(corp.boardMeeting?.lastMeeting)}
-                </div>
-
-                <div class="section">
-                    <h3 class="section-title">Meeting History (${corp.boardMeeting?.meetingHistory?.length || 0} meetings)</h3>
-                    ${renderMeetingHistory(corp.boardMeeting?.meetingHistory)}
-                </div>
+                ${renderCorpHistory(corp)}
 
                 <div class="section">
                     <h3 class="section-title">Subsidiaries (${corpFirms.length})</h3>

@@ -13,7 +13,9 @@
       "Bash(node tests/run-t0-tests.js:*)",
       "Bash(python:*)",
       "Bash(where:*)",
-      "Bash(cmd.exe /c \"cd alpha\\\\server && npm install\")"
+      "Bash(cmd.exe /c \"cd alpha\\\\server && npm install\")",
+      "Bash(ls -la /c/Users/proth/Documents/GitHub/econsim/alpha/client/*.html)",
+      "Bash(xargs grep:*)"
     ]
   }
 }

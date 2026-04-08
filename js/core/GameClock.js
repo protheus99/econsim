@@ -43,7 +43,7 @@ export class GameClock {
     }
 
     getFormatted() {
-        return `${this.year}-${String(this.month).padStart(2, '0')}-${String(this.day).padStart(2, '0')} ${String(this.hour).padStart(2, '0')}:00`;
+        return `Day ${this.day}, Month ${this.month}, Year ${this.year}`;
     }
 
     getGameTime() {

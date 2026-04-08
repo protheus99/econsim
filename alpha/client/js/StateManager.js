@@ -146,7 +146,7 @@ export class StateManager {
      */
     _formatClock(clock) {
         if (!clock) return '';
-        return `${clock.year}-${String(clock.month).padStart(2, '0')}-${String(clock.day).padStart(2, '0')} ${String(clock.hour).padStart(2, '0')}:00`;
+        return `Day ${clock.day}, Month ${clock.month}, Year ${clock.year}`;
     }
 
     /**

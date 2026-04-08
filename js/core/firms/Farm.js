@@ -731,6 +731,8 @@ export class Farm extends Firm {
             farmType: this.farmType,
             landSize: this.landSize,
             accumulatedProduction: this.accumulatedProduction,
+            lotSize: this.lotSize,
+            productionRate: this.actualProductionRate,
             lotInventory: this.lotInventory?.toJSON?.() || null,
             inventory: {
                 quantity: this.inventory.quantity,

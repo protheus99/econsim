@@ -6,43 +6,107 @@
     <title>Firm Details - EconSim</title>
     <style>
         body { background: #121212; color: #fff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 0; }
-        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        .container { max-width: 1100px; margin: 0 auto; padding: 20px; }
         header { margin-bottom: 20px; }
         header h1 { margin: 0; }
         nav { margin-top: 10px; }
         nav a { color: #00d4ff; margin-right: 15px; text-decoration: none; }
         nav a:hover { text-decoration: underline; }
-        .back-link { color: #00d4ff; text-decoration: none; margin-bottom: 20px; display: inline-block; }
+        .back-link { color: #00d4ff; text-decoration: none; margin-bottom: 15px; display: inline-block; font-size: 13px; }
         .back-link:hover { text-decoration: underline; }
 
-        .firm-header { background: #1e1e1e; border-radius: 8px; padding: 25px; margin-bottom: 20px; border: 1px solid #333; }
-        .firm-title { display: flex; justify-content: space-between; align-items: flex-start; }
-        .firm-name { font-size: 28px; font-weight: bold; margin: 0; }
-        .firm-type { font-size: 14px; color: #00d4ff; background: #1a2a3a; padding: 5px 12px; border-radius: 4px; }
-        .firm-subtitle { color: #888; margin-top: 8px; font-size: 14px; }
+        /* Hero header */
+        .firm-hero { background: #1e1e1e; border-radius: 8px; padding: 20px 24px; margin-bottom: 16px; border: 1px solid #333; }
+        .firm-hero-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+        .firm-hero-name { font-size: 24px; font-weight: 700; margin: 0 0 4px; }
+        .firm-hero-sub { font-size: 13px; color: #888; }
+        .firm-hero-sub .city { color: #00d4ff; }
+        .firm-hero-sub .corp { color: #aaa; margin-left: 8px; }
+        .type-badge { background: #1a2a3a; color: #42a5f5; font-size: 12px; padding: 4px 12px; border-radius: 4px; white-space: nowrap; }
 
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 20px; }
-        .stat-card { background: #2a2a2a; border-radius: 6px; padding: 15px; text-align: center; }
-        .stat-value { font-size: 24px; font-weight: bold; color: #fff; }
-        .stat-label { font-size: 11px; color: #666; text-transform: uppercase; margin-top: 5px; }
-        .positive { color: #4caf50; }
-        .negative { color: #f44336; }
+        /* KPI row */
+        .kpi-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0; margin-top: 16px; border: 1px solid #333; border-radius: 6px; overflow: hidden; }
+        .kpi-cell { padding: 12px 14px; border-right: 1px solid #333; }
+        .kpi-cell:last-child { border-right: none; }
+        .kpi-label { font-size: 10px; color: #666; text-transform: uppercase; margin-bottom: 4px; }
+        .kpi-value { font-size: 18px; font-weight: 600; color: #ddd; }
+        .kpi-value.positive { color: #4caf50; }
+        .kpi-value.negative { color: #f44336; }
 
-        .section { background: #1e1e1e; border-radius: 8px; padding: 20px; margin-bottom: 20px; border: 1px solid #333; }
-        .section-title { font-size: 16px; font-weight: bold; margin: 0 0 15px 0; color: #00d4ff; }
+        /* Two-column layout */
+        .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+        @media (max-width: 700px) { .two-col { grid-template-columns: 1fr; } .kpi-row { grid-template-columns: repeat(3,1fr); } }
 
-        .info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
-        .info-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #333; }
+        /* Section cards */
+        .section { background: #1e1e1e; border-radius: 8px; padding: 16px 18px; border: 1px solid #333; margin-bottom: 16px; }
+        .section-title { font-size: 12px; font-weight: 600; color: #00d4ff; text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 12px; }
+
+        /* Info rows */
+        .info-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #2a2a2a; font-size: 13px; }
+        .info-row:last-child { border-bottom: none; }
         .info-label { color: #888; }
-        .info-value { color: #fff; font-weight: 500; }
+        .info-value { color: #ddd; font-weight: 500; text-align: right; }
+        .info-value.positive { color: #4caf50; }
+        .info-value.negative { color: #f44336; }
 
-        .lot-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        .lot-table th, .lot-table td { padding: 10px; text-align: left; border-bottom: 1px solid #333; }
-        .lot-table th { color: #888; font-size: 11px; text-transform: uppercase; }
-        .lot-table td { color: #fff; }
+        /* Production lines table */
+        .prod-table { width: 100%; font-size: 12px; border-collapse: collapse; }
+        .prod-table th { color: #666; font-size: 10px; text-transform: uppercase; padding: 4px 6px; text-align: left; border-bottom: 1px solid #2a2a2a; }
+        .prod-table td { padding: 6px 6px; border-bottom: 1px solid #1a1a1a; color: #ddd; }
+        .prod-table tr:last-child td { border-bottom: none; }
+
+        /* Status badges */
+        .badge { display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 3px; }
+        .badge-active { background: #1a3a1a; color: #4caf50; }
+        .badge-idle { background: #2a2a2a; color: #888; }
+        .badge-switching { background: #3a2a00; color: #ffa000; }
+        .badge-available { background: #1a2a3a; color: #42a5f5; }
+        .badge-reserved { background: #2a1a3a; color: #ab47bc; }
+        .badge-expired { background: #3a1a1a; color: #ef5350; }
+
+        /* Lot table */
+        .lot-table { width: 100%; font-size: 12px; border-collapse: collapse; }
+        .lot-table th { color: #666; font-size: 10px; text-transform: uppercase; padding: 4px 6px; text-align: left; border-bottom: 1px solid #2a2a2a; }
+        .lot-table td { padding: 5px 6px; border-bottom: 1px solid #1a1a1a; color: #ddd; font-size: 11px; }
+        .lot-table tr:last-child td { border-bottom: none; }
+        .lot-id { font-family: monospace; font-size: 10px; color: #888; }
+
+        /* Progress bar */
+        .progress-bar { background: #2a2a2a; border-radius: 3px; height: 6px; overflow: hidden; margin-top: 4px; }
+        .progress-fill { height: 100%; border-radius: 3px; }
+        .fill-blue { background: #00d4ff; }
+        .fill-green { background: #4caf50; }
+        .fill-orange { background: #ffa000; }
+        .fill-red { background: #f44336; }
+
+        /* Lot progress */
+        .lot-progress { background: #161616; border-radius: 6px; padding: 12px 14px; }
+        .lot-progress-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+        .lot-progress-title { font-size: 12px; color: #aaa; }
+        .lot-progress-pct { font-size: 13px; font-weight: 600; color: #00d4ff; }
+        .lot-progress-bar { background: #2a2a2a; border-radius: 4px; height: 10px; overflow: hidden; }
+        .lot-progress-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg, #00d4ff, #42a5f5); transition: width 0.5s ease; }
+        .lot-progress-meta { display: flex; justify-content: space-between; margin-top: 6px; font-size: 11px; color: #666; }
+        .lot-eta { color: #ffa000; font-weight: 500; }
+        .lot-rate { color: #888; }
+        .lot-buffer { color: #aaa; }
+        .production-options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
+        .prod-option { background: #2a2a2a; border-radius: 4px; padding: 8px 10px; text-align: center; }
+        .prod-option-label { font-size: 10px; color: #666; text-transform: uppercase; margin-bottom: 3px; }
+        .prod-option-value { font-size: 13px; color: #ddd; font-weight: 500; }
+        .prod-option-value.highlight { color: #00d4ff; }
+
+        /* Retail inventory */
+        .retail-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
+        .retail-item { background: #2a2a2a; border-radius: 4px; padding: 8px 10px; font-size: 12px; }
+        .retail-item-name { color: #aaa; margin-bottom: 4px; font-size: 11px; }
+        .retail-item-qty { color: #a5d6a7; font-size: 14px; font-weight: 600; }
+        .retail-item-price { color: #888; font-size: 10px; margin-top: 2px; }
 
         .loading { text-align: center; padding: 50px; color: #888; }
         .error { color: #f44336; }
+        .tag { display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 3px; background: #2a2a2a; color: #aaa; margin-right: 4px; }
+        .tag.green { background: #1a3a1a; color: #4caf50; }
     </style>
 </head>
 <body>
@@ -98,30 +162,399 @@
         const urlParams = new URLSearchParams(window.location.search);
         const firmId = urlParams.get('id');
 
-        function formatCurrency(num) {
+        // ─── Formatters ────────────────────────────────────────────────────────────
+
+        function fmt$(num) {
             if (num == null || isNaN(num)) return '$0';
-            if (num >= 1e9) return '$' + (num / 1e9).toFixed(2) + 'B';
-            if (num >= 1e6) return '$' + (num / 1e6).toFixed(2) + 'M';
-            if (num >= 1e3) return '$' + (num / 1e3).toFixed(1) + 'K';
-            return '$' + Math.floor(num).toLocaleString();
+            const abs = Math.abs(num);
+            const sign = num < 0 ? '-' : '';
+            if (abs >= 1e9) return sign + '$' + (abs / 1e9).toFixed(2) + 'B';
+            if (abs >= 1e6) return sign + '$' + (abs / 1e6).toFixed(2) + 'M';
+            if (abs >= 1e3) return sign + '$' + (abs / 1e3).toFixed(1) + 'K';
+            return sign + '$' + Math.floor(abs).toLocaleString();
         }
 
-        function formatNumber(num) {
+        function fmtNum(num) {
             if (num == null || isNaN(num)) return '0';
+            if (num >= 1e6) return (num / 1e6).toFixed(2) + 'M';
+            if (num >= 1e3) return (num / 1e3).toFixed(1) + 'K';
             return Math.floor(num).toLocaleString();
         }
 
-        function getFirmTypeName(firm) {
+        function pct(val, decimals = 0) {
+            if (val == null) return '—';
+            return (val * 100).toFixed(decimals) + '%';
+        }
+
+        function profitClass(val) {
+            return (val || 0) >= 0 ? 'positive' : 'negative';
+        }
+
+        function typeName(firm) {
             switch (firm.type) {
-                case 'MINING': return `Mining (${firm.resourceType || 'Unknown'})`;
-                case 'LOGGING': return `Logging (${firm.timberType || 'Unknown'})`;
-                case 'FARM': return firm.farmType === 'CROP' ? `Crop Farm (${firm.cropType || 'Unknown'})` : `Livestock (${firm.livestockType || 'Unknown'})`;
-                case 'MANUFACTURING': return `Manufacturing (${firm.productName || 'Unknown'})`;
-                case 'RETAIL': return `Retail (${firm.storeType || 'Unknown'})`;
-                case 'BANK': return `Bank (${firm.bankType || 'Unknown'})`;
+                case 'MINING': return `Mining — ${firm.resourceType || '?'}`;
+                case 'LOGGING': return `Logging — ${firm.timberType || '?'}`;
+                case 'FARM': return firm.farmType === 'CROP'
+                    ? `Crop Farm — ${firm.cropType || '?'}`
+                    : `Livestock — ${firm.livestockType || '?'}`;
+                case 'MANUFACTURING': return `Manufacturing`;
+                case 'RETAIL': return `Retail — ${firm.storeType || '?'}`;
+                case 'BANK': return `Bank — ${firm.bankType || '?'}`;
                 default: return firm.type || 'Unknown';
             }
         }
+
+        // ─── Section builders ──────────────────────────────────────────────────────
+
+        function sectionHtml(title, body) {
+            return `<div class="section"><div class="section-title">${title}</div>${body}</div>`;
+        }
+
+        function infoRow(label, value, cls = '') {
+            return `<div class="info-row"><span class="info-label">${label}</span><span class="info-value ${cls}">${value}</span></div>`;
+        }
+
+        function progressBar(fraction, colorClass = 'fill-blue') {
+            const pctVal = Math.min(100, Math.max(0, (fraction || 0) * 100)).toFixed(0);
+            return `<div class="progress-bar"><div class="progress-fill ${colorClass}" style="width:${pctVal}%"></div></div>`;
+        }
+
+        function renderFinancials(firm) {
+            const mp = firm.monthlyProfit || 0;
+            const rows = [
+                infoRow('Monthly Revenue', fmt$(firm.monthlyRevenue || 0)),
+                infoRow('Monthly Expenses', fmt$(firm.monthlyExpenses || 0)),
+                infoRow('Monthly Profit', fmt$(mp), profitClass(mp)),
+                infoRow('Total Revenue', fmt$(firm.revenue || 0)),
+                infoRow('Total Expenses', fmt$(firm.expenses || 0)),
+                infoRow('Total Profit', fmt$(firm.profit || 0), profitClass(firm.profit)),
+                infoRow('Total Assets', fmt$(firm.totalAssets || 0)),
+                infoRow('Total Liabilities', fmt$(firm.totalLiabilities || 0)),
+                infoRow('Brand Rating', `${(firm.brandRating || 0).toFixed(0)} / 100`),
+                infoRow('Technology Level', firm.technologyLevel || 1),
+                infoRow('Efficiency', pct(firm.efficiency, 0)),
+            ];
+            return sectionHtml('Financials', rows.join(''));
+        }
+
+        function renderLabor(firm) {
+            const employees = firm.totalEmployees || firm.employees || 0;
+            const laborCost = firm.totalLaborCost || 0;
+            const rows = [
+                infoRow('Total Employees', fmtNum(employees)),
+                infoRow('Monthly Labor Cost', fmt$(laborCost)),
+                laborCost && employees ? infoRow('Avg Wage / Employee', fmt$(laborCost / employees)) : '',
+            ].filter(Boolean);
+            return sectionHtml('Labor', rows.join(''));
+        }
+
+        function renderMining(firm) {
+            const inv = firm.inventory || {};
+            const reserves = firm.remainingReserves;
+            const maxReserves = reserves != null ? Math.max(reserves, 1) : null;
+            const rows = [
+                infoRow('Resource Type', firm.resourceType || '—'),
+                infoRow('Remaining Reserves', fmtNum(reserves)),
+                infoRow('Reserve Quality', (firm.reserveQuality || 0).toFixed(0)),
+                infoRow('Depletion Rate', (firm.depletionRate || 0).toFixed(2) + '%'),
+                infoRow('Equipment Efficiency', pct(firm.equipmentEfficiency, 1)),
+                infoRow('Equipment Degradation', (firm.equipmentDegradation || 0).toFixed(1) + '%'),
+                infoRow('Accumulated Production', fmtNum(firm.accumulatedProduction) + ' t'),
+                infoRow('Current Inventory', fmtNum(inv.quantity || 0) + ' t'),
+                infoRow('Inventory Quality', pct(inv.quality, 0)),
+            ];
+            return sectionHtml('Mining Operations', rows.join(''));
+        }
+
+        function renderLogging(firm) {
+            const inv = firm.inventory || {};
+            const rows = [
+                infoRow('Timber Type', firm.timberType || '—'),
+                infoRow('Forest Size', fmtNum(firm.forestSize) + ' ha'),
+                infoRow('Forest Density', pct(firm.forestDensity, 0)),
+                infoRow('Forest Health', pct(firm.forestHealth, 1)),
+                infoRow('Average Tree Age', (firm.averageTreeAge || 0).toFixed(1) + ' yrs'),
+                infoRow('Certified Sustainable', firm.certifiedSustainable ? '<span class="tag green">Yes</span>' : 'No'),
+                infoRow('Equipment Efficiency', pct(firm.equipmentEfficiency, 1)),
+                infoRow('Accumulated Production', fmtNum(firm.accumulatedProduction) + ' t'),
+                infoRow('Current Inventory', fmtNum(inv.quantity || 0) + ' t'),
+                infoRow('Inventory Quality', pct(inv.quality, 0)),
+            ];
+            return sectionHtml('Logging Operations', rows.join(''));
+        }
+
+        function renderFarm(firm) {
+            const inv = firm.inventory || {};
+            let typeRows = '';
+            if (firm.farmType === 'CROP') {
+                typeRows = [
+                    infoRow('Crop Type', firm.cropType || '—'),
+                    infoRow('Growth Stage', firm.currentGrowthStage || '—'),
+                    infoRow('Soil Quality', pct(firm.soilQuality, 1)),
+                    infoRow('Yield / Hectare', fmtNum(firm.yieldPerHectare)),
+                    infoRow('Irrigation Level', pct(firm.irrigationLevel, 0)),
+                ].join('');
+            } else {
+                typeRows = [
+                    infoRow('Livestock Type', firm.livestockType || '—'),
+                    infoRow('Herd Size', fmtNum(firm.herdSize)),
+                    infoRow('Current Maturity', pct(firm.currentMaturity, 1)),
+                    infoRow('Feeding Rate', (firm.feedingRate || 0).toFixed(2)),
+                ].join('');
+            }
+            const commonRows = [
+                infoRow('Land Size', fmtNum(firm.landSize) + ' ha'),
+                infoRow('Accumulated Production', fmtNum(firm.accumulatedProduction)),
+                infoRow('Current Inventory', fmtNum(inv.quantity || 0)),
+                infoRow('Inventory Quality', pct(inv.quality, 0)),
+            ].join('');
+            return sectionHtml('Farm Operations', typeRows + commonRows);
+        }
+
+        function renderManufacturing(firm) {
+            const lines = firm.productionLines || [];
+            const eff = firm.productionEfficiency;
+            const defects = firm.defectRate;
+            const fg = firm.finishedGoodsInventory || {};
+            const rawMat = firm.rawMaterialInventory || {};
+
+            const statsRows = [
+                infoRow('Production Efficiency', pct(eff, 1)),
+                infoRow('Defect Rate', pct(defects, 2)),
+                infoRow('Quality Control', pct(firm.qualityControl, 1)),
+                infoRow('Downtime', pct(firm.downtimePercentage, 1)),
+                infoRow('Shifts', firm.shiftConfig ? `${firm.shiftConfig.shiftCount} × ${firm.shiftConfig.hoursPerShift}h` : '—'),
+                infoRow('Effective Hours/Day', firm.effectiveHoursPerDay != null ? firm.effectiveHoursPerDay + 'h' : '—'),
+                infoRow('Accumulated Output', fmtNum(firm.accumulatedProduction)),
+                infoRow('Finished Goods', `${fmtNum(fg.quantity || 0)} units (q: ${pct(fg.quality, 0)})`),
+            ].join('');
+
+            const linesHtml = lines.length > 0
+                ? `<table class="prod-table">
+                    <thead><tr><th>Product</th><th>Output/hr</th><th>Base Rate</th><th>Status</th></tr></thead>
+                    <tbody>${lines.map(l => {
+                        const sc = l.status === 'active' ? 'badge-active' : l.status === 'switching' ? 'badge-switching' : 'badge-idle';
+                        return `<tr>
+                            <td>${l.productName || l.productId || '—'}</td>
+                            <td>${fmtNum(l.outputPerHour || 0)}</td>
+                            <td>${fmtNum(l.baseProductionRate || 0)}</td>
+                            <td><span class="badge ${sc}">${l.status || 'idle'}</span></td>
+                        </tr>`;
+                    }).join('')}</tbody>
+                </table>`
+                : '<div style="font-size:12px;color:#555">No production lines</div>';
+
+            const rawEntries = Object.entries(rawMat);
+            const rawHtml = rawEntries.length > 0
+                ? `<table class="prod-table">
+                    <thead><tr><th>Material</th><th>Quantity</th><th>Avg Quality</th></tr></thead>
+                    <tbody>${rawEntries.map(([mat, data]) =>
+                        `<tr><td>${mat}</td><td>${fmtNum(data.quantity || 0)}</td><td>${pct(data.avgQuality, 0)}</td></tr>`
+                    ).join('')}</tbody>
+                </table>`
+                : '<div style="font-size:12px;color:#555">No raw materials</div>';
+
+            return sectionHtml('Manufacturing Stats', statsRows)
+                + sectionHtml(`Production Lines (${lines.length})`, linesHtml)
+                + sectionHtml('Raw Material Inventory', rawHtml);
+        }
+
+        function renderRetail(firm) {
+            const inv = firm.inventoryData || {};
+            const entries = Object.values(inv);
+
+            const statsRows = [
+                infoRow('Store Type', firm.storeType || '—'),
+                infoRow('Store Size', fmtNum(firm.storeSize) + ' m²'),
+                infoRow('Customer Satisfaction', pct(firm.customerSatisfaction, 1)),
+                infoRow('Foot Traffic (current)', fmtNum(firm.footTraffic)),
+                infoRow('Foot Traffic (last day)', fmtNum(firm.lastDayFootTraffic)),
+                infoRow('Total Units Ordered', fmtNum(firm.totalUnitsOrdered)),
+                infoRow('Total Units Sold', fmtNum(firm.totalUnitsSold)),
+                infoRow('Total Sales Count', fmtNum(firm.totalSalesCount)),
+            ].join('');
+
+            const invHtml = entries.length > 0
+                ? `<div class="retail-grid">${entries.map(item => `
+                    <div class="retail-item">
+                        <div class="retail-item-name">${item.productName || '?'}</div>
+                        <div class="retail-item-qty">${fmtNum(item.quantity || 0)} units</div>
+                        <div class="retail-item-price">Retail: ${fmt$(item.retailPrice)} | Wholesale: ${fmt$(item.wholesalePrice)}</div>
+                    </div>`).join('')}</div>`
+                : '<div style="font-size:12px;color:#555">No inventory data</div>';
+
+            return sectionHtml('Store Performance', statsRows)
+                + sectionHtml(`Stock (${entries.length} products)`, invHtml);
+        }
+
+        function renderBank(firm) {
+            const rows = [
+                infoRow('Bank Type', firm.bankType || '—'),
+                infoRow('Total Assets', fmt$(firm.totalAssets || 0)),
+                infoRow('Total Liabilities', fmt$(firm.totalLiabilities || 0)),
+                infoRow('Active Loans', (firm.loans || []).length),
+                infoRow('Brand Rating', (firm.brandRating || 0).toFixed(0) + ' / 100'),
+            ].join('');
+            return sectionHtml('Bank Operations', rows);
+        }
+
+        function renderTypeSection(firm) {
+            switch (firm.type) {
+                case 'MINING': return renderMining(firm);
+                case 'LOGGING': return renderLogging(firm);
+                case 'FARM': return renderFarm(firm);
+                case 'MANUFACTURING': return renderManufacturing(firm);
+                case 'RETAIL': return renderRetail(firm);
+                case 'BANK': return renderBank(firm);
+                default: return '';
+            }
+        }
+
+        function renderLotProgress(firm) {
+            // Only for lot-producing firms (Mining, Logging, Farm)
+            if (!['MINING', 'LOGGING', 'FARM'].includes(firm.type)) return '';
+            if (firm.lotSize == null) return '';
+
+            const accumulated = firm.accumulatedProduction || 0;
+            const lotSize = firm.lotSize;
+            const rate = firm.productionRate || 0; // units per hour
+
+            const fraction = Math.min(1, accumulated / lotSize);
+            const pctVal = (fraction * 100).toFixed(1);
+            const remaining = lotSize - accumulated;
+
+            // ETA calculations
+            const hoursToNext = rate > 0 ? remaining / rate : null;
+            const minutesToNext = hoursToNext != null ? hoursToNext * 60 : null;
+
+            function fmtEta(hours) {
+                if (hours == null || !isFinite(hours)) return '—';
+                const d = hours / 24;
+                return d < 1 ? d.toFixed(2) + ' days' : d.toFixed(1) + ' days';
+            }
+
+            const lotsPerDay = rate > 0 ? (rate * 24) / lotSize : 0;
+            const lotsPerWeek = lotsPerDay * 7;
+            const lotsPerMonth = lotsPerDay * 30;
+
+            // Color: blue normally, orange if almost done, green when ready
+            const fillColor = fraction >= 0.9 ? '#4caf50' : fraction >= 0.5 ? '#00d4ff' : '#00d4ff';
+            const barStyle = `width:${(fraction * 100).toFixed(1)}%;background:${fillColor}`;
+
+            const productLabel = firm.resourceType || firm.timberType || firm.cropType || firm.livestockType || 'Product';
+
+            return sectionHtml('Next Lot Progress', `
+                <div class="lot-progress">
+                    <div class="lot-progress-header">
+                        <span class="lot-progress-title">${productLabel} — ${fmtNum(accumulated)} / ${fmtNum(lotSize)} units</span>
+                        <span class="lot-progress-pct">${pctVal}%</span>
+                    </div>
+                    <div class="lot-progress-bar">
+                        <div class="lot-progress-fill" style="${barStyle}"></div>
+                    </div>
+                    <div class="lot-progress-meta">
+                        <span class="lot-buffer">Buffer: ${fmtNum(accumulated)} / ${fmtNum(lotSize)}</span>
+                        <span class="lot-rate">Rate: ${fmtNum(rate)}/hr</span>
+                        <span class="lot-eta">ETA: ${fmtEta(hoursToNext)}</span>
+                    </div>
+                </div>
+                <div class="production-options" style="margin-top:10px">
+                    <div class="prod-option">
+                        <div class="prod-option-label">Lots / Day</div>
+                        <div class="prod-option-value ${lotsPerDay >= 1 ? 'highlight' : ''}">${lotsPerDay >= 0.1 ? lotsPerDay.toFixed(2) : '<1'}</div>
+                    </div>
+                    <div class="prod-option">
+                        <div class="prod-option-label">Lots / Week</div>
+                        <div class="prod-option-value">${lotsPerWeek.toFixed(1)}</div>
+                    </div>
+                    <div class="prod-option">
+                        <div class="prod-option-label">Lots / Month</div>
+                        <div class="prod-option-value">${lotsPerMonth.toFixed(1)}</div>
+                    </div>
+                </div>
+            `);
+        }
+
+        function renderLotInventory(firm) {
+            if (!firm.lotInventory) return '';
+            const lots = firm.lotInventory.lots || [];
+            if (lots.length === 0) return '';
+
+            // Group by product
+            const byProduct = {};
+            lots.forEach(lot => {
+                const key = lot.productName || 'Unknown';
+                if (!byProduct[key]) byProduct[key] = { lots: [], total: 0 };
+                byProduct[key].lots.push(lot);
+                byProduct[key].total += lot.quantity || 0;
+            });
+
+            const summary = Object.entries(byProduct).map(([name, data]) =>
+                infoRow(name, `${fmtNum(data.total)} (${data.lots.length} lots)`)
+            ).join('');
+
+            const tableHtml = `
+                <div style="margin-top:12px">
+                <table class="lot-table">
+                    <thead><tr><th>Lot ID</th><th>Product</th><th>Qty</th><th>Quality</th><th>Status</th><th>Day</th></tr></thead>
+                    <tbody>${lots.slice(0, 30).map(lot => {
+                        const sc = lot.status === 'AVAILABLE' ? 'badge-available' : lot.status === 'RESERVED' ? 'badge-reserved' : lot.status === 'EXPIRED' ? 'badge-expired' : 'badge-idle';
+                        return `<tr>
+                            <td class="lot-id">${(lot.id || '').substring(0, 18)}…</td>
+                            <td>${lot.productName || '—'}</td>
+                            <td>${fmtNum(lot.quantity || 0)} ${lot.unit || ''}</td>
+                            <td>${pct(lot.quality != null && lot.quality <= 1 ? lot.quality : (lot.quality || 0) / 100, 0)}</td>
+                            <td><span class="badge ${sc}">${lot.status || '?'}</span></td>
+                            <td>${lot.createdDay || '?'}</td>
+                        </tr>`;
+                    }).join('')}</tbody>
+                </table>
+                ${lots.length > 30 ? `<div style="color:#666;font-size:11px;margin-top:6px">…and ${lots.length - 30} more lots</div>` : ''}
+                </div>`;
+
+            return sectionHtml(`Lot Inventory — ${lots.length} lots`, summary + tableHtml);
+        }
+
+        function renderLoans(firm) {
+            if (!firm.loans || firm.loans.length === 0) return '';
+            const tableHtml = `
+                <table class="prod-table">
+                    <thead><tr><th>Principal</th><th>Remaining</th><th>Rate</th><th>Mo. Payment</th><th>Status</th></tr></thead>
+                    <tbody>${firm.loans.map(loan => `
+                        <tr>
+                            <td>${fmt$(loan.principal || loan.amount || 0)}</td>
+                            <td>${fmt$(loan.remainingBalance || 0)}</td>
+                            <td>${((loan.interestRate || 0) * 100).toFixed(1)}%</td>
+                            <td>${fmt$(loan.monthlyPayment || 0)}</td>
+                            <td><span class="badge badge-available">${loan.status || 'active'}</span></td>
+                        </tr>`).join('')}
+                    </tbody>
+                </table>`;
+            return sectionHtml(`Loans (${firm.loans.length})`, tableHtml);
+        }
+
+        function renderHistory(firm) {
+            const h = firm.monthlyHistory;
+            if (!h || h.length < 1) return '';
+            const rows = [...h].reverse().map(s => {
+                const pc = s.profit >= 0 ? '#4caf50' : '#f44336';
+                return `<tr>
+                    <td>Mo ${s.month}, Yr ${s.year}</td>
+                    <td>${fmt$(s.revenue)}</td>
+                    <td>${fmt$(s.expenses)}</td>
+                    <td style="color:${pc};font-weight:600">${fmt$(s.profit)}</td>
+                    <td>${fmt$(s.cash)}</td>
+                    <td>${fmtNum(s.employees)}</td>
+                </tr>`;
+            }).join('');
+            const tableHtml = `<table class="prod-table">
+                <thead><tr><th>Period</th><th>Revenue</th><th>Expenses</th><th>Profit</th><th>Cash</th><th>Employees</th></tr></thead>
+                <tbody>${rows}</tbody>
+            </table>`;
+            return sectionHtml(`Performance History (${h.length} months)`, tableHtml);
+        }
+
+        // ─── Main render ───────────────────────────────────────────────────────────
 
         function renderFirm(firm) {
             if (!firm) {
@@ -129,189 +562,63 @@
                 return;
             }
 
-            const profit = firm.profit || 0;
-            const currentProfit = firm.currentProfit || firm.profit || 0;
-            const profitClass = currentProfit >= 0 ? 'positive' : 'negative';
+            document.title = (firm.displayName || firm.name || firm.id) + ' — EconSim';
+
+            const monthlyProfit = firm.monthlyProfit || 0;
+            const employees = firm.totalEmployees || firm.employees || 0;
+            const corpStr = firm.corporationAbbreviation || '';
 
             content.innerHTML = `
-                <div class="firm-header">
-                    <div class="firm-title">
+                <div class="firm-hero">
+                    <div class="firm-hero-top">
                         <div>
-                            <h2 class="firm-name">${firm.displayName || firm.name || firm.id}</h2>
-                            <div class="firm-subtitle">
-                                ${firm.corporationAbbreviation ? `<strong>${firm.corporationAbbreviation}</strong> | ` : ''}
-                                ${firm.cityName || 'Unknown Location'}
+                            <div class="firm-hero-name">${firm.displayName || firm.name || firm.id}</div>
+                            <div class="firm-hero-sub">
+                                <span class="city">📍 ${firm.cityName || '—'}</span>
+                                ${corpStr ? `<span class="corp">${corpStr}</span>` : ''}
+                                <span style="margin-left:8px;color:#555;font-size:11px">ID: ${firm.id}</span>
                             </div>
                         </div>
-                        <span class="firm-type">${getFirmTypeName(firm)}</span>
+                        <span class="type-badge">${typeName(firm)}</span>
                     </div>
-                    <div class="stats-grid">
-                        <div class="stat-card">
-                            <div class="stat-value">${formatCurrency(firm.cash)}</div>
-                            <div class="stat-label">Cash</div>
+                    <div class="kpi-row">
+                        <div class="kpi-cell">
+                            <div class="kpi-label">Cash</div>
+                            <div class="kpi-value">${fmt$(firm.cash)}</div>
                         </div>
-                        <div class="stat-card">
-                            <div class="stat-value">${formatCurrency(firm.revenue)}</div>
-                            <div class="stat-label">Total Revenue</div>
+                        <div class="kpi-cell">
+                            <div class="kpi-label">Mo. Revenue</div>
+                            <div class="kpi-value">${fmt$(firm.monthlyRevenue || 0)}</div>
                         </div>
-                        <div class="stat-card">
-                            <div class="stat-value">${formatCurrency(firm.expenses)}</div>
-                            <div class="stat-label">Total Expenses</div>
+                        <div class="kpi-cell">
+                            <div class="kpi-label">Mo. Expenses</div>
+                            <div class="kpi-value">${fmt$(firm.monthlyExpenses || 0)}</div>
                         </div>
-                        <div class="stat-card">
-                            <div class="stat-value ${profitClass}">${formatCurrency(currentProfit)}</div>
-                            <div class="stat-label">Current Profit</div>
+                        <div class="kpi-cell">
+                            <div class="kpi-label">Mo. Profit</div>
+                            <div class="kpi-value ${profitClass(monthlyProfit)}">${fmt$(monthlyProfit)}</div>
                         </div>
-                    </div>
-                </div>
-
-                <div class="section">
-                    <h3 class="section-title">Financial Details</h3>
-                    <div class="info-grid">
-                        <div class="info-item">
-                            <span class="info-label">Monthly Revenue</span>
-                            <span class="info-value">${formatCurrency(firm.monthlyRevenue)}</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label">Monthly Expenses</span>
-                            <span class="info-value">${formatCurrency(firm.monthlyExpenses)}</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label">Monthly Profit</span>
-                            <span class="info-value ${(firm.monthlyProfit || 0) >= 0 ? 'positive' : 'negative'}">${formatCurrency(firm.monthlyProfit)}</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label">Total Assets</span>
-                            <span class="info-value">${formatCurrency(firm.totalAssets)}</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label">Total Liabilities</span>
-                            <span class="info-value">${formatCurrency(firm.totalLiabilities)}</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label">Brand Rating</span>
-                            <span class="info-value">${firm.brandRating?.toFixed(0) || 0}/100</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label">Technology Level</span>
-                            <span class="info-value">${firm.technologyLevel || 1}</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label">Efficiency</span>
-                            <span class="info-value">${((firm.efficiency || 1) * 100).toFixed(0)}%</span>
+                        <div class="kpi-cell">
+                            <div class="kpi-label">Employees</div>
+                            <div class="kpi-value">${fmtNum(employees)}</div>
                         </div>
                     </div>
                 </div>
 
-                ${renderTypeSpecificInfo(firm)}
+                <div class="two-col">
+                    ${renderFinancials(firm)}
+                    ${renderLabor(firm)}
+                </div>
+
+                ${renderTypeSection(firm)}
+                ${renderLotProgress(firm)}
                 ${renderLotInventory(firm)}
                 ${renderLoans(firm)}
+                ${renderHistory(firm)}
             `;
         }
 
-        function renderTypeSpecificInfo(firm) {
-            let html = '<div class="section"><h3 class="section-title">Operations</h3><div class="info-grid">';
-
-            if (firm.type === 'MINING') {
-                html += `
-                    <div class="info-item"><span class="info-label">Resource Type</span><span class="info-value">${firm.resourceType}</span></div>
-                    <div class="info-item"><span class="info-label">Remaining Reserves</span><span class="info-value">${formatNumber(firm.remainingReserves)}</span></div>
-                    <div class="info-item"><span class="info-label">Depletion Rate</span><span class="info-value">${(firm.depletionRate || 0).toFixed(2)}%</span></div>
-                    <div class="info-item"><span class="info-label">Reserve Quality</span><span class="info-value">${(firm.reserveQuality || 0).toFixed(0)}</span></div>
-                    <div class="info-item"><span class="info-label">Equipment Efficiency</span><span class="info-value">${((firm.equipmentEfficiency || 1) * 100).toFixed(0)}%</span></div>
-                    <div class="info-item"><span class="info-label">Equipment Degradation</span><span class="info-value">${(firm.equipmentDegradation || 0).toFixed(0)}%</span></div>
-                `;
-            } else if (firm.type === 'FARM') {
-                html += `
-                    <div class="info-item"><span class="info-label">Farm Type</span><span class="info-value">${firm.farmType}</span></div>
-                    <div class="info-item"><span class="info-label">Product</span><span class="info-value">${firm.cropType || firm.livestockType || 'Unknown'}</span></div>
-                `;
-            } else if (firm.type === 'RETAIL') {
-                html += `
-                    <div class="info-item"><span class="info-label">Store Type</span><span class="info-value">${firm.storeType}</span></div>
-                `;
-            } else if (firm.type === 'MANUFACTURING') {
-                html += `
-                    <div class="info-item"><span class="info-label">Product</span><span class="info-value">${firm.productName}</span></div>
-                `;
-            }
-
-            html += `
-                <div class="info-item"><span class="info-label">Corporation ID</span><span class="info-value">${firm.corporationId || 'None'}</span></div>
-                <div class="info-item"><span class="info-label">City ID</span><span class="info-value">${firm.cityId || 'Unknown'}</span></div>
-            `;
-
-            html += '</div></div>';
-            return html;
-        }
-
-        function renderLotInventory(firm) {
-            if (!firm.lotInventory) return '';
-
-            const lots = firm.lotInventory.lots || [];
-            if (lots.length === 0) return '';
-
-            return `
-                <div class="section">
-                    <h3 class="section-title">Lot Inventory (${lots.length} lots)</h3>
-                    <table class="lot-table">
-                        <thead>
-                            <tr>
-                                <th>Lot ID</th>
-                                <th>Product</th>
-                                <th>Quantity</th>
-                                <th>Quality</th>
-                                <th>Status</th>
-                                <th>Created</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${lots.slice(0, 20).map(lot => `
-                                <tr>
-                                    <td style="font-family: monospace; font-size: 11px;">${lot.id?.substring(0, 20)}...</td>
-                                    <td>${lot.productName}</td>
-                                    <td>${formatNumber(lot.quantity)} ${lot.unit || ''}</td>
-                                    <td>${(lot.quality || 0).toFixed(0)}</td>
-                                    <td>${lot.status || 'available'}</td>
-                                    <td>Day ${lot.createdDay || '?'}</td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                    ${lots.length > 20 ? `<p style="color: #888; margin-top: 10px;">...and ${lots.length - 20} more lots</p>` : ''}
-                </div>
-            `;
-        }
-
-        function renderLoans(firm) {
-            if (!firm.loans || firm.loans.length === 0) return '';
-
-            return `
-                <div class="section">
-                    <h3 class="section-title">Loans (${firm.loans.length})</h3>
-                    <table class="lot-table">
-                        <thead>
-                            <tr>
-                                <th>Amount</th>
-                                <th>Remaining</th>
-                                <th>Interest Rate</th>
-                                <th>Monthly Payment</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${firm.loans.map(loan => `
-                                <tr>
-                                    <td>${formatCurrency(loan.amount)}</td>
-                                    <td>${formatCurrency(loan.remainingBalance)}</td>
-                                    <td>${((loan.interestRate || 0) * 100).toFixed(1)}%</td>
-                                    <td>${formatCurrency(loan.monthlyPayment)}</td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                </div>
-            `;
-        }
+        // ─── State subscription ────────────────────────────────────────────────────
 
         stateManager.subscribeAll((state) => {
             if (state.firms && firmId) {
@@ -319,6 +626,8 @@
                 renderFirm(firm);
             }
         });
+
+        // ─── Init ──────────────────────────────────────────────────────────────────
 
         async function init() {
             if (!firmId) {

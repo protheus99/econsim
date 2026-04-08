@@ -119,6 +119,11 @@ export class EngineAdapter extends EventEmitter {
             // Initialize (this calls loadConfig internally, which now uses our file system fetch)
             await this.engine.initialize();
 
+            // Set game name for console logging
+            if (this.options.name) {
+                this.engine.gameName = this.options.name;
+            }
+
             // CRITICAL: Clear the SimulationEngine's own intervals
             // The engine creates its own tick loop in setupIntervals() which would conflict
             // with our server-controlled tick loop. We manage ticks via EngineAdapter instead.
@@ -558,7 +563,7 @@ export class EngineAdapter extends EventEmitter {
 
             // 4. Restore lot registry first (firms reference lots)
             if (state.lotRegistry) {
-                this._restoreLotRegistry(state.lotRegistry);
+                await this._restoreLotRegistry(state.lotRegistry);
             }
 
             // 5. Restore firms with their lot inventories
@@ -629,7 +634,7 @@ export class EngineAdapter extends EventEmitter {
     /**
      * Restore LotRegistry
      */
-    _restoreLotRegistry(registryData) {
+    async _restoreLotRegistry(registryData) {
         const registry = this.engine.lotRegistry;
         if (!registry || !registryData) return;
 
@@ -641,12 +646,28 @@ export class EngineAdapter extends EventEmitter {
         // Restore counter
         registry.lotCounter = registryData.lotCounter || 0;
 
-        // Dynamically import Lot class
-        // Note: The lots will be properly linked when firms are restored
+        // Import Lot class so we restore proper instances (not plain objects)
+        const { Lot } = await import(`file://${CORE_PATH}/Lot.js`);
+
         for (const lotData of registryData.lots || []) {
-            // We'll rebuild lot tracking when firms restore their inventories
-            // For now, just store the raw data
-            registry.allLots.set(lotData.id, lotData);
+            const lot = Lot.fromJSON(lotData);
+            registry.allLots.set(lot.id, lot);
+
+            // Rebuild producer tracking
+            if (lotData.producerId) {
+                if (!registry.lotsByProducer.has(lotData.producerId)) {
+                    registry.lotsByProducer.set(lotData.producerId, new Set());
+                }
+                registry.lotsByProducer.get(lotData.producerId).add(lot.id);
+            }
+
+            // Rebuild product tracking
+            if (lotData.productName) {
+                if (!registry.lotsByProduct.has(lotData.productName)) {
+                    registry.lotsByProduct.set(lotData.productName, new Set());
+                }
+                registry.lotsByProduct.get(lotData.productName).add(lot.id);
+            }
         }
     }
 
@@ -1078,23 +1099,13 @@ export class EngineAdapter extends EventEmitter {
                 contractPreference: corp.attributes.contractPreference
             } : null,
 
-            // Board Meeting State
-            boardMeeting: corp.boardMeeting ? {
-                lastMeeting: corp.boardMeeting.lastMeeting ? this._serializeMeeting(corp.boardMeeting.lastMeeting) : null,
-                nextMeeting: corp.boardMeeting.nextMeeting,
-                activeProjects: (corp.boardMeeting.activeProjects || []).map(p => ({
-                    id: p.id,
-                    type: p.type,
-                    firmType: p.firmType,
-                    productName: p.productName,
-                    cost: p.cost,
-                    approvedAt: p.approvedAt,
-                    expectedCompletion: p.expectedCompletion,
-                    cityName: p.city?.name || p.cityName,
-                    countryName: p.country?.name || p.countryName
-                })),
-                meetingHistory: (corp.boardMeeting.meetingHistory || []).map(m => this._serializeMeeting(m))
-            } : null,
+            // Roadmap State
+            roadmap: corp.roadmap ? this._serializeRoadmap(corp.roadmap) : null,
+            currentGoal: corp.currentGoal || null,
+            goalStartMonth: corp.goalStartMonth || 0,
+            goalHistory: corp.goalHistory || [],
+            integrationMap: corp.integrationMap || null,
+            isFullyVertical: corp.isFullyVertical || false,
 
             // Personas (industry focus)
             personas: corp.personas?.map(p => ({
@@ -1112,40 +1123,32 @@ export class EngineAdapter extends EventEmitter {
     }
 
     /**
-     * Serialize a board meeting record
+     * Serialize a corporation's CorporateRoadmap instance for the client.
      */
-    _serializeMeeting(meeting) {
-        if (!meeting) return null;
+    _serializeRoadmap(roadmap) {
+        if (!roadmap) return null;
+        const serializeAction = a => ({
+            id: a.id,
+            type: a.type,
+            horizon: a.horizon,
+            status: a.status,
+            scheduledMonth: a.scheduledMonth,
+            goal: a.goal,
+            subAction: a.subAction || null,
+            direction: a.direction || null,
+            isAcquisition: a.isAcquisition || false,
+            tier: a.tier || null,
+            personaType: a.persona?.type || null,
+            rationale: a.rationale || null,
+            cost: a.cost || 0,
+            cityName: a.city?.name || a.cityName || null,
+            countryName: a.country?.name || a.countryName || null
+        });
         return {
-            date: meeting.date,
-            corporationId: meeting.corporationId,
-            approvedProjects: (meeting.approvedProjects || []).map(p => ({
-                id: p.id,
-                type: p.type,
-                firmType: p.firmType,
-                productName: p.productName,
-                cost: p.cost,
-                cityName: p.city?.name || p.cityName,
-                countryName: p.country?.name || p.countryName,
-                rationale: p.rationale
-            })),
-            deferredProjects: (meeting.deferredProjects || []).map(p => ({
-                id: p.id,
-                type: p.type,
-                firmType: p.firmType,
-                productName: p.productName,
-                cost: p.cost,
-                reason: p.reason
-            })),
-            summary: meeting.summary ? {
-                financials: meeting.summary.financials,
-                operations: meeting.summary.operations,
-                goalProgress: meeting.summary.goalProgress,
-                currentGoal: meeting.summary.currentGoal,
-                optionsGenerated: meeting.summary.optionsGenerated,
-                approved: meeting.summary.approved,
-                deferred: meeting.summary.deferred
-            } : null
+            shortTerm:        (roadmap.shortTerm        || []).map(serializeAction),
+            mediumTerm:       (roadmap.mediumTerm       || []).map(serializeAction),
+            longTerm:         (roadmap.longTerm         || []).map(serializeAction),
+            completedActions: (roadmap.completedActions || []).slice(-6).map(serializeAction)
         };
     }
 

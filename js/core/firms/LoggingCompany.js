@@ -450,6 +450,8 @@ export class LoggingCompany extends Firm {
             certifiedSustainable: this.certifiedSustainable,
             equipmentEfficiency: this.equipmentEfficiency,
             accumulatedProduction: this.accumulatedProduction,
+            lotSize: this.lotSize,
+            productionRate: this.actualHarvestRate,
             lotInventory: this.lotInventory?.toJSON?.() || null,
             inventory: {
                 quantity: this.inventory.quantity,

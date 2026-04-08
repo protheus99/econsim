@@ -26,6 +26,7 @@ import { gameStorage } from './GameStorage.js';
 export class SimulationEngine {
     constructor() {
         this.clock = new GameClock();
+        this.gameName = '';
         this.productRegistry = new ProductRegistry();
         this.countries = new Map();
         this.cityManager = null;
@@ -1078,7 +1079,9 @@ export class SimulationEngine {
             }
         });
 
-        console.log('📊 Daily Supply Chain Stats:', stats);
+        const dateStr = `Year ${this.clock.year}, Month ${this.clock.month}, Day ${this.clock.day}`;
+        const nameStr = this.gameName ? `[${this.gameName}] ` : '';
+        console.log(`📊 ${nameStr}Daily Supply Chain Stats (${dateStr}):`, stats);
     }
 
     processSupplyChain() {
@@ -1375,10 +1378,10 @@ export class SimulationEngine {
     updateMonthly() {
         console.log(`📅 Month ${this.clock.month}, Year ${this.clock.year}`);
 
-        // Conduct board meetings for organic growth
+        // Conduct monthly planning for organic growth
         if (this.config.corporations?.organicGrowth && this.corporationManager) {
             const gameTime = this.clock.getGameTime();
-            const meetingResults = this.corporationManager.conductBoardMeetings(gameTime);
+            const meetingResults = this.corporationManager.conductMonthlyPlanning(gameTime);
             console.log(`📊 Economic Phase: ${meetingResults.economicPhase}`);
         }
 
@@ -1400,11 +1403,17 @@ export class SimulationEngine {
         });
 
         // Update all firms and aggregate to corporations
+        const snapshotMonth = this.clock.month;
+        const snapshotYear  = this.clock.year;
         this.firms.forEach(firm => {
             try {
                 // Capture monthly values BEFORE updateMonthly resets them
                 const firmMonthlyRevenue = firm.monthlyRevenue || 0;
                 const firmMonthlyExpenses = firm.monthlyExpenses || 0;
+
+                if (typeof firm.captureMonthlySnapshot === 'function') {
+                    firm.captureMonthlySnapshot(snapshotMonth, snapshotYear);
+                }
 
                 firm.updateMonthly();
 
@@ -1419,6 +1428,13 @@ export class SimulationEngine {
                 }
             } catch (error) {
                 console.error(`Error updating firm ${firm.id}:`, error);
+            }
+        });
+
+        // Capture corporation snapshots AFTER firm aggregation, BEFORE next-month reset
+        this.corporations.forEach(corp => {
+            if (typeof corp.captureMonthlySnapshot === 'function') {
+                corp.captureMonthlySnapshot(snapshotMonth, snapshotYear);
             }
         });
 
@@ -1749,7 +1765,7 @@ export class SimulationEngine {
         }
 
         const gameTime = this.clock.getGameTime();
-        return this.corporationManager.conductBoardMeetings(gameTime);
+        return this.corporationManager.conductMonthlyPlanning(gameTime);
     }
 
     // ============================================

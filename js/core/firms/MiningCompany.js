@@ -499,6 +499,8 @@ export class MiningCompany extends Firm {
             equipmentDegradation: this.equipmentDegradation,
             equipmentEfficiency: this.equipmentEfficiency,
             accumulatedProduction: this.accumulatedProduction,
+            lotSize: this.lotSize,
+            productionRate: this.actualExtractionRate,
             lotInventory: this.lotInventory?.toJSON?.() || null,
             inventory: {
                 quantity: this.inventory.quantity,

@@ -12,26 +12,83 @@
         nav { margin-top: 10px; }
         nav a { color: #00d4ff; margin-right: 15px; text-decoration: none; }
         nav a:hover { text-decoration: underline; }
-        .clock-bar { background: #1e1e1e; padding: 10px 20px; border-radius: 6px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
-        .clock-display { font-size: 20px; font-weight: bold; color: #00d4ff; font-family: monospace; }
-        .filters { background: #1e1e1e; padding: 15px; border-radius: 6px; margin-bottom: 20px; display: flex; gap: 15px; flex-wrap: wrap; }
-        .filters label { color: #888; font-size: 12px; }
-        .filters select, .filters input { background: #2a2a2a; border: 1px solid #444; color: #fff; padding: 8px 12px; border-radius: 4px; }
-        .firms-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 15px; }
-        .firm-card { background: #1e1e1e; border-radius: 8px; padding: 15px; border: 1px solid #333; cursor: pointer; text-decoration: none; display: block; }
+
+        /* Filters bar */
+        .filters { background: #1e1e1e; padding: 12px 15px; border-radius: 6px; margin-bottom: 15px; display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
+        .filter-group { display: flex; flex-direction: column; gap: 4px; }
+        .filter-group label { color: #888; font-size: 11px; text-transform: uppercase; }
+        .filters select, .filters input { background: #2a2a2a; border: 1px solid #444; color: #fff; padding: 6px 10px; border-radius: 4px; font-size: 13px; }
+        .filters input { width: 180px; }
+        #firm-count { color: #888; font-size: 13px; margin-left: auto; align-self: center; }
+
+        /* Firms grid */
+        .firms-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 15px; }
+
+        /* Firm card */
+        .firm-card { background: #1e1e1e; border-radius: 8px; border: 1px solid #333; overflow: hidden; display: block; color: inherit; text-decoration: none; cursor: pointer; }
         .firm-card:hover { border-color: #00d4ff; }
-        .firm-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
-        .firm-name { font-size: 16px; font-weight: bold; color: #fff; margin: 0; }
-        .firm-type { font-size: 11px; color: #888; text-transform: uppercase; background: #2a2a2a; padding: 3px 8px; border-radius: 3px; }
-        .firm-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
-        .firm-stat { font-size: 12px; }
-        .firm-stat .label { color: #666; }
-        .firm-stat .value { color: #fff; font-weight: 500; }
-        .positive { color: #4caf50; }
-        .negative { color: #f44336; }
-        .firm-city { font-size: 12px; color: #00d4ff; margin-top: 5px; }
+        .firm-card-header { padding: 12px 14px 10px; display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+        .firm-header-left { flex: 1; min-width: 0; }
+        .firm-name { font-size: 14px; font-weight: 600; color: #fff; margin: 0 0 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .firm-name a { color: #fff; text-decoration: none; }
+        .firm-name a:hover { color: #00d4ff; }
+        .firm-meta { font-size: 11px; color: #666; }
+        .firm-meta span { margin-right: 8px; }
+        .firm-meta .city { color: #00d4ff; }
+        .firm-type-badge { font-size: 10px; color: #aaa; text-transform: uppercase; background: #2a2a2a; padding: 2px 7px; border-radius: 3px; white-space: nowrap; flex-shrink: 0; }
+
+        /* Key stats row */
+        .firm-stats-row { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid #282828; }
+        .stat-cell { padding: 8px 10px; border-right: 1px solid #282828; }
+        .stat-cell:last-child { border-right: none; }
+        .stat-label { font-size: 10px; color: #666; text-transform: uppercase; margin-bottom: 2px; }
+        .stat-value { font-size: 13px; font-weight: 500; color: #ddd; }
+        .stat-value.positive { color: #4caf50; }
+        .stat-value.negative { color: #f44336; }
+        .stat-value.neutral { color: #aaa; }
+
+        /* Sections */
+        .firm-section { border-top: 1px solid #282828; padding: 8px 14px; }
+        .firm-section-title { font-size: 10px; color: #666; text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.5px; }
+
+        /* Production bar */
+        .prod-line { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; font-size: 12px; }
+        .prod-line-name { color: #bbb; }
+        .prod-line-rate { color: #00d4ff; font-weight: 500; }
+        .prod-line-status { font-size: 10px; padding: 1px 5px; border-radius: 2px; }
+        .status-active { background: #1a3a1a; color: #4caf50; }
+        .status-idle { background: #2a2a2a; color: #888; }
+        .status-switching { background: #3a2a00; color: #ffa000; }
+
+        /* Inventory table */
+        .inv-table { width: 100%; font-size: 11px; border-collapse: collapse; }
+        .inv-table td { padding: 2px 4px; color: #bbb; }
+        .inv-table td:first-child { color: #aaa; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .inv-table td:last-child { text-align: right; color: #ddd; }
+        .inv-qty { color: #00d4ff !important; }
+
+        /* Progress bar */
+        .progress-bar { background: #2a2a2a; border-radius: 3px; height: 5px; overflow: hidden; margin-top: 3px; }
+        .progress-fill { height: 100%; border-radius: 3px; background: #00d4ff; }
+        .progress-fill.warning { background: #ffa000; }
+        .progress-fill.danger { background: #f44336; }
+
+        /* Tags */
+        .tag { display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 3px; margin-right: 4px; background: #2a2a2a; color: #aaa; }
+        .tag.green { background: #1a3a1a; color: #4caf50; }
+        .tag.blue { background: #1a2a3a; color: #42a5f5; }
+        .tag.orange { background: #3a2a00; color: #ffa000; }
+
+        /* Loading / empty */
         .loading { text-align: center; padding: 50px; color: #888; }
-        #firm-count { color: #888; font-size: 14px; margin-left: auto; }
+
+        /* Lot inventory pills */
+        .lot-pills { display: flex; flex-wrap: wrap; gap: 4px; }
+        .lot-pill { font-size: 11px; background: #1a2a3a; color: #90caf9; padding: 2px 8px; border-radius: 10px; }
+
+        /* Retail inventory */
+        .retail-items { display: flex; flex-wrap: wrap; gap: 4px; }
+        .retail-item { font-size: 11px; background: #1e2a1e; color: #a5d6a7; padding: 2px 8px; border-radius: 10px; }
     </style>
 </head>
 <body>
@@ -70,8 +127,8 @@
         </div>
 
         <div class="filters">
-            <div>
-                <label>Type</label><br>
+            <div class="filter-group">
+                <label>Type</label>
                 <select id="filter-type">
                     <option value="">All Types</option>
                     <option value="MINING">Mining</option>
@@ -82,10 +139,27 @@
                     <option value="BANK">Bank</option>
                 </select>
             </div>
-            <div>
-                <label>Search</label><br>
+            <div class="filter-group">
+                <label>Corporation</label>
+                <select id="filter-corp">
+                    <option value="">All Corporations</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>Sort by</label>
+                <select id="sort-by">
+                    <option value="name">Name</option>
+                    <option value="profit">Profit</option>
+                    <option value="revenue">Revenue</option>
+                    <option value="cash">Cash</option>
+                    <option value="employees">Employees</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>Search</label>
                 <input type="text" id="filter-search" placeholder="Search firms...">
             </div>
+            <span id="firm-count">-- firms</span>
         </div>
 
         <div id="firms-container" class="firms-grid">
@@ -103,23 +177,43 @@
 
         const firmsContainer = document.getElementById('firms-container');
         const filterType = document.getElementById('filter-type');
+        const filterCorp = document.getElementById('filter-corp');
         const filterSearch = document.getElementById('filter-search');
-        let allFirms = [];
+        const sortBy = document.getElementById('sort-by');
 
-        function formatCurrency(num) {
+        let allFirms = [];
+        let corpMap = {}; // id -> name
+
+        // ─── Formatters ───────────────────────────────────────────────────────────
+
+        function fmt$(num) {
             if (num == null || isNaN(num)) return '$0';
-            if (num >= 1e9) return '$' + (num / 1e9).toFixed(1) + 'B';
-            if (num >= 1e6) return '$' + (num / 1e6).toFixed(1) + 'M';
-            if (num >= 1e3) return '$' + (num / 1e3).toFixed(1) + 'K';
-            return '$' + Math.floor(num).toLocaleString();
+            const abs = Math.abs(num);
+            const sign = num < 0 ? '-' : '';
+            if (abs >= 1e9) return sign + '$' + (abs / 1e9).toFixed(1) + 'B';
+            if (abs >= 1e6) return sign + '$' + (abs / 1e6).toFixed(1) + 'M';
+            if (abs >= 1e3) return sign + '$' + (abs / 1e3).toFixed(0) + 'K';
+            return sign + '$' + Math.floor(abs).toLocaleString();
         }
 
-        function getFirmTypeName(firm) {
-            if (!firm) return 'Unknown';
+        function fmtNum(num) {
+            if (num == null || isNaN(num)) return '0';
+            if (num >= 1e6) return (num / 1e6).toFixed(1) + 'M';
+            if (num >= 1e3) return (num / 1e3).toFixed(0) + 'K';
+            return Math.floor(num).toLocaleString();
+        }
+
+        function profitClass(val) {
+            return val > 0 ? 'positive' : val < 0 ? 'negative' : 'neutral';
+        }
+
+        function typeName(firm) {
             switch (firm.type) {
-                case 'MINING': return 'Mining';
-                case 'LOGGING': return 'Logging';
-                case 'FARM': return firm.farmType === 'CROP' ? 'Crop Farm' : 'Livestock';
+                case 'MINING': return firm.resourceType ? firm.resourceType + ' Mine' : 'Mining';
+                case 'LOGGING': return firm.timberType ? firm.timberType + ' Logging' : 'Logging';
+                case 'FARM': return firm.farmType === 'CROP'
+                    ? (firm.cropType || 'Crop') + ' Farm'
+                    : (firm.livestockType || 'Livestock') + ' Ranch';
                 case 'MANUFACTURING': return 'Manufacturing';
                 case 'RETAIL': return firm.storeType || 'Retail';
                 case 'BANK': return firm.bankType || 'Bank';
@@ -127,20 +221,350 @@
             }
         }
 
+        // ─── Production section builders ──────────────────────────────────────────
+
+        function buildLotProgressBar(firm) {
+            if (firm.lotSize == null || firm.lotSize <= 0) return '';
+            const acc = firm.accumulatedProduction || 0;
+            const lotSize = firm.lotSize;
+            const rate = firm.productionRate || 0;
+            const fraction = Math.min(1, acc / lotSize);
+            const pct = (fraction * 100).toFixed(0);
+            const remaining = lotSize - acc;
+            const hoursToNext = rate > 0 ? remaining / rate : null;
+
+            function fmtEta(h) {
+                if (h == null || !isFinite(h)) return '—';
+                const d = h / 24;
+                return d < 1 ? d.toFixed(2) + 'd' : d.toFixed(1) + 'd';
+            }
+
+            const color = fraction >= 0.9 ? '#4caf50' : '#00d4ff';
+            return `
+                <div style="margin-top:6px">
+                    <div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:2px">
+                        <span style="color:#666">Next lot: ${fmtNum(acc)} / ${fmtNum(lotSize)}</span>
+                        <span style="color:${color};font-weight:600">${pct}% <span style="color:#ffa000">ETA ${fmtEta(hoursToNext)}</span></span>
+                    </div>
+                    <div style="background:#2a2a2a;border-radius:3px;height:5px;overflow:hidden">
+                        <div style="height:100%;width:${pct}%;background:${color};border-radius:3px"></div>
+                    </div>
+                </div>`;
+        }
+
+        function buildMiningSection(firm) {
+            const inv = firm.inventory || {};
+            const lots = firm.lotInventory || {};
+            const qty = fmtNum(inv.quantity || 0);
+            const quality = inv.quality ? (inv.quality * 100).toFixed(0) + '%' : '—';
+            const reserves = firm.remainingReserves != null ? fmtNum(firm.remainingReserves) : '—';
+            const depletion = firm.depletionRate != null ? (firm.depletionRate * 100).toFixed(1) + '%/yr' : '';
+            const efficiency = firm.equipmentEfficiency != null ? (firm.equipmentEfficiency * 100).toFixed(0) + '%' : '—';
+            const rate = firm.productionRate != null ? fmtNum(firm.productionRate) + '/hr' : '—';
+
+            // Lot inventory summary
+            const lotSummary = buildLotSummary(lots);
+
+            return `
+                <div class="firm-section">
+                    <div class="firm-section-title">Production</div>
+                    <div class="prod-line">
+                        <span class="prod-line-name">Rate</span>
+                        <span class="prod-line-rate">${rate}</span>
+                    </div>
+                    <div class="prod-line">
+                        <span class="prod-line-name">Equipment Efficiency</span>
+                        <span class="prod-line-rate">${efficiency}</span>
+                    </div>
+                    ${firm.remainingReserves != null ? `
+                    <div class="prod-line">
+                        <span class="prod-line-name">Reserves</span>
+                        <span class="prod-line-rate">${reserves} t ${depletion ? '<span style="color:#888;font-size:10px">'+depletion+'</span>' : ''}</span>
+                    </div>` : ''}
+                    ${buildLotProgressBar(firm)}
+                </div>
+                <div class="firm-section">
+                    <div class="firm-section-title">Inventory</div>
+                    <div class="prod-line">
+                        <span class="prod-line-name">${firm.resourceType || 'Output'}</span>
+                        <span class="prod-line-rate">${qty} t <span style="color:#888;font-size:10px">q:${quality}</span></span>
+                    </div>
+                    ${lotSummary}
+                </div>`;
+        }
+
+        function buildLoggingSection(firm) {
+            const inv = firm.inventory || {};
+            const qty = fmtNum(inv.quantity || 0);
+            const quality = inv.quality ? (inv.quality * 100).toFixed(0) + '%' : '—';
+            const rate = firm.productionRate != null ? fmtNum(firm.productionRate) + '/hr' : '—';
+            const efficiency = firm.equipmentEfficiency != null ? (firm.equipmentEfficiency * 100).toFixed(0) + '%' : '—';
+            const forestHealth = firm.forestHealth != null ? (firm.forestHealth * 100).toFixed(0) + '%' : '—';
+            const sustainable = firm.certifiedSustainable ? '<span class="tag green">Certified</span>' : '';
+
+            return `
+                <div class="firm-section">
+                    <div class="firm-section-title">Forest & Production</div>
+                    <div class="prod-line">
+                        <span class="prod-line-name">Forest Health</span>
+                        <span class="prod-line-rate">${forestHealth} ${sustainable}</span>
+                    </div>
+                    <div class="prod-line">
+                        <span class="prod-line-name">Rate</span>
+                        <span class="prod-line-rate">${rate}</span>
+                    </div>
+                    <div class="prod-line">
+                        <span class="prod-line-name">Equipment Efficiency</span>
+                        <span class="prod-line-rate">${efficiency}</span>
+                    </div>
+                    ${buildLotProgressBar(firm)}
+                </div>
+                <div class="firm-section">
+                    <div class="firm-section-title">Inventory</div>
+                    <div class="prod-line">
+                        <span class="prod-line-name">${firm.timberType || 'Timber'}</span>
+                        <span class="prod-line-rate">${qty} t <span style="color:#888;font-size:10px">q:${quality}</span></span>
+                    </div>
+                    ${buildLotSummary(firm.lotInventory || {})}
+                </div>`;
+        }
+
+        function buildFarmSection(firm) {
+            const inv = firm.inventory || {};
+            const qty = fmtNum(inv.quantity || 0);
+            const quality = inv.quality ? (inv.quality * 100).toFixed(0) + '%' : '—';
+            const produced = firm.accumulatedProduction != null ? fmtNum(firm.accumulatedProduction) : '—';
+
+            let typeSpecific = '';
+            if (firm.farmType === 'CROP') {
+                const stage = firm.currentGrowthStage || '—';
+                const soil = firm.soilQuality != null ? (firm.soilQuality * 100).toFixed(0) + '%' : '—';
+                typeSpecific = `
+                    <div class="prod-line"><span class="prod-line-name">Growth Stage</span><span class="prod-line-rate">${stage}</span></div>
+                    <div class="prod-line"><span class="prod-line-name">Soil Quality</span><span class="prod-line-rate">${soil}</span></div>`;
+            } else {
+                const herd = firm.herdSize != null ? fmtNum(firm.herdSize) : '—';
+                const maturity = firm.currentMaturity != null ? (firm.currentMaturity * 100).toFixed(0) + '%' : '—';
+                typeSpecific = `
+                    <div class="prod-line"><span class="prod-line-name">Herd Size</span><span class="prod-line-rate">${herd}</span></div>
+                    <div class="prod-line"><span class="prod-line-name">Maturity</span><span class="prod-line-rate">${maturity}</span></div>`;
+            }
+
+            return `
+                <div class="firm-section">
+                    <div class="firm-section-title">Production</div>
+                    ${typeSpecific}
+                    <div class="prod-line"><span class="prod-line-name">Rate</span><span class="prod-line-rate">${firm.productionRate != null ? fmtNum(firm.productionRate) + '/hr' : '—'}</span></div>
+                    ${buildLotProgressBar(firm)}
+                </div>
+                <div class="firm-section">
+                    <div class="firm-section-title">Inventory</div>
+                    <div class="prod-line">
+                        <span class="prod-line-name">${firm.cropType || firm.livestockType || 'Product'}</span>
+                        <span class="prod-line-rate">${qty} <span style="color:#888;font-size:10px">q:${quality}</span></span>
+                    </div>
+                    ${buildLotSummary(firm.lotInventory || {})}
+                </div>`;
+        }
+
+        function buildManufacturingSection(firm) {
+            const lines = firm.productionLines || [];
+            const rawMat = firm.rawMaterialInventory || {};
+            const fgInv = firm.finishedGoodsInventory || {};
+            const efficiency = firm.productionEfficiency != null ? (firm.productionEfficiency * 100).toFixed(0) + '%' : '—';
+            const defects = firm.defectRate != null ? (firm.defectRate * 100).toFixed(1) + '%' : '—';
+            const produced = firm.accumulatedProduction != null ? fmtNum(firm.accumulatedProduction) : '—';
+
+            const linesHtml = lines.length > 0 ? lines.map(l => {
+                const statusClass = l.status === 'active' ? 'status-active' : l.status === 'switching' ? 'status-switching' : 'status-idle';
+                return `<div class="prod-line">
+                    <span class="prod-line-name">${l.productName || l.productId || 'Line'}</span>
+                    <span style="display:flex;gap:6px;align-items:center">
+                        <span class="prod-line-rate">${fmtNum(l.outputPerHour || 0)}/hr</span>
+                        <span class="prod-line-status ${statusClass}">${l.status || 'idle'}</span>
+                    </span>
+                </div>`;
+            }).join('') : '<div style="font-size:11px;color:#555">No production lines</div>';
+
+            // Raw material inventory
+            const rawEntries = Object.entries(rawMat);
+            const rawHtml = rawEntries.length > 0
+                ? '<table class="inv-table">' + rawEntries.slice(0, 4).map(([mat, data]) =>
+                    `<tr><td>${mat}</td><td class="inv-qty">${fmtNum(data.quantity || 0)}</td></tr>`
+                  ).join('') + (rawEntries.length > 4 ? `<tr><td colspan="2" style="color:#555">+${rawEntries.length - 4} more</td></tr>` : '') + '</table>'
+                : '<div style="font-size:11px;color:#555">No raw materials</div>';
+
+            // Finished goods
+            const fgQty = fmtNum(fgInv.quantity || 0);
+            const fgQual = fgInv.quality ? (fgInv.quality * 100).toFixed(0) + '%' : '—';
+
+            return `
+                <div class="firm-section">
+                    <div class="firm-section-title">Production Lines</div>
+                    ${linesHtml}
+                    <div style="display:flex;gap:12px;margin-top:6px;font-size:11px;color:#888">
+                        <span>Efficiency: <span style="color:#ddd">${efficiency}</span></span>
+                        <span>Defect rate: <span style="color:#ddd">${defects}</span></span>
+                        <span>Total out: <span style="color:#ddd">${produced}</span></span>
+                    </div>
+                </div>
+                <div class="firm-section">
+                    <div class="firm-section-title">Inventory</div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                        <div>
+                            <div style="font-size:10px;color:#666;margin-bottom:4px">RAW MATERIALS</div>
+                            ${rawHtml}
+                        </div>
+                        <div>
+                            <div style="font-size:10px;color:#666;margin-bottom:4px">FINISHED GOODS</div>
+                            <div style="font-size:12px;color:#a5d6a7">${fgQty} units <span style="color:#666;font-size:10px">q:${fgQual}</span></div>
+                        </div>
+                    </div>
+                </div>`;
+        }
+
+        function buildRetailSection(firm) {
+            const inv = firm.inventoryData || {};
+            const entries = Object.values(inv);
+            const satisfaction = firm.customerSatisfaction != null ? (firm.customerSatisfaction * 100).toFixed(0) + '%' : '—';
+            const traffic = firm.lastDayFootTraffic != null ? fmtNum(firm.lastDayFootTraffic) : (firm.footTraffic != null ? fmtNum(firm.footTraffic) : '—');
+            const sold = firm.totalUnitsSold != null ? fmtNum(firm.totalUnitsSold) : '—';
+
+            const invHtml = entries.length > 0
+                ? '<div class="retail-items">' + entries.slice(0, 8).map(item =>
+                    `<span class="retail-item" title="${item.productName}">${item.productName || '?'}: ${fmtNum(item.quantity || 0)}</span>`
+                  ).join('') + (entries.length > 8 ? `<span class="tag">+${entries.length - 8} more</span>` : '') + '</div>'
+                : '<div style="font-size:11px;color:#555">No inventory</div>';
+
+            return `
+                <div class="firm-section">
+                    <div class="firm-section-title">Store Performance</div>
+                    <div style="display:flex;gap:16px;font-size:12px">
+                        <span>Satisfaction: <span style="color:#a5d6a7">${satisfaction}</span></span>
+                        <span>Traffic/day: <span style="color:#ddd">${traffic}</span></span>
+                        <span>Total sold: <span style="color:#ddd">${sold}</span></span>
+                    </div>
+                </div>
+                <div class="firm-section">
+                    <div class="firm-section-title">Stock (${entries.length} products)</div>
+                    ${invHtml}
+                </div>`;
+        }
+
+        function buildBankSection(firm) {
+            const loans = firm.loans || [];
+            const liabilities = firm.totalLiabilities || 0;
+            const assets = firm.totalAssets || 0;
+            return `
+                <div class="firm-section">
+                    <div class="firm-section-title">Balance Sheet</div>
+                    <div style="display:flex;gap:16px;font-size:12px">
+                        <span>Assets: <span style="color:#a5d6a7">${fmt$(assets)}</span></span>
+                        <span>Liabilities: <span style="color:#f48fb1">${fmt$(liabilities)}</span></span>
+                        <span>Active Loans: <span style="color:#ddd">${loans.length}</span></span>
+                    </div>
+                </div>`;
+        }
+
+        function buildLotSummary(lotInventory) {
+            if (!lotInventory) return '';
+            const lots = lotInventory.lots || [];
+            if (lots.length === 0) return '';
+            // Aggregate by productName
+            const byProduct = {};
+            lots.forEach(lot => {
+                if (lot.status === 'EXPIRED') return;
+                const name = lot.productName || 'Unknown';
+                byProduct[name] = (byProduct[name] || 0) + (lot.quantity || 0);
+            });
+            const entries = Object.entries(byProduct);
+            if (entries.length === 0) return '';
+            return '<div class="lot-pills" style="margin-top:4px">' +
+                entries.map(([name, qty]) => `<span class="lot-pill">${name}: ${fmtNum(qty)}</span>`).join('') +
+            '</div>';
+        }
+
+        function buildTypeSection(firm) {
+            switch (firm.type) {
+                case 'MINING': return buildMiningSection(firm);
+                case 'LOGGING': return buildLoggingSection(firm);
+                case 'FARM': return buildFarmSection(firm);
+                case 'MANUFACTURING': return buildManufacturingSection(firm);
+                case 'RETAIL': return buildRetailSection(firm);
+                case 'BANK': return buildBankSection(firm);
+                default: return '';
+            }
+        }
+
+        // ─── Card renderer ────────────────────────────────────────────────────────
+
+        function renderCard(firm) {
+            const profit = firm.monthlyProfit != null ? firm.monthlyProfit : (firm.profit || 0);
+            const pc = profitClass(profit);
+            const corpName = firm.corporationAbbreviation || (corpMap[firm.corporationId] || '');
+            const employees = firm.totalEmployees || firm.employees || 0;
+
+            return `
+            <a href="firm.html?id=${firm.id}" class="firm-card">
+                <div class="firm-card-header">
+                    <div class="firm-header-left">
+                        <div class="firm-name">${firm.displayName || firm.name || firm.id}</div>
+                        <div class="firm-meta">
+                            <span class="city">📍 ${firm.cityName || '—'}</span>
+                            ${corpName ? `<span style="color:#888">${corpName}</span>` : ''}
+                        </div>
+                    </div>
+                    <span class="firm-type-badge">${typeName(firm)}</span>
+                </div>
+                <div class="firm-stats-row">
+                    <div class="stat-cell">
+                        <div class="stat-label">Cash</div>
+                        <div class="stat-value">${fmt$(firm.cash)}</div>
+                    </div>
+                    <div class="stat-cell">
+                        <div class="stat-label">Mo. Profit</div>
+                        <div class="stat-value ${pc}">${fmt$(profit)}</div>
+                    </div>
+                    <div class="stat-cell">
+                        <div class="stat-label">Revenue</div>
+                        <div class="stat-value">${fmt$(firm.monthlyRevenue || firm.revenue || 0)}</div>
+                    </div>
+                    <div class="stat-cell">
+                        <div class="stat-label">Employees</div>
+                        <div class="stat-value">${fmtNum(employees)}</div>
+                    </div>
+                </div>
+                ${buildTypeSection(firm)}
+            </a>`;
+        }
+
+        // ─── Filter & sort ────────────────────────────────────────────────────────
+
         function renderFirms() {
             const typeFilter = filterType.value;
+            const corpFilter = filterCorp.value;
             const searchFilter = filterSearch.value.toLowerCase();
+            const sort = sortBy.value;
 
             let filtered = allFirms;
-            if (typeFilter) {
-                filtered = filtered.filter(f => f.type === typeFilter);
-            }
-            if (searchFilter) {
-                filtered = filtered.filter(f =>
-                    (f.name || '').toLowerCase().includes(searchFilter) ||
-                    (f.displayName || '').toLowerCase().includes(searchFilter)
-                );
-            }
+            if (typeFilter) filtered = filtered.filter(f => f.type === typeFilter);
+            if (corpFilter) filtered = filtered.filter(f => f.corporationId === corpFilter);
+            if (searchFilter) filtered = filtered.filter(f =>
+                (f.displayName || f.name || f.id || '').toLowerCase().includes(searchFilter) ||
+                (f.cityName || '').toLowerCase().includes(searchFilter)
+            );
+
+            // Sort
+            filtered = [...filtered].sort((a, b) => {
+                switch (sort) {
+                    case 'profit': return (b.monthlyProfit || b.profit || 0) - (a.monthlyProfit || a.profit || 0);
+                    case 'revenue': return (b.monthlyRevenue || b.revenue || 0) - (a.monthlyRevenue || a.revenue || 0);
+                    case 'cash': return (b.cash || 0) - (a.cash || 0);
+                    case 'employees': return (b.totalEmployees || b.employees || 0) - (a.totalEmployees || a.employees || 0);
+                    case 'name': default:
+                        return (a.displayName || a.name || '').localeCompare(b.displayName || b.name || '');
+                }
+            });
 
             document.getElementById('firm-count').textContent = filtered.length + ' firms';
 
@@ -149,48 +573,55 @@
                 return;
             }
 
-            firmsContainer.innerHTML = filtered.map(firm => {
-                const profit = firm.currentProfit || firm.profit || 0;
-                const profitClass = profit >= 0 ? 'positive' : 'negative';
-                return `
-                    <a href="firm.html?id=${firm.id}" class="firm-card">
-                        <div class="firm-header">
-                            <h3 class="firm-name">${firm.displayName || firm.name || firm.id}</h3>
-                            <span class="firm-type">${getFirmTypeName(firm)}</span>
-                        </div>
-                        <div class="firm-city">📍 ${firm.cityName || firm.city || 'Unknown'}</div>
-                        <div class="firm-stats">
-                            <div class="firm-stat">
-                                <span class="label">Cash:</span>
-                                <span class="value">${formatCurrency(firm.cash)}</span>
-                            </div>
-                            <div class="firm-stat">
-                                <span class="label">Profit:</span>
-                                <span class="value ${profitClass}">${formatCurrency(profit)}</span>
-                            </div>
-                            <div class="firm-stat">
-                                <span class="label">Employees:</span>
-                                <span class="value">${firm.employees || 0}</span>
-                            </div>
-                            <div class="firm-stat">
-                                <span class="label">Revenue:</span>
-                                <span class="value">${formatCurrency(firm.revenue || 0)}</span>
-                            </div>
-                        </div>
-                    </a>
-                `;
-            }).join('');
+            firmsContainer.innerHTML = filtered.map(renderCard).join('');
+        }
+
+        function refreshCorpFilter(firms) {
+            const seen = new Map();
+            firms.forEach(f => {
+                if (f.corporationId && !seen.has(f.corporationId)) {
+                    seen.set(f.corporationId, f.corporationAbbreviation || f.corporationId);
+                }
+            });
+            const current = filterCorp.value;
+            filterCorp.innerHTML = '<option value="">All Corporations</option>' +
+                [...seen.entries()].sort((a, b) => a[1].localeCompare(b[1]))
+                    .map(([id, name]) => `<option value="${id}">${name}</option>`).join('');
+            if (current) filterCorp.value = current;
         }
 
         filterType.addEventListener('change', renderFirms);
+        filterCorp.addEventListener('change', renderFirms);
         filterSearch.addEventListener('input', renderFirms);
+        sortBy.addEventListener('change', renderFirms);
+
+        // ─── State subscription ────────────────────────────────────────────────────
+
+        let renderPending = false;
+        let pendingState = null;
 
         stateManager.subscribeAll((state) => {
+            // Always update corp map immediately (cheap, no DOM)
+            if (state.corporations) {
+                Object.entries(state.corporations).forEach(([id, corp]) => {
+                    corpMap[id] = corp.abbreviation || corp.name || id;
+                });
+            }
             if (state.firms) {
                 allFirms = Object.values(state.firms);
-                renderFirms();
+                pendingState = state;
+                if (!renderPending) {
+                    renderPending = true;
+                    setTimeout(() => {
+                        renderPending = false;
+                        refreshCorpFilter(allFirms);
+                        renderFirms();
+                    }, 500);
+                }
             }
         });
+
+        // ─── Init ──────────────────────────────────────────────────────────────────
 
         async function init() {
             const sessionId = sessionStorage.getItem('activeSessionId');
@@ -202,11 +633,8 @@
             try {
                 await wsClient.connect();
                 setupGameControls(wsClient, stateManager);
-
-                // Load the session
                 await fetch('/api/v1/games/' + sessionId + '/load', { method: 'POST' });
                 await wsClient.joinSession(sessionId);
-
                 firmsContainer.innerHTML = '<div class="loading">Loading firms...</div>';
             } catch (e) {
                 console.error('Error:', e);

@@ -15,6 +15,7 @@ export class Firm {
         this.monthlyRevenue = 0;
         this.monthlyExpenses = 0;
         this.monthlyProfit = 0;
+        this.monthlyHistory = [];
         this.totalAssets = 100000;
         this.totalLiabilities = 0;
         
@@ -40,6 +41,11 @@ export class Firm {
         
         // Loans
         this.loans = [];
+
+        // Acquisition / distress tracking
+        this.consecutiveLossMonths = 0;
+        this.availableForAcquisition = false;
+        this.acquisitionValue = 0;  // updated each month = totalAssets * 1.5
     }
     
     generateId() {
@@ -157,6 +163,30 @@ export class Firm {
         this.monthlyExpenses = 0;
     }
 
+    captureMonthlySnapshot(month, year) {
+        const profit = this.monthlyProfit !== undefined
+            ? this.monthlyProfit
+            : (this.monthlyRevenue - this.monthlyExpenses);
+
+        this.monthlyHistory.push({
+            month, year,
+            revenue:   this.monthlyRevenue || 0,
+            expenses:  this.monthlyExpenses || 0,
+            profit,
+            cash:      this.cash || 0,
+            employees: this.totalEmployees || this.employees || 0
+        });
+        if (this.monthlyHistory.length > 24) this.monthlyHistory.shift();
+
+        // Track distress state
+        if (profit < 0) {
+            this.consecutiveLossMonths = (this.consecutiveLossMonths || 0) + 1;
+        } else {
+            this.consecutiveLossMonths = 0;
+        }
+        this.acquisitionValue = (this.totalAssets || 0) * 1.5;
+    }
+
     /**
      * Get serializable state for persistence
      * Override in subclasses to include type-specific state
@@ -165,9 +195,12 @@ export class Firm {
         return {
             id: this.id,
             type: this.type,
+            displayName: this.getDisplayName(),
             cityId: this.city?.id || null,
+            cityName: this.city?.name || null,
             countryName: this.city?.country?.name || null,
             corporationId: this.corporationId,
+            corporationAbbreviation: this.corporationAbbreviation || null,
             cash: this.cash,
             revenue: this.revenue,
             expenses: this.expenses,
@@ -175,12 +208,31 @@ export class Firm {
             monthlyRevenue: this.monthlyRevenue,
             monthlyExpenses: this.monthlyExpenses,
             monthlyProfit: this.monthlyProfit,
+            monthlyHistory: this.monthlyHistory,
             totalAssets: this.totalAssets,
             totalLiabilities: this.totalLiabilities,
             brandRating: this.brandRating,
             technologyLevel: this.technologyLevel,
             efficiency: this.efficiency,
-            loans: this.loans
+            totalEmployees: this.totalEmployees || 0,
+            totalLaborCost: this.totalLaborCost || 0,
+            consecutiveLossMonths: this.consecutiveLossMonths || 0,
+            availableForAcquisition: this.availableForAcquisition || false,
+            acquisitionValue: this.acquisitionValue || 0,
+            loans: (this.loans || []).map(loan => ({
+                id: loan.id,
+                borrowerId: loan.borrowerId,
+                principal: loan.principal,
+                interestRate: loan.interestRate,
+                term: loan.term,
+                monthlyPayment: loan.monthlyPayment,
+                remainingBalance: loan.remainingBalance,
+                remainingTerm: loan.remainingTerm,
+                issueDate: loan.issueDate,
+                creditScore: loan.creditScore,
+                status: loan.status,
+                missedPayments: loan.missedPayments
+            }))
         };
     }
 
@@ -198,11 +250,15 @@ export class Firm {
         this.monthlyRevenue = state.monthlyRevenue ?? this.monthlyRevenue;
         this.monthlyExpenses = state.monthlyExpenses ?? this.monthlyExpenses;
         this.monthlyProfit = state.monthlyProfit ?? this.monthlyProfit;
+        if (state.monthlyHistory) this.monthlyHistory = state.monthlyHistory;
         this.totalAssets = state.totalAssets ?? this.totalAssets;
         this.totalLiabilities = state.totalLiabilities ?? this.totalLiabilities;
         this.brandRating = state.brandRating ?? this.brandRating;
         this.technologyLevel = state.technologyLevel ?? this.technologyLevel;
         this.efficiency = state.efficiency ?? this.efficiency;
         this.loans = state.loans ?? this.loans;
+        this.consecutiveLossMonths = state.consecutiveLossMonths ?? this.consecutiveLossMonths;
+        this.availableForAcquisition = state.availableForAcquisition ?? this.availableForAcquisition;
+        this.acquisitionValue = state.acquisitionValue ?? this.acquisitionValue;
     }
 }

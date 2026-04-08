@@ -1978,10 +1978,13 @@ export class ManufacturingPlant extends Firm {
             for (const [material, lotsData] of Object.entries(state.rawMaterialLotsData)) {
                 const storage = this.rawMaterialLots.get(material);
                 if (storage) {
-                    storage.lots = lotsData.map(lotData => ({
-                        ...lotData,
-                        remainingQuantity: lotData.remainingQuantity ?? lotData.quantity
-                    }));
+                    storage.lots = lotsData.map(lotData => {
+                        const lot = Lot.fromJSON(lotData);
+                        if (lot.remainingQuantity === undefined) {
+                            lot.remainingQuantity = lot.quantity;
+                        }
+                        return lot;
+                    });
                 }
             }
         }

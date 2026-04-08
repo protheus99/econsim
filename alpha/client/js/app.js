@@ -95,12 +95,12 @@ async function deleteGame(gameId) {
     }
 }
 
-async function createGame() {
+async function createGame(name) {
     try {
         const response = await fetch("/api/v1/games", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name: "Game " + new Date().toLocaleDateString() })
+            body: JSON.stringify({ name: name || "Game " + new Date().toLocaleDateString() })
         });
         const data = await response.json();
         if (data.success) {
@@ -150,7 +150,34 @@ document.querySelectorAll(".btn-speed").forEach(btn => {
     });
 });
 
-btnNewGame.addEventListener("click", createGame);
+btnNewGame.addEventListener("click", () => {
+    // Show inline name input if not already shown
+    if (document.getElementById("new-game-form")) return;
+    const form = document.createElement("div");
+    form.id = "new-game-form";
+    form.style.cssText = "display:inline-flex;gap:8px;align-items:center;margin-left:10px;";
+    form.innerHTML =
+        '<input id="new-game-name" type="text" maxlength="24" placeholder="Short name…" ' +
+        'style="background:#2a2a2a;border:1px solid #555;color:#fff;padding:8px 10px;border-radius:4px;font-size:14px;width:160px;" />' +
+        '<button id="new-game-confirm" style="background:#00d4ff;color:#000;border:none;padding:8px 14px;border-radius:4px;cursor:pointer;font-weight:bold;">Create</button>' +
+        '<button id="new-game-cancel" style="background:transparent;border:1px solid #555;color:#aaa;padding:8px 12px;border-radius:4px;cursor:pointer;">✕</button>';
+    btnNewGame.insertAdjacentElement("afterend", form);
+    const input = document.getElementById("new-game-name");
+    input.focus();
+
+    const submit = async () => {
+        const name = input.value.trim();
+        form.remove();
+        await createGame(name || null);
+    };
+
+    document.getElementById("new-game-confirm").addEventListener("click", submit);
+    document.getElementById("new-game-cancel").addEventListener("click", () => form.remove());
+    input.addEventListener("keydown", e => {
+        if (e.key === "Enter") submit();
+        if (e.key === "Escape") form.remove();
+    });
+});
 
 stateManager.subscribe(["connected", "sessionId"], updateConnectionStatus);
 stateManager.subscribe("clockFormatted", f => { document.getElementById("game-date").textContent = f || "--"; });

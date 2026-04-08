@@ -1,6 +1,8 @@
 // js/core/corporations/Corporation.js
 // Corporation class for the organic growth system
-// Corporations have personas, goals, and attributes - firms are created via board meetings
+// Corporations have personas, goals, and roadmap — firms are created via the roadmap system
+
+import { CorporateRoadmap } from './CorporateRoadmap.js';
 
 /**
  * Corporation goal types
@@ -13,7 +15,8 @@ export const GOAL_TYPES = {
     HORIZONTAL_EXPANSION: 'HORIZONTAL_EXPANSION',
     INCREASE_MARKET_SHARE: 'INCREASE_MARKET_SHARE',
     IMPROVE_PROFITABILITY: 'IMPROVE_PROFITABILITY',
-    ENTER_NEW_MARKET: 'ENTER_NEW_MARKET'
+    ENTER_NEW_MARKET: 'ENTER_NEW_MARKET',
+    FULL_VERTICAL_MILESTONE: 'FULL_VERTICAL_MILESTONE'
 };
 
 /**
@@ -86,6 +89,7 @@ export class Corporation {
         this.monthlyRevenue = 0;
         this.monthlyExpenses = 0;
         this.monthlyProfit = 0;
+        this.monthlyHistory = [];
         this.cash = 0;
         this.revenue = 0;
         this.expenses = 0;
@@ -116,14 +120,20 @@ export class Corporation {
             contractPreference: config.attributes?.contractPreference ?? 0.6
         };
 
-        // Board State
-        this.boardMeeting = {
-            lastMeeting: null,
-            nextMeeting: null,
-            pendingDecisions: [],
-            activeProjects: [],     // Firm creation in progress
-            meetingHistory: []      // Track past meetings for analysis
+        // Roadmap — drives all strategic actions
+        this.roadmap = new CorporateRoadmap();
+
+        // Extended goal tracking
+        this.currentGoal = GOAL_TYPES.ESTABLISH_OPERATIONS;
+        this.goalStartMonth = 0;
+        this.goalHistory = [];          // max 12 entries
+        this.integrationMap = {         // firms owned per tier
+            [INDUSTRY_TIERS.RAW]: [],
+            [INDUSTRY_TIERS.SEMI_RAW]: [],
+            [INDUSTRY_TIERS.MANUFACTURED]: [],
+            [INDUSTRY_TIERS.RETAIL]: []
         };
+        this.isFullyVertical = false;
 
         // Creation tracking
         this.createdAt = null;      // Game time when created
@@ -216,10 +226,11 @@ export class Corporation {
 
             // Track first firm creation
             if (this.firms.length === 1) {
-                this.firstFirmAt = Date.now(); // Will be set properly by board meeting
+                this.firstFirmAt = Date.now();
             }
 
             this.updateStats();
+            this.updateIntegrationMap();
         }
     }
 
@@ -285,15 +296,31 @@ export class Corporation {
         this.monthlyProfit = this.monthlyRevenue - this.monthlyExpenses;
     }
 
+    captureMonthlySnapshot(month, year) {
+        this.monthlyHistory.push({
+            month, year,
+            revenue:   this.monthlyRevenue || 0,
+            expenses:  this.monthlyExpenses || 0,
+            profit:    this.monthlyProfit !== undefined ? this.monthlyProfit : (this.monthlyRevenue - this.monthlyExpenses),
+            cash:      this.cash || 0,
+            capital:   this.capital || 0,
+            firmCount: this.firms.length,
+            employees: this.employees || 0
+        });
+        if (this.monthlyHistory.length > 24) this.monthlyHistory.shift();
+    }
+
     /**
      * Get available capital for investment
      */
     getAvailableCapital() {
-        // Capital minus committed projects
-        const committedCapital = this.boardMeeting.activeProjects
-            .reduce((sum, project) => sum + (project.cost || 0), 0);
+        // Capital minus roadmap actions already in-progress
+        const committedCapital = [
+            ...this.roadmap.shortTerm,
+            ...this.roadmap.mediumTerm
+        ].reduce((sum, action) => sum + (action.cost || 0), 0);
 
-        // Add 10% buffer based on risk tolerance
+        // 10% buffer based on risk tolerance
         const buffer = this.capital * (1 - this.attributes.riskTolerance) * 0.1;
 
         return Math.max(0, this.capital - committedCapital - buffer);
@@ -385,27 +412,50 @@ export class Corporation {
     }
 
     /**
-     * Add a project to the active projects queue
+     * Set the current strategic goal.
+     * @param {string} goalType - GOAL_TYPES value
+     * @param {number} monthsElapsed
      */
-    addProject(project) {
-        this.boardMeeting.activeProjects.push({
-            ...project,
-            startedAt: Date.now(),
-            status: 'IN_PROGRESS'
-        });
+    setGoal(goalType, monthsElapsed) {
+        if (this.currentGoal !== goalType) {
+            // Record previous goal in history
+            this.goalHistory.push({
+                goal: this.currentGoal,
+                startMonth: this.goalStartMonth,
+                endMonth: monthsElapsed,
+                outcome: 'COMPLETED'
+            });
+            if (this.goalHistory.length > 12) this.goalHistory.shift();
+            this.currentGoal = goalType;
+            this.goalStartMonth = monthsElapsed;
+        }
     }
 
     /**
-     * Complete a project
+     * Update integrationMap when a firm is added.
+     * Checks all four tiers; sets isFullyVertical if all four are represented.
      */
-    completeProject(projectId) {
-        const index = this.boardMeeting.activeProjects.findIndex(p => p.id === projectId);
-        if (index !== -1) {
-            const project = this.boardMeeting.activeProjects[index];
-            project.status = 'COMPLETED';
-            this.boardMeeting.activeProjects.splice(index, 1);
-            return project;
+    updateIntegrationMap() {
+        this.integrationMap = {
+            [INDUSTRY_TIERS.RAW]: [],
+            [INDUSTRY_TIERS.SEMI_RAW]: [],
+            [INDUSTRY_TIERS.MANUFACTURED]: [],
+            [INDUSTRY_TIERS.RETAIL]: []
+        };
+        for (const firm of this.firms) {
+            const tier = this._firmTier(firm);
+            if (tier && this.integrationMap[tier]) {
+                this.integrationMap[tier].push(firm.id);
+            }
         }
+        this.isFullyVertical = Object.values(this.integrationMap).every(arr => arr.length > 0);
+    }
+
+    _firmTier(firm) {
+        if (firm.type === 'MINING' || firm.type === 'LOGGING' || firm.type === 'FARM') return INDUSTRY_TIERS.RAW;
+        if (firm.type === 'MANUFACTURING' && firm.isSemiRawProducer) return INDUSTRY_TIERS.SEMI_RAW;
+        if (firm.type === 'MANUFACTURING' && !firm.isSemiRawProducer) return INDUSTRY_TIERS.MANUFACTURED;
+        if (firm.type === 'RETAIL') return INDUSTRY_TIERS.RETAIL;
         return null;
     }
 
@@ -431,6 +481,7 @@ export class Corporation {
             monthlyRevenue: this.monthlyRevenue,
             monthlyExpenses: this.monthlyExpenses,
             monthlyProfit: this.monthlyProfit,
+            monthlyHistory: this.monthlyHistory,
             cash: this.cash,
             revenue: this.revenue,
             expenses: this.expenses,
@@ -439,59 +490,12 @@ export class Corporation {
             salesContracts: this.salesContracts,
             goals: this.goals,
             attributes: this.attributes,
-            boardMeeting: {
-                // Serialize lastMeeting with city/country stripped from projects
-                lastMeeting: this.boardMeeting.lastMeeting ? {
-                    ...this.boardMeeting.lastMeeting,
-                    approvedProjects: (this.boardMeeting.lastMeeting.approvedProjects || []).map(p => ({
-                        ...p,
-                        cityId: p.city?.id || null,
-                        cityName: p.city?.name || null,
-                        countryName: p.country?.name || null,
-                        city: undefined,
-                        country: undefined
-                    })),
-                    deferredProjects: (this.boardMeeting.lastMeeting.deferredProjects || []).map(p => ({
-                        ...p,
-                        cityId: p.city?.id || null,
-                        cityName: p.city?.name || null,
-                        countryName: p.country?.name || null,
-                        city: undefined,
-                        country: undefined
-                    }))
-                } : null,
-                nextMeeting: this.boardMeeting.nextMeeting,
-                pendingDecisions: this.boardMeeting.pendingDecisions,
-                // Serialize activeProjects with city/country IDs instead of object refs
-                activeProjects: this.boardMeeting.activeProjects.map(project => ({
-                    ...project,
-                    cityId: project.city?.id || null,
-                    cityName: project.city?.name || null,
-                    countryName: project.country?.name || null,
-                    city: undefined,
-                    country: undefined
-                })),
-                // Serialize meetingHistory with city/country stripped from projects
-                meetingHistory: this.boardMeeting.meetingHistory.map(meeting => ({
-                    ...meeting,
-                    approvedProjects: (meeting.approvedProjects || []).map(p => ({
-                        ...p,
-                        cityId: p.city?.id || null,
-                        cityName: p.city?.name || null,
-                        countryName: p.country?.name || null,
-                        city: undefined,
-                        country: undefined
-                    })),
-                    deferredProjects: (meeting.deferredProjects || []).map(p => ({
-                        ...p,
-                        cityId: p.city?.id || null,
-                        cityName: p.city?.name || null,
-                        countryName: p.country?.name || null,
-                        city: undefined,
-                        country: undefined
-                    }))
-                }))
-            },
+            roadmap: this.roadmap.getSerializableState(),
+            currentGoal: this.currentGoal,
+            goalStartMonth: this.goalStartMonth,
+            goalHistory: this.goalHistory,
+            integrationMap: this.integrationMap,
+            isFullyVertical: this.isFullyVertical,
             createdAt: this.createdAt,
             firstFirmAt: this.firstFirmAt,
             homeCountry: this.homeCountry?.name || this.homeCountry,
@@ -513,6 +517,7 @@ export class Corporation {
         this.monthlyRevenue = state.monthlyRevenue ?? this.monthlyRevenue;
         this.monthlyExpenses = state.monthlyExpenses ?? this.monthlyExpenses;
         this.monthlyProfit = state.monthlyProfit ?? this.monthlyProfit;
+        if (state.monthlyHistory) this.monthlyHistory = state.monthlyHistory;
         this.cash = state.cash ?? this.cash;
         this.revenue = state.revenue ?? this.revenue;
         this.expenses = state.expenses ?? this.expenses;
@@ -522,9 +527,12 @@ export class Corporation {
         if (state.salesContracts) this.salesContracts = state.salesContracts;
         if (state.goals) this.goals = { ...this.goals, ...state.goals };
         if (state.attributes) this.attributes = { ...this.attributes, ...state.attributes };
-        if (state.boardMeeting) {
-            this.boardMeeting = { ...this.boardMeeting, ...state.boardMeeting };
-        }
+        if (state.roadmap) this.roadmap.restoreFromJSON(state.roadmap);
+        if (state.currentGoal) this.currentGoal = state.currentGoal;
+        if (state.goalStartMonth !== undefined) this.goalStartMonth = state.goalStartMonth;
+        if (state.goalHistory) this.goalHistory = state.goalHistory;
+        if (state.integrationMap) this.integrationMap = state.integrationMap;
+        if (state.isFullyVertical !== undefined) this.isFullyVertical = state.isFullyVertical;
         if (state.createdAt) this.createdAt = state.createdAt;
         if (state.firstFirmAt) this.firstFirmAt = state.firstFirmAt;
         if (state.homeCountry) this.homeCountry = state.homeCountry;

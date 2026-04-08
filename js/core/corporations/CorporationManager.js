@@ -2,7 +2,8 @@
 // Manages corporations, board meetings, and organic firm creation
 
 import { Corporation, CORPORATION_TYPES, INDUSTRY_TIERS, GOAL_TYPES } from './Corporation.js';
-import { BoardMeeting, DECISION_TYPES, determineEconomicPhase, FIRM_CREATION_TIMELINE } from './BoardMeeting.js';
+import { DECISION_TYPES, determineEconomicPhase, FIRM_CREATION_TIMELINE } from './BoardMeeting.js';
+import { CorporateRoadmap } from './CorporateRoadmap.js';
 
 /**
  * Corporation type weights for generation
@@ -305,7 +306,6 @@ export class CorporationManager {
         this.engine = engine;
         this.corporations = new Map();
         this.corporationsById = new Map();
-        this.boardMeeting = new BoardMeeting(engine);
 
         // Track firm creation projects
         this.pendingFirmCreations = [];
@@ -404,7 +404,173 @@ export class CorporationManager {
         console.log(`   Created: ${created}, Skipped (not viable): ${skipped}`);
         this.logTierDistribution(corporations);
 
+        // Seed roadmaps for all newly-created corporations
+        const marketState = this.calculateMarketState();
+        for (const corp of corporations) {
+            this.seedCorporationRoadmap(corp, marketState);
+        }
+
+        // At startup: guarantee minimum mineral coverage so all raw materials have producers from day 1
+        if (isStartup) {
+            this.ensureMineralCoverage(2);
+        }
+
         return corporations;
+    }
+
+    /**
+     * Guarantee at least `minFirms` mining firms per mineral product at startup.
+     * Creates firms directly (bypassing board meetings) so they are operational from day 1.
+     * If no active country has a required mineral, adds the resource to a suitable country.
+     * @param {number} minFirms - Minimum number of firms per mineral product
+     * @returns {Array} Created firms
+     */
+    ensureMineralCoverage(minFirms = 2) {
+        const firmGenerator = this.engine.firmGenerator;
+        if (!firmGenerator) {
+            console.warn('FirmGenerator not available for mineral coverage');
+            return [];
+        }
+
+        const miningPersonaDef = RAW_PERSONAS.MINING_COMPANY;
+        const allFocuses = miningPersonaDef.productFocuses;
+
+        // Build complete list of all mining products
+        const allProducts = [];
+        for (const focusData of Object.values(allFocuses)) {
+            for (const product of focusData.products) {
+                allProducts.push(product);
+            }
+        }
+
+        // Count existing firms per product
+        const firmCoverage = new Map();
+        for (const product of allProducts) firmCoverage.set(product, 0);
+
+        for (const firm of this.engine.firms.values()) {
+            if (firm.type === 'MINING' && firm.resource) {
+                if (firmCoverage.has(firm.resource)) {
+                    firmCoverage.set(firm.resource, firmCoverage.get(firm.resource) + 1);
+                }
+            }
+        }
+
+        const createdFirms = [];
+
+        for (const product of allProducts) {
+            const existing = firmCoverage.get(product) || 0;
+            const needed = minFirms - existing;
+            if (needed <= 0) continue;
+
+            for (let i = 0; i < needed; i++) {
+                const firm = this._createGuaranteedMiningFirm(product, firmGenerator);
+                if (firm) {
+                    createdFirms.push(firm);
+                    console.log(`   ⛏️ Guaranteed mining firm: ${firm.id} → ${product}`);
+                }
+            }
+        }
+
+        if (createdFirms.length > 0) {
+            console.log(`   Mineral coverage: created ${createdFirms.length} guaranteed mining firms`);
+        }
+        return createdFirms;
+    }
+
+    /**
+     * Create a single mining firm for a specific mineral.
+     * Finds a city in a country that has the resource; if none, adds the resource
+     * to a suitable existing country so the firm can be placed.
+     * @param {string} product - Mineral to mine (e.g. 'Iron Ore')
+     * @param {Object} firmGenerator - FirmGenerator instance
+     * @returns {Object|null} Created firm or null
+     */
+    _createGuaranteedMiningFirm(product, firmGenerator) {
+        const cities = this.engine.cities;
+
+        // Find a city in a country that already has this resource
+        let city = null;
+        let country = null;
+        const suitableCities = cities.filter(c => c.country?.resources?.includes(product));
+
+        if (suitableCities.length > 0) {
+            // Pick a random suitable city
+            const chosen = suitableCities[Math.floor(this.random() * suitableCities.length)];
+            city = chosen;
+            country = chosen.country;
+        } else {
+            // No country has this resource — add it to the country with the most mining potential
+            // (prefer DEVELOPED countries; fall back to any)
+            const countries = [...new Set(cities.map(c => c.country).filter(Boolean))];
+            const developed = countries.filter(c => c.economicLevel === 'DEVELOPED');
+            const candidates = developed.length > 0 ? developed : countries;
+            country = candidates[Math.floor(this.random() * candidates.length)];
+
+            if (!country) return null;
+
+            country.resources = country.resources || [];
+            country.resources.push(product);
+            console.log(`   🌍 Added ${product} to ${country.name} (no existing producer country in active set)`);
+
+            // Pick any city in that country
+            const countryCities = cities.filter(c => c.country === country);
+            city = countryCities[Math.floor(this.random() * countryCities.length)];
+        }
+
+        if (!city || !country) return null;
+
+        // Create a corporation to own this firm
+        const focusKey = this._getFocusKeyForProduct(product);
+        const focusData = RAW_PERSONAS.MINING_COMPANY.productFocuses[focusKey];
+        const persona = {
+            ...RAW_PERSONAS.MINING_COMPANY,
+            selectedFocus: focusKey,
+            products: [product],
+            downstreamAffinity: focusData?.downstreamAffinity || [],
+            productFocuses: RAW_PERSONAS.MINING_COMPANY.productFocuses
+        };
+
+        const corpIndex = this.corporations.size;
+        const corpName = this.generateCorporationName(CORPORATION_TYPES.SPECIALIST, persona);
+        const corp = new Corporation({
+            id: `CORP_MINERAL_${product.replace(/\s+/g, '_')}_${corpIndex}`,
+            name: corpName,
+            abbreviation: this.generateAbbreviation(corpName),
+            type: CORPORATION_TYPES.SPECIALIST,
+            integrationLevel: 1,
+            primaryPersona: { ...persona },
+            secondaryPersonas: [],
+            capital: this.calculateStartingCapital(INDUSTRY_TIERS.RAW, CORPORATION_TYPES.SPECIALIST),
+            attributes: this.generateAttributes(),
+            targetFirms: this.calculateTargetFirms(CORPORATION_TYPES.SPECIALIST, 1),
+            homeCity: city,
+            homeCountry: country
+        });
+        corp.createdAt = Date.now();
+        this.corporations.set(corp.id, corp);
+        this.corporationsById.set(corp.id, corp);
+        this.engine.corporations.push(corp);
+        this.engine.corporationsById.set(corp.id, corp);
+
+        // Create the firm directly
+        const firmId = this.engine.generateDeterministicId('FIRM', this.engine.firmCreationIndex++);
+        const firm = firmGenerator.createMiningFirmWithResource(city, country, firmId, product);
+        if (!firm) return null;
+
+        firm.corporationId = corp.id;
+        firm.corporationAbbreviation = corp.abbreviation;
+        firmGenerator.registerFirm(firm, city, corp);
+        return firm;
+    }
+
+    /**
+     * Get the focus key for a given mining product
+     */
+    _getFocusKeyForProduct(product) {
+        for (const [focusKey, focusData] of Object.entries(RAW_PERSONAS.MINING_COMPANY.productFocuses)) {
+            if (focusData.products.includes(product)) return focusKey;
+        }
+        return 'INDUSTRIAL_MINERALS';
     }
 
     /**
@@ -1020,9 +1186,9 @@ export class CorporationManager {
     }
 
     /**
-     * Conduct monthly board meetings for all corporations
+     * Conduct monthly planning for all corporations (replaces conductBoardMeetings)
      */
-    conductBoardMeetings(gameTime) {
+    conductMonthlyPlanning(gameTime) {
         this.monthsElapsed++;
 
         // Calculate current market state
@@ -1031,7 +1197,7 @@ export class CorporationManager {
         // Update economic phase
         this.economicPhase = determineEconomicPhase(marketState);
 
-        console.log(`📋 Month ${this.monthsElapsed}: Board meetings (Phase: ${this.economicPhase})`);
+        console.log(`📋 Month ${this.monthsElapsed}: Roadmap planning (Phase: ${this.economicPhase})`);
 
         // Try to create new corporations if under target
         let newCorpsCreated = 0;
@@ -1039,43 +1205,195 @@ export class CorporationManager {
             const newCorps = this.generateCorporations();
             newCorpsCreated = newCorps.length;
             if (newCorpsCreated > 0) {
-                // Sync new corporations to SimulationEngine arrays for UI access
                 this.engine.corporations.push(...newCorps);
                 newCorps.forEach(corp => this.engine.corporationsById.set(corp.id, corp));
+                // Seed roadmaps for new corps
+                for (const corp of newCorps) {
+                    this.seedCorporationRoadmap(corp, marketState);
+                }
                 console.log(`   New corporations created: ${newCorpsCreated}`);
             }
         }
 
-        let totalApproved = 0;
-        let totalDeferred = 0;
+        let totalActions = 0;
 
         for (const corporation of this.corporations.values()) {
-            const meeting = this.boardMeeting.conductMeeting(corporation, marketState, gameTime);
-
-            totalApproved += meeting.approvedProjects.length;
-            totalDeferred += meeting.deferredProjects.length;
-
-            // Process approved decisions
-            for (const project of meeting.approvedProjects) {
-                this.processDecision(corporation, project, gameTime);
+            // Seed roadmap if this corp has never had one yet (e.g. loaded from old save)
+            if (!corporation.roadmap.hasPendingAction() && corporation.firms.length === 0) {
+                this.seedCorporationRoadmap(corporation, marketState);
             }
+
+            // Update roadmap: promote actions, evaluate goals
+            const readyActions = corporation.roadmap.update(corporation, marketState, this.monthsElapsed);
+            totalActions += readyActions.length;
+
+            for (const action of readyActions) {
+                this.executeRoadmapAction(corporation, action, gameTime);
+            }
+
+            // Evaluate goal transitions
+            this.evaluateGoalTransitions(corporation, marketState);
         }
 
         // Process pending firm creations
         this.processPendingCreations(gameTime);
 
-        console.log(`   Decisions: ${totalApproved} approved, ${totalDeferred} deferred`);
+        console.log(`   Actions executed: ${totalActions}`);
         console.log(`   Pending firm creations: ${this.pendingFirmCreations.length}`);
 
         return {
             monthsElapsed: this.monthsElapsed,
             economicPhase: this.economicPhase,
-            totalApproved,
-            totalDeferred,
+            totalActions,
             pendingCreations: this.pendingFirmCreations.length,
             newCorporations: newCorpsCreated,
             totalCorporations: this.corporations.size
         };
+    }
+
+    /**
+     * Seed the roadmap for a newly-created corporation.
+     */
+    seedCorporationRoadmap(corp, marketState) {
+        corp.roadmap.seed(corp, marketState, this.monthsElapsed);
+        corp.currentGoal = GOAL_TYPES.ESTABLISH_OPERATIONS;
+        corp.goalStartMonth = this.monthsElapsed;
+    }
+
+    /**
+     * Execute a single roadmap action for a corporation.
+     */
+    executeRoadmapAction(corporation, action, gameTime) {
+        try {
+            switch (action.type) {
+                case DECISION_TYPES.OPEN_FIRM:
+                case DECISION_TYPES.ENTER_CITY: {
+                    // Resolve location before queuing
+                    const persona = action.persona;
+                    if (!persona) {
+                        corporation.roadmap.cancelAction(action.id);
+                        return;
+                    }
+                    // Attach location if not already set
+                    if (!action.city) {
+                        if (action.tier === INDUSTRY_TIERS.RAW || action.tier === INDUSTRY_TIERS.SEMI_RAW) {
+                            const selection = this.selectCityForPersona(persona);
+                            if (selection) {
+                                action.city = selection.city;
+                                action.country = selection.country;
+                                action.selectedResource = selection.selectedResource;
+                            }
+                        } else {
+                            const cities = this.engine.cities;
+                            if (cities.length > 0) {
+                                action.city = cities[Math.floor(this.random() * cities.length)];
+                                action.country = action.city.country;
+                            }
+                        }
+                    }
+                    this.queueFirmCreation(corporation, action, gameTime);
+                    break;
+                }
+
+                case DECISION_TYPES.CLOSE_FIRM: {
+                    if (action.targetFirmId) {
+                        this._closeFirm(corporation, action.targetFirmId);
+                    }
+                    corporation.roadmap.completeAction(action.id);
+                    break;
+                }
+
+                case DECISION_TYPES.DEFER:
+                    // IMPROVE_PROFITABILITY sub-actions (RENEGOTIATE, REDUCE_HEADCOUNT)
+                    if (action.goal === GOAL_TYPES.IMPROVE_PROFITABILITY) {
+                        this._executeProfitabilitySubAction(corporation, action);
+                    }
+                    corporation.roadmap.completeAction(action.id);
+                    break;
+
+                default:
+                    corporation.roadmap.completeAction(action.id);
+            }
+        } catch (err) {
+            console.warn(`executeRoadmapAction error for ${corporation.abbreviation}:`, err.message);
+            corporation.roadmap.cancelAction(action.id);
+        }
+    }
+
+    /**
+     * Evaluate goal state transitions for a corporation each month.
+     */
+    evaluateGoalTransitions(corp, marketState) {
+        const firmCount = corp.firms.length;
+        const targetFirms = corp.goals?.targetFirms || 3;
+
+        // ESTABLISH_OPERATIONS → EXPAND_CAPACITY once first firm exists
+        if (corp.currentGoal === GOAL_TYPES.ESTABLISH_OPERATIONS && firmCount >= 1) {
+            corp.setGoal(GOAL_TYPES.EXPAND_CAPACITY, this.monthsElapsed);
+            corp.goals.completedGoals = corp.goals.completedGoals || [];
+            if (!corp.goals.completedGoals.includes(GOAL_TYPES.ESTABLISH_OPERATIONS)) {
+                corp.goals.completedGoals.push(GOAL_TYPES.ESTABLISH_OPERATIONS);
+            }
+        }
+
+        // EXPAND_CAPACITY → strategic goals once target reached
+        if (corp.currentGoal === GOAL_TYPES.EXPAND_CAPACITY && firmCount >= targetFirms) {
+            const tier = corp.primaryPersona?.tier;
+            // Pick the most appropriate next strategic goal
+            if (tier === INDUSTRY_TIERS.RETAIL) {
+                corp.setGoal(GOAL_TYPES.ENTER_NEW_MARKET, this.monthsElapsed);
+            } else {
+                corp.setGoal(GOAL_TYPES.VERTICAL_INTEGRATION, this.monthsElapsed);
+            }
+        }
+
+        // FULL_VERTICAL milestone
+        if (!corp.isFullyVertical) {
+            corp.updateIntegrationMap();
+            if (corp.isFullyVertical) {
+                console.log(`🏆 ${corp.abbreviation} achieved FULL VERTICAL integration!`);
+                corp.setGoal(GOAL_TYPES.FULL_VERTICAL_MILESTONE, this.monthsElapsed);
+            }
+        }
+    }
+
+    /**
+     * Close a firm owned by a corporation.
+     */
+    _closeFirm(corporation, firmId) {
+        const firm = corporation.firms.find(f => f.id === firmId);
+        if (!firm) return;
+        corporation.removeFirm(firmId);
+        this.engine.firms.delete(firmId);
+        console.log(`   🔒 ${corporation.abbreviation}: Closed firm ${firmId} (consecutive losses)`);
+    }
+
+    /**
+     * Execute IMPROVE_PROFITABILITY sub-actions.
+     */
+    _executeProfitabilitySubAction(corporation, action) {
+        const firm = corporation.firms.find(f => f.id === action.targetFirmId);
+        if (!firm) return;
+
+        switch (action.subAction) {
+            case 'REDUCE_HEADCOUNT':
+                // Reduce efficiency -5% and target -15% labor cost
+                firm.efficiency = Math.max(0.5, (firm.efficiency || 1.0) - 0.05);
+                firm.wageMultiplier = Math.max(0.6, (firm.wageMultiplier || 1.0) - 0.15);
+                console.log(`   ✂️ ${corporation.abbreviation}: REDUCE_HEADCOUNT on ${firm.id}`);
+                break;
+
+            case 'RENEGOTIATE_CONTRACTS':
+                // Mark contracts for renegotiation — ContractManager handles the rest
+                if (firm.contractManager) {
+                    const contracts = firm.contractManager.getActiveContracts?.() || [];
+                    for (const contract of contracts) {
+                        contract.pendingRenegotiation = true;
+                    }
+                }
+                console.log(`   📝 ${corporation.abbreviation}: RENEGOTIATE_CONTRACTS for ${firm.id}`);
+                break;
+        }
     }
 
     /**
@@ -1134,10 +1452,22 @@ export class CorporationManager {
             }
         }
 
+        // Build flat firm list for acquisition checks
+        const firms = [];
+        for (const firm of this.engine.firms.values()) {
+            firms.push({
+                id: firm.id,
+                persona: firm.persona || null,
+                availableForAcquisition: firm.availableForAcquisition || false,
+                acquisitionValue: firm.acquisitionValue || 0
+            });
+        }
+
         return {
             firmCounts,
             suppliers,
             buyers,
+            firms,
             economicPhase: this.economicPhase,
             monthsElapsed: this.monthsElapsed
         };
@@ -1198,6 +1528,11 @@ export class CorporationManager {
 
         // Deduct capital
         corporation.spendCapital(decision.cost || 0, 'Firm creation');
+
+        // Mark roadmap action as completed (the pending firm creation is the follow-through)
+        if (decision.id && corporation.roadmap) {
+            corporation.roadmap.completeAction(decision.id);
+        }
     }
 
     /**
@@ -1215,14 +1550,10 @@ export class CorporationManager {
                     if (firm) {
                         corporation.addFirm(firm);
                         console.log(`   ✅ ${corporation.abbreviation} opened: ${firm.getDisplayName?.() || firm.type} in ${firm.city?.name || 'unknown location'}`);
-                        // Remove from corporation's active projects on success
-                        corporation.completeProject(project.id);
                         completed.push(project.id);
                     } else {
                         // Firm creation failed - log warning and mark as failed
                         console.warn(`   ❌ ${corporation.abbreviation}: Failed to create ${project.persona?.type} - no location available (city: ${project.city?.name || 'null'}, resource: ${project.selectedResource || 'null'})`);
-                        // Mark project as failed and remove it
-                        corporation.completeProject(project.id);
                         completed.push(project.id);
                     }
                 } else {

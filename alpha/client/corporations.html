@@ -167,9 +167,19 @@
             }).join('');
         }
 
+        let renderPending = false;
+        let lastState = {};
+
         stateManager.subscribeAll((state) => {
-            if (state.corporations) {
-                renderCorporations(state.corporations, state.firms);
+            lastState = state;
+            if (!renderPending) {
+                renderPending = true;
+                setTimeout(() => {
+                    renderPending = false;
+                    if (lastState.corporations) {
+                        renderCorporations(lastState.corporations, lastState.firms);
+                    }
+                }, 500);
             }
         });
 

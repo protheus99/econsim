@@ -43,6 +43,7 @@ export class GameSession extends EventEmitter {
             // Create engine adapter
             this.engine = new EngineAdapter({
                 seed: this.seed,
+                name: this.name,
                 ...this.config
             });
 
