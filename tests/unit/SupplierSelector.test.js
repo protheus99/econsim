@@ -19,10 +19,7 @@ const miningFirm = {
     resourceType: 'Iron Ore',
     city: { id: 'cityA', name: 'CityA', country: { name: 'USA' } },
     lotInventory: {
-        getLots: () => [
-            { quantity: 50, quality: 0.9 },
-            { quantity: 30, quality: 0.8 }
-        ]
+        getAvailableQuantity: (productName) => productName === 'Iron Ore' ? 80 : 0
     }
 };
 
@@ -39,7 +36,7 @@ const foreignMine = {
     resourceType: 'Iron Ore',
     city: { id: 'cityB', name: 'CityB', country: { name: 'Germany' } },
     lotInventory: {
-        getLots: () => [{ quantity: 100, quality: 0.85 }]
+        getAvailableQuantity: (productName) => productName === 'Iron Ore' ? 100 : 0
     }
 };
 

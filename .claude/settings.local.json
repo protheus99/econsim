@@ -15,7 +15,15 @@
       "Bash(where:*)",
       "Bash(cmd.exe /c \"cd alpha\\\\server && npm install\")",
       "Bash(ls -la /c/Users/proth/Documents/GitHub/econsim/alpha/client/*.html)",
-      "Bash(xargs grep:*)"
+      "Bash(xargs grep:*)",
+      "Bash(node --input-type=module)",
+      "Bash(node tests/unit/TransactionLog.test.js)",
+      "Bash(node tests/unit/organic-growth.test.js)",
+      "Bash(node tests/unit/SupplierSelector.test.js)",
+      "Bash(node tests/unit/TransportCost.test.js)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(grep -v \"//.*weight\")",
+      "Bash(node -e ':*)"
     ]
   }
 }

@@ -116,56 +116,57 @@ export class ProductRegistry {
         const rawMaterials = [
             // Mining - Metals (B2B: bulk tons/oz, no retail)
             // baseProductionRate = tons/oz per hour extracted
-            { id: 1, name: 'Iron Ore', category: 'METALS', icon: '⛏️', basePrice: 50, weight: 2.0, unit: 'ton', necessityIndex: 0.3, minB2BQuantity: 500, minRetailQuantity: 0, baseProductionRate: 60 },
-            { id: 2, name: 'Copper Ore', category: 'METALS', icon: '🪨', basePrice: 80, weight: 1.8, unit: 'ton', necessityIndex: 0.3, minB2BQuantity: 500, minRetailQuantity: 0, baseProductionRate: 45 },
-            { id: 3, name: 'Aluminum Ore', category: 'METALS', icon: '⚙️', basePrice: 70, weight: 1.5, unit: 'ton', necessityIndex: 0.3, minB2BQuantity: 500, minRetailQuantity: 0, baseProductionRate: 50 },
-            { id: 4, name: 'Gold Ore', category: 'METALS', icon: '🥇', basePrice: 500, weight: 3.0, unit: 'oz', necessityIndex: 0.1, minB2BQuantity: 250, minRetailQuantity: 0, baseProductionRate: 15 },
-            { id: 5, name: 'Silver Ore', category: 'METALS', icon: '🥈', basePrice: 300, weight: 2.5, unit: 'oz', necessityIndex: 0.1, minB2BQuantity: 300, minRetailQuantity: 0, baseProductionRate: 20 },
+            // weight = kg per traded unit (all weights in kg for consistent transport cost calculation)
+            { id: 1, name: 'Iron Ore', category: 'METALS', icon: '⛏️', basePrice: 50, weight: 1000, unit: 'ton', necessityIndex: 0.3, minB2BQuantity: 500, minRetailQuantity: 0, baseProductionRate: 60 },
+            { id: 2, name: 'Copper Ore', category: 'METALS', icon: '🪨', basePrice: 80, weight: 1000, unit: 'ton', necessityIndex: 0.3, minB2BQuantity: 500, minRetailQuantity: 0, baseProductionRate: 45 },
+            { id: 3, name: 'Aluminum Ore', category: 'METALS', icon: '⚙️', basePrice: 70, weight: 1000, unit: 'ton', necessityIndex: 0.3, minB2BQuantity: 500, minRetailQuantity: 0, baseProductionRate: 50 },
+            { id: 4, name: 'Gold Ore', category: 'METALS', icon: '🥇', basePrice: 500, weight: 0.031, unit: 'oz', necessityIndex: 0.1, minB2BQuantity: 250, minRetailQuantity: 0, baseProductionRate: 15 },
+            { id: 5, name: 'Silver Ore', category: 'METALS', icon: '🥈', basePrice: 300, weight: 0.031, unit: 'oz', necessityIndex: 0.1, minB2BQuantity: 300, minRetailQuantity: 0, baseProductionRate: 20 },
 
             // Mining - Minerals (B2B: bulk tons, no retail)
-            { id: 6, name: 'Coal', category: 'MINERALS', icon: '⚫', basePrice: 40, weight: 1.8, unit: 'ton', necessityIndex: 0.4, minB2BQuantity: 1000, minRetailQuantity: 0, baseProductionRate: 80 },
-            { id: 7, name: 'Limestone', category: 'MINERALS', icon: '🪨', basePrice: 20, weight: 2.0, unit: 'ton', necessityIndex: 0.3, minB2BQuantity: 500, minRetailQuantity: 0, baseProductionRate: 100 },
-            { id: 8, name: 'Salt', category: 'MINERALS', icon: '🧂', basePrice: 15, weight: 1.0, unit: 'ton', necessityIndex: 0.5, minB2BQuantity: 100, minRetailQuantity: 0, baseProductionRate: 70 },
+            { id: 6, name: 'Coal', category: 'MINERALS', icon: '⚫', basePrice: 40, weight: 1000, unit: 'ton', necessityIndex: 0.4, minB2BQuantity: 1000, minRetailQuantity: 0, baseProductionRate: 80 },
+            { id: 7, name: 'Limestone', category: 'MINERALS', icon: '🪨', basePrice: 20, weight: 1000, unit: 'ton', necessityIndex: 0.3, minB2BQuantity: 500, minRetailQuantity: 0, baseProductionRate: 100 },
+            { id: 8, name: 'Salt', category: 'MINERALS', icon: '🧂', basePrice: 15, weight: 1000, unit: 'ton', necessityIndex: 0.5, minB2BQuantity: 100, minRetailQuantity: 0, baseProductionRate: 70 },
 
             // Energy (B2B: bulk barrels/mcf, no retail)
-            { id: 9, name: 'Crude Oil', category: 'ENERGY', icon: '🛢️', basePrice: 100, weight: 0.9, unit: 'barrel', necessityIndex: 0.7, minB2BQuantity: 1000, minRetailQuantity: 0, baseProductionRate: 120 },
-            { id: 10, name: 'Natural Gas', category: 'ENERGY', icon: '💨', basePrice: 60, weight: 0.1, unit: 'mcf', necessityIndex: 0.6, minB2BQuantity: 2500, minRetailQuantity: 0, baseProductionRate: 200 },
+            { id: 9, name: 'Crude Oil', category: 'ENERGY', icon: '🛢️', basePrice: 100, weight: 136, unit: 'barrel', necessityIndex: 0.7, minB2BQuantity: 1000, minRetailQuantity: 0, baseProductionRate: 120 },
+            { id: 10, name: 'Natural Gas', category: 'ENERGY', icon: '💨', basePrice: 60, weight: 19, unit: 'mcf', necessityIndex: 0.6, minB2BQuantity: 2500, minRetailQuantity: 0, baseProductionRate: 200 },
 
             // Logging (B2B: bulk cords, no retail)
-            { id: 11, name: 'Softwood Logs', category: 'TIMBER', icon: '🪵', basePrice: 35, weight: 1.5, unit: 'cord', necessityIndex: 0.4, minB2BQuantity: 50, minRetailQuantity: 0, baseProductionRate: 30 },
-            { id: 12, name: 'Hardwood Logs', category: 'TIMBER', icon: '🌳', basePrice: 60, weight: 1.8, unit: 'cord', necessityIndex: 0.3, minB2BQuantity: 25, minRetailQuantity: 0, baseProductionRate: 20 },
+            { id: 11, name: 'Softwood Logs', category: 'TIMBER', icon: '🪵', basePrice: 35, weight: 600, unit: 'cord', necessityIndex: 0.4, minB2BQuantity: 50, minRetailQuantity: 0, baseProductionRate: 30 },
+            { id: 12, name: 'Hardwood Logs', category: 'TIMBER', icon: '🌳', basePrice: 60, weight: 900, unit: 'cord', necessityIndex: 0.3, minB2BQuantity: 25, minRetailQuantity: 0, baseProductionRate: 20 },
 
             // Farming - Crops (B2B: bulk bushels/bales/tons, no retail)
-            { id: 13, name: 'Wheat', category: 'GRAINS', icon: '🌾', basePrice: 10, weight: 0.8, unit: 'bushel', necessityIndex: 0.9, minB2BQuantity: 1000, minRetailQuantity: 0, baseProductionRate: 150 },
-            { id: 14, name: 'Rice', category: 'GRAINS', icon: '🍚', basePrice: 12, weight: 0.8, unit: 'bushel', necessityIndex: 0.9, minB2BQuantity: 1000, minRetailQuantity: 0, baseProductionRate: 120 },
-            { id: 15, name: 'Corn', category: 'GRAINS', icon: '🌽', basePrice: 8, weight: 0.7, unit: 'bushel', necessityIndex: 0.8, minB2BQuantity: 1000, minRetailQuantity: 0, baseProductionRate: 180 },
-            { id: 16, name: 'Cotton', category: 'INDUSTRIAL_CROPS', icon: '🧵', basePrice: 25, weight: 0.5, unit: 'bale', necessityIndex: 0.4, minB2BQuantity: 100, minRetailQuantity: 0, baseProductionRate: 40 },
-            { id: 17, name: 'Sugarcane', category: 'INDUSTRIAL_CROPS', icon: '🎋', basePrice: 15, weight: 1.0, unit: 'ton', necessityIndex: 0.5, minB2BQuantity: 100, minRetailQuantity: 0, baseProductionRate: 80 },
-            { id: 18, name: 'Coffee Beans', category: 'INDUSTRIAL_CROPS', icon: '☕', basePrice: 40, weight: 0.6, unit: 'bag', necessityIndex: 0.6, minB2BQuantity: 50, minRetailQuantity: 0, baseProductionRate: 25 },
+            { id: 13, name: 'Wheat', category: 'GRAINS', icon: '🌾', basePrice: 10, weight: 27, unit: 'bushel', necessityIndex: 0.9, minB2BQuantity: 1000, minRetailQuantity: 0, baseProductionRate: 150 },
+            { id: 14, name: 'Rice', category: 'GRAINS', icon: '🍚', basePrice: 12, weight: 20, unit: 'bushel', necessityIndex: 0.9, minB2BQuantity: 1000, minRetailQuantity: 0, baseProductionRate: 120 },
+            { id: 15, name: 'Corn', category: 'GRAINS', icon: '🌽', basePrice: 8, weight: 25, unit: 'bushel', necessityIndex: 0.8, minB2BQuantity: 1000, minRetailQuantity: 0, baseProductionRate: 180 },
+            { id: 16, name: 'Cotton', category: 'INDUSTRIAL_CROPS', icon: '🧵', basePrice: 25, weight: 218, unit: 'bale', necessityIndex: 0.4, minB2BQuantity: 100, minRetailQuantity: 0, baseProductionRate: 40 },
+            { id: 17, name: 'Sugarcane', category: 'INDUSTRIAL_CROPS', icon: '🎋', basePrice: 15, weight: 1000, unit: 'ton', necessityIndex: 0.5, minB2BQuantity: 100, minRetailQuantity: 0, baseProductionRate: 80 },
+            { id: 18, name: 'Coffee Beans', category: 'INDUSTRIAL_CROPS', icon: '☕', basePrice: 40, weight: 60, unit: 'bag', necessityIndex: 0.6, minB2BQuantity: 50, minRetailQuantity: 0, baseProductionRate: 25 },
 
             // Farming - Livestock (B2B: bulk head/dozen, no retail)
             { id: 19, name: 'Cattle', category: 'LIVESTOCK', icon: '🐄', basePrice: 1200, weight: 500, unit: 'head', necessityIndex: 0.7, minB2BQuantity: 20, minRetailQuantity: 0, baseProductionRate: 2 },
             { id: 20, name: 'Pigs', category: 'LIVESTOCK', icon: '🐷', basePrice: 400, weight: 100, unit: 'head', necessityIndex: 0.6, minB2BQuantity: 50, minRetailQuantity: 0, baseProductionRate: 5 },
             { id: 21, name: 'Chickens', category: 'LIVESTOCK', icon: '🐔', basePrice: 15, weight: 2, unit: 'dozen', necessityIndex: 0.7, minB2BQuantity: 100, minRetailQuantity: 0, baseProductionRate: 20 },
-            { id: 22, name: 'Raw Milk', category: 'ANIMAL_PRODUCTS', icon: '🥛', basePrice: 5, weight: 1.0, unit: 'gallon', necessityIndex: 0.8, minB2BQuantity: 500, minRetailQuantity: 0, baseProductionRate: 100 },
-            { id: 23, name: 'Eggs', category: 'ANIMAL_PRODUCTS', icon: '🥚', basePrice: 3, weight: 0.5, unit: 'dozen', necessityIndex: 0.8, minB2BQuantity: 100, minRetailQuantity: 0, baseProductionRate: 50 },
+            { id: 22, name: 'Raw Milk', category: 'ANIMAL_PRODUCTS', icon: '🥛', basePrice: 5, weight: 3.9, unit: 'gallon', necessityIndex: 0.8, minB2BQuantity: 500, minRetailQuantity: 0, baseProductionRate: 100 },
+            { id: 23, name: 'Eggs', category: 'ANIMAL_PRODUCTS', icon: '🥚', basePrice: 3, weight: 0.6, unit: 'dozen', necessityIndex: 0.8, minB2BQuantity: 100, minRetailQuantity: 0, baseProductionRate: 50 },
 
             // Fishing (B2B: bulk tons, no retail)
-            { id: 24, name: 'Fish', category: 'SEAFOOD', icon: '🐟', basePrice: 200, weight: 1.0, unit: 'ton', necessityIndex: 0.6, minB2BQuantity: 50, minRetailQuantity: 0, baseProductionRate: 25 },
+            { id: 24, name: 'Fish', category: 'SEAFOOD', icon: '🐟', basePrice: 200, weight: 1000, unit: 'ton', necessityIndex: 0.6, minB2BQuantity: 50, minRetailQuantity: 0, baseProductionRate: 25 },
 
             // Additional Industrial Crops
-            { id: 25, name: 'Rubber Latex', category: 'INDUSTRIAL_CROPS', icon: '🌴', basePrice: 80, weight: 0.9, unit: 'ton', necessityIndex: 0.4, minB2BQuantity: 100, minRetailQuantity: 0, baseProductionRate: 30 },
-            { id: 26, name: 'Soybeans', category: 'GRAINS', icon: '🫘', basePrice: 12, weight: 0.8, unit: 'bushel', necessityIndex: 0.7, minB2BQuantity: 500, minRetailQuantity: 0, baseProductionRate: 140 },
+            { id: 25, name: 'Rubber Latex', category: 'INDUSTRIAL_CROPS', icon: '🌴', basePrice: 80, weight: 1000, unit: 'ton', necessityIndex: 0.4, minB2BQuantity: 100, minRetailQuantity: 0, baseProductionRate: 30 },
+            { id: 26, name: 'Soybeans', category: 'GRAINS', icon: '🫘', basePrice: 12, weight: 27, unit: 'bushel', necessityIndex: 0.7, minB2BQuantity: 500, minRetailQuantity: 0, baseProductionRate: 140 },
 
             // Fresh Produce (B2B: bulk crates, no retail - processed before sale)
-            { id: 27, name: 'Fresh Fruits', category: 'PRODUCE', icon: '🍎', basePrice: 30, weight: 0.5, unit: 'crate', necessityIndex: 0.7, minB2BQuantity: 200, minRetailQuantity: 0, baseProductionRate: 60 },
-            { id: 28, name: 'Vegetables', category: 'PRODUCE', icon: '🥕', basePrice: 25, weight: 0.5, unit: 'crate', necessityIndex: 0.75, minB2BQuantity: 200, minRetailQuantity: 0, baseProductionRate: 70 },
+            { id: 27, name: 'Fresh Fruits', category: 'PRODUCE', icon: '🍎', basePrice: 30, weight: 20, unit: 'crate', necessityIndex: 0.7, minB2BQuantity: 200, minRetailQuantity: 0, baseProductionRate: 60 },
+            { id: 28, name: 'Vegetables', category: 'PRODUCE', icon: '🥕', basePrice: 25, weight: 20, unit: 'crate', necessityIndex: 0.75, minB2BQuantity: 200, minRetailQuantity: 0, baseProductionRate: 70 },
 
             // Additional minerals for glass/chemicals
-            { id: 29, name: 'Silica Sand', category: 'MINERALS', icon: '🏖️', basePrice: 15, weight: 2.0, unit: 'ton', necessityIndex: 0.3, minB2BQuantity: 500, minRetailQuantity: 0, baseProductionRate: 90 },
+            { id: 29, name: 'Silica Sand', category: 'MINERALS', icon: '🏖️', basePrice: 15, weight: 1000, unit: 'ton', necessityIndex: 0.3, minB2BQuantity: 500, minRetailQuantity: 0, baseProductionRate: 90 },
 
             // Hides from livestock (byproduct)
-            { id: 30, name: 'Raw Hides', category: 'ANIMAL_PRODUCTS', icon: '🐂', basePrice: 150, weight: 5.0, unit: 'hide', necessityIndex: 0.3, minB2BQuantity: 50, minRetailQuantity: 0, baseProductionRate: 10 }
+            { id: 30, name: 'Raw Hides', category: 'ANIMAL_PRODUCTS', icon: '🐂', basePrice: 150, weight: 10, unit: 'hide', necessityIndex: 0.3, minB2BQuantity: 50, minRetailQuantity: 0, baseProductionRate: 10 }
         ];
         
         rawMaterials.forEach(product => {
@@ -184,7 +185,7 @@ export class ProductRegistry {
             // baseProductionRate = units processed per hour
             {
                 id: 101, name: 'Steel', category: 'REFINED_METALS', icon: '🔩',
-                basePrice: 200, weight: 2.0, unit: 'ton', necessityIndex: 0.5,
+                basePrice: 200, weight: 1000, unit: 'ton', necessityIndex: 0.5,
                 minB2BQuantity: 250, minRetailQuantity: 1, baseProductionRate: 30,
                 inputs: [
                     { material: 'Iron Ore', quantity: 1.2 },
@@ -194,14 +195,14 @@ export class ProductRegistry {
             },
             {
                 id: 102, name: 'Copper Wire', category: 'REFINED_METALS', icon: '📡',
-                basePrice: 180, weight: 1.0, unit: 'spool', necessityIndex: 0.4,
+                basePrice: 180, weight: 50, unit: 'spool', necessityIndex: 0.4,
                 minB2BQuantity: 500, minRetailQuantity: 1, baseProductionRate: 35,
                 inputs: [{ material: 'Copper Ore', quantity: 0.78 }],
                 technologyRequired: 2
             },
             {
                 id: 103, name: 'Aluminum Sheets', category: 'REFINED_METALS', icon: '📄',
-                basePrice: 160, weight: 0.8, unit: 'sheet', necessityIndex: 0.4,
+                basePrice: 160, weight: 20, unit: 'sheet', necessityIndex: 0.4,
                 minB2BQuantity: 1000, minRetailQuantity: 1, baseProductionRate: 40,
                 inputs: [{ material: 'Aluminum Ore', quantity: 0.79 }],
                 technologyRequired: 2
@@ -210,14 +211,14 @@ export class ProductRegistry {
             // Fuels (B2B: bulk barrels, retail: gallons at gas stations)
             {
                 id: 104, name: 'Gasoline', category: 'FUELS', icon: '⛽',
-                basePrice: 150, weight: 0.75, unit: 'barrel', necessityIndex: 0.8,
+                basePrice: 150, weight: 120, unit: 'barrel', necessityIndex: 0.8,
                 minB2BQuantity: 1000, minRetailQuantity: 1, baseProductionRate: 80,
                 inputs: [{ material: 'Crude Oil', quantity: 0.52 }],
                 technologyRequired: 3
             },
             {
                 id: 105, name: 'Diesel', category: 'FUELS', icon: '🚛',
-                basePrice: 140, weight: 0.8, unit: 'barrel', necessityIndex: 0.7,
+                basePrice: 140, weight: 130, unit: 'barrel', necessityIndex: 0.7,
                 minB2BQuantity: 1000, minRetailQuantity: 1, baseProductionRate: 70,
                 inputs: [{ material: 'Crude Oil', quantity: 0.49 }],
                 technologyRequired: 3
@@ -226,14 +227,14 @@ export class ProductRegistry {
             // Lumber (B2B: bulk sheets/tons, retail: hardware stores)
             {
                 id: 106, name: 'Plywood', category: 'LUMBER', icon: '🪚',
-                basePrice: 80, weight: 1.2, unit: 'sheet', necessityIndex: 0.4,
+                basePrice: 80, weight: 20, unit: 'sheet', necessityIndex: 0.4,
                 minB2BQuantity: 500, minRetailQuantity: 1, baseProductionRate: 25,
                 inputs: [{ material: 'Softwood Logs', quantity: 0.79 }],
                 technologyRequired: 1
             },
             {
                 id: 107, name: 'Wood Pulp', category: 'LUMBER', icon: '📃',
-                basePrice: 60, weight: 0.9, unit: 'ton', necessityIndex: 0.3,
+                basePrice: 60, weight: 1000, unit: 'ton', necessityIndex: 0.3,
                 minB2BQuantity: 250, minRetailQuantity: 0, baseProductionRate: 20,
                 inputs: [{ material: 'Softwood Logs', quantity: 0.60 }],
                 technologyRequired: 2
@@ -242,14 +243,14 @@ export class ProductRegistry {
             // Food Ingredients (B2B: bulk bags, retail: supermarkets)
             {
                 id: 108, name: 'Flour', category: 'FOOD_INGREDIENTS', icon: '🍞',
-                basePrice: 25, weight: 1.0, unit: 'bag', necessityIndex: 0.9,
+                basePrice: 25, weight: 25, unit: 'bag', necessityIndex: 0.9,
                 minB2BQuantity: 1000, minRetailQuantity: 1, baseProductionRate: 60,
                 inputs: [{ material: 'Wheat', quantity: 0.87 }],
                 technologyRequired: 1
             },
             {
                 id: 109, name: 'Sugar', category: 'FOOD_INGREDIENTS', icon: '🍬',
-                basePrice: 30, weight: 1.0, unit: 'bag', necessityIndex: 0.7,
+                basePrice: 30, weight: 25, unit: 'bag', necessityIndex: 0.7,
                 minB2BQuantity: 1000, minRetailQuantity: 1, baseProductionRate: 50,
                 inputs: [{ material: 'Sugarcane', quantity: 0.70 }],
                 technologyRequired: 1
@@ -258,7 +259,7 @@ export class ProductRegistry {
             // Textiles (B2B: bulk bolts, retail: fabric stores)
             {
                 id: 110, name: 'Cotton Fabric', category: 'TEXTILES', icon: '🧶',
-                basePrice: 20, weight: 0.4, unit: 'bolt', necessityIndex: 0.6,
+                basePrice: 20, weight: 20, unit: 'bolt', necessityIndex: 0.6,
                 minB2BQuantity: 500, minRetailQuantity: 1, baseProductionRate: 30,
                 inputs: [{ material: 'Cotton', quantity: 0.65 }],
                 technologyRequired: 2
@@ -267,28 +268,28 @@ export class ProductRegistry {
             // Dairy & Meat (B2B: bulk, retail: supermarkets - individual units)
             {
                 id: 111, name: 'Pasteurized Milk', category: 'DAIRY', icon: '🥛',
-                basePrice: 8, weight: 1.0, unit: 'gallon', necessityIndex: 0.85,
+                basePrice: 8, weight: 3.9, unit: 'gallon', necessityIndex: 0.85,
                 minB2BQuantity: 1000, minRetailQuantity: 1, baseProductionRate: 80,
                 inputs: [{ material: 'Raw Milk', quantity: 0.56 }],
                 technologyRequired: 1
             },
             {
                 id: 112, name: 'Beef', category: 'MEAT', icon: '🥩',
-                basePrice: 800, weight: 50, unit: 'cwt', necessityIndex: 0.75,
+                basePrice: 800, weight: 45, unit: 'cwt', necessityIndex: 0.75,
                 minB2BQuantity: 250, minRetailQuantity: 1, baseProductionRate: 8,
                 inputs: [{ material: 'Cattle', quantity: 0.23 }],
                 technologyRequired: 1
             },
             {
                 id: 113, name: 'Pork', category: 'MEAT', icon: '🍖',
-                basePrice: 300, weight: 25, unit: 'cwt', necessityIndex: 0.7,
+                basePrice: 300, weight: 45, unit: 'cwt', necessityIndex: 0.7,
                 minB2BQuantity: 250, minRetailQuantity: 1, baseProductionRate: 15,
                 inputs: [{ material: 'Pigs', quantity: 0.26 }],
                 technologyRequired: 1
             },
             {
                 id: 114, name: 'Chicken', category: 'MEAT', icon: '🍗',
-                basePrice: 12, weight: 1.5, unit: 'lb', necessityIndex: 0.8,
+                basePrice: 12, weight: 0.45, unit: 'lb', necessityIndex: 0.8,
                 minB2BQuantity: 1000, minRetailQuantity: 1, baseProductionRate: 50,
                 inputs: [{ material: 'Chickens', quantity: 0.28 }],
                 technologyRequired: 1
@@ -297,7 +298,7 @@ export class ProductRegistry {
             // Plastics & Polymers (from Crude Oil)
             {
                 id: 115, name: 'Plastic Pellets', category: 'POLYMERS', icon: '🔘',
-                basePrice: 120, weight: 1.0, unit: 'ton', necessityIndex: 0.5,
+                basePrice: 120, weight: 1000, unit: 'ton', necessityIndex: 0.5,
                 minB2BQuantity: 500, minRetailQuantity: 0, baseProductionRate: 40,
                 inputs: [{ material: 'Crude Oil', quantity: 0.42 }],
                 technologyRequired: 3
@@ -306,7 +307,7 @@ export class ProductRegistry {
             // Rubber (from Rubber Latex or Crude Oil for synthetic)
             {
                 id: 116, name: 'Rubber', category: 'POLYMERS', icon: '⚫',
-                basePrice: 150, weight: 1.0, unit: 'ton', necessityIndex: 0.5,
+                basePrice: 150, weight: 1000, unit: 'ton', necessityIndex: 0.5,
                 minB2BQuantity: 500, minRetailQuantity: 0, baseProductionRate: 30,
                 inputs: [{ material: 'Rubber Latex', quantity: 0.65 }],
                 technologyRequired: 2
@@ -315,7 +316,7 @@ export class ProductRegistry {
             // Glass (from Silica Sand and Limestone)
             {
                 id: 117, name: 'Glass', category: 'MATERIALS', icon: '🪟',
-                basePrice: 80, weight: 1.5, unit: 'ton', necessityIndex: 0.4,
+                basePrice: 80, weight: 1000, unit: 'ton', necessityIndex: 0.4,
                 minB2BQuantity: 500, minRetailQuantity: 0, baseProductionRate: 35,
                 inputs: [
                     { material: 'Silica Sand', quantity: 0.70 },
@@ -327,7 +328,7 @@ export class ProductRegistry {
             // Leather (from Raw Hides)
             {
                 id: 118, name: 'Leather', category: 'TEXTILES', icon: '🧥',
-                basePrice: 250, weight: 0.5, unit: 'hide', necessityIndex: 0.4,
+                basePrice: 250, weight: 5, unit: 'hide', necessityIndex: 0.4,
                 minB2BQuantity: 250, minRetailQuantity: 0, baseProductionRate: 20,
                 inputs: [
                     { material: 'Raw Hides', quantity: 0.58 },
@@ -339,7 +340,7 @@ export class ProductRegistry {
             // Chemicals (base chemicals from Crude Oil and Salt)
             {
                 id: 119, name: 'Industrial Chemicals', category: 'CHEMICALS', icon: '🧪',
-                basePrice: 100, weight: 1.0, unit: 'ton', necessityIndex: 0.4,
+                basePrice: 100, weight: 1000, unit: 'ton', necessityIndex: 0.4,
                 minB2BQuantity: 500, minRetailQuantity: 0, baseProductionRate: 45,
                 inputs: [
                     { material: 'Crude Oil', quantity: 0.30 },
@@ -351,7 +352,7 @@ export class ProductRegistry {
             // Paper (from Wood Pulp)
             {
                 id: 120, name: 'Paper', category: 'PAPER', icon: '📄',
-                basePrice: 50, weight: 0.5, unit: 'ream', necessityIndex: 0.5,
+                basePrice: 50, weight: 2.5, unit: 'ream', necessityIndex: 0.5,
                 minB2BQuantity: 1000, minRetailQuantity: 1, baseProductionRate: 60,
                 inputs: [{ material: 'Wood Pulp', quantity: 0.35 }],
                 technologyRequired: 2
@@ -360,7 +361,7 @@ export class ProductRegistry {
             // Processed Fish (from Fish)
             {
                 id: 121, name: 'Processed Fish', category: 'SEAFOOD', icon: '🐠',
-                basePrice: 350, weight: 1.0, unit: 'ton', necessityIndex: 0.5,
+                basePrice: 350, weight: 1000, unit: 'ton', necessityIndex: 0.5,
                 minB2BQuantity: 250, minRetailQuantity: 1, baseProductionRate: 20,
                 inputs: [
                     { material: 'Fish', quantity: 0.60 },
@@ -372,7 +373,7 @@ export class ProductRegistry {
             // Vegetable Oil (from Soybeans or Corn)
             {
                 id: 122, name: 'Vegetable Oil', category: 'FOOD_INGREDIENTS', icon: '🫒',
-                basePrice: 40, weight: 1.0, unit: 'gallon', necessityIndex: 0.7,
+                basePrice: 40, weight: 3.7, unit: 'gallon', necessityIndex: 0.7,
                 minB2BQuantity: 1000, minRetailQuantity: 1, baseProductionRate: 50,
                 inputs: [{ material: 'Soybeans', quantity: 0.75 }],
                 technologyRequired: 1
@@ -381,7 +382,7 @@ export class ProductRegistry {
             // Fruit Concentrate (from Fresh Fruits)
             {
                 id: 123, name: 'Fruit Concentrate', category: 'FOOD_INGREDIENTS', icon: '🍊',
-                basePrice: 45, weight: 1.0, unit: 'gallon', necessityIndex: 0.6,
+                basePrice: 45, weight: 4.0, unit: 'gallon', necessityIndex: 0.6,
                 minB2BQuantity: 1000, minRetailQuantity: 0, baseProductionRate: 40,
                 inputs: [{ material: 'Fresh Fruits', quantity: 0.80 }],
                 technologyRequired: 1
@@ -390,7 +391,7 @@ export class ProductRegistry {
             // Cardboard (from Wood Pulp - for packaging)
             {
                 id: 124, name: 'Cardboard', category: 'PAPER', icon: '📦',
-                basePrice: 35, weight: 0.8, unit: 'sheet', necessityIndex: 0.4,
+                basePrice: 35, weight: 0.5, unit: 'sheet', necessityIndex: 0.4,
                 minB2BQuantity: 2000, minRetailQuantity: 0, baseProductionRate: 70,
                 inputs: [{ material: 'Wood Pulp', quantity: 0.25 }],
                 technologyRequired: 1

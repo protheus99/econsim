@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transactions - EconSim</title>
+    <style>
+        body { background: #121212; color: #fff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 0; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+        header { margin-bottom: 20px; }
+        header h1 { margin: 0; }
+        nav { margin-top: 10px; }
+        nav a { color: #00d4ff; margin-right: 15px; text-decoration: none; }
+        nav a:hover { text-decoration: underline; }
+
+        .toolbar { background: #1e1e1e; padding: 10px 14px; border-radius: 6px; margin-bottom: 14px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        .filter-btn { background: #2a2a2a; border: 1px solid #444; color: #aaa; padding: 5px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+        .filter-btn.active { background: #003a4a; border-color: #00d4ff; color: #00d4ff; }
+        #tx-count { margin-left: auto; color: #666; font-size: 13px; }
+
+        /* Transaction table */
+        .tx-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .tx-table th { color: #666; font-size: 10px; text-transform: uppercase; padding: 8px 10px; text-align: left; border-bottom: 1px solid #2a2a2a; white-space: nowrap; }
+        .tx-table td { padding: 8px 10px; border-bottom: 1px solid #1e1e1e; color: #ccc; vertical-align: middle; }
+        .tx-table tr:hover td { background: #1a1a1a; }
+
+        /* Category badges */
+        .cat-badge { display: inline-block; font-size: 10px; padding: 2px 7px; border-radius: 3px; font-weight: 500; white-space: nowrap; }
+        .cat-B2B_RAW       { background: #1a2e1a; color: #66bb6a; }
+        .cat-B2B_SEMI      { background: #1a2a3a; color: #42a5f5; }
+        .cat-B2B_MANUFACTURED { background: #2a1a3a; color: #ab47bc; }
+        .cat-B2B_WHOLESALE { background: #3a2a00; color: #ffa000; }
+        .cat-B2C_RETAIL    { background: #3a1a1a; color: #ef5350; }
+        .cat-CONTRACT      { background: #003a3a; color: #26c6da; }
+        .cat-other         { background: #2a2a2a; color: #888; }
+
+        .route-cell { font-size: 12px; color: #888; }
+        .route-cell .seller { color: #ddd; }
+        .route-cell .buyer  { color: #ddd; }
+        .route-cell .arrow  { color: #444; margin: 0 4px; }
+
+        .qty-cell { text-align: right; color: #aaa; }
+        .value-cell { text-align: right; font-weight: 500; color: #fff; }
+        .time-cell { color: #555; font-size: 11px; }
+
+        .loading { text-align: center; padding: 50px; color: #888; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Transactions <span style="color: #00d4ff; font-size: 14px;">EconSim ALPHA</span></h1>
+            <nav>
+                <a href="index.html">Dashboard</a>
+                <a href="firms.html">Firms</a>
+                <a href="cities.html">Cities</a>
+                <a href="corporations.html">Corporations</a>
+                <a href="products.html">Products</a>
+                <a href="deliveries.html">Deliveries</a>
+                <a href="transactions.html" style="color: #fff;">Transactions</a>
+            </nav>
+        </header>
+
+        <div class="game-controls-bar" id="game-controls">
+            <div class="game-controls-left">
+                <button class="gc-btn gc-btn-play" id="gc-play" title="Resume">&#9658; Play</button>
+                <button class="gc-btn gc-btn-pause" id="gc-pause" title="Pause">&#10074;&#10074; Pause</button>
+                <span class="gc-separator">|</span>
+                <button class="gc-btn gc-speed" data-speed="1">1x</button>
+                <button class="gc-btn gc-speed" data-speed="2">2x</button>
+                <button class="gc-btn gc-speed" data-speed="4">4x</button>
+                <button class="gc-btn gc-speed" data-speed="8">8x</button>
+                <button class="gc-btn gc-speed" data-speed="24">1D</button>
+                <button class="gc-btn gc-speed" data-speed="168">1W</button>
+                    <button class="gc-btn gc-speed" data-speed="720">1M</button>
+                    <button class="gc-btn gc-speed" data-speed="8760">1Y</button>
+            </div>
+            <div class="game-controls-right">
+                <span id="tx-count">-- transactions</span>
+                <span class="gc-status gc-status-paused" id="gc-status">
+                    <span class="gc-status-indicator gc-indicator-paused" id="gc-indicator"></span>
+                    <span id="gc-status-text">Paused</span>
+                </span>
+                <span class="gc-clock" id="gc-clock">--</span>
+            </div>
+        </div>
+
+        <div class="toolbar">
+            <button class="filter-btn active" data-filter="all">All</button>
+            <button class="filter-btn" data-filter="B2B_RAW">Raw</button>
+            <button class="filter-btn" data-filter="B2B_SEMI">Semi</button>
+            <button class="filter-btn" data-filter="B2B_MANUFACTURED">Mfg</button>
+            <button class="filter-btn" data-filter="B2B_WHOLESALE">Wholesale</button>
+            <button class="filter-btn" data-filter="B2C_RETAIL">Retail</button>
+            <button class="filter-btn" data-filter="CONTRACT">Contract</button>
+        </div>
+
+        <div id="tx-container">
+            <div class="loading">Connecting to server...</div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { wsClient } from './js/WebSocketClient.js';
+        import { stateManager } from './js/StateManager.js';
+        import { setupGameControls, injectControlStyles } from './js/GameControls.js';
+
+        stateManager.init(wsClient);
+        injectControlStyles();
+
+        const txContainer = document.getElementById('tx-container');
+        const countEl = document.getElementById('tx-count');
+
+        let currentFilter = 'all';
+        let currentTransactions = [];
+
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentFilter = btn.dataset.filter;
+                renderTransactions(currentTransactions);
+            });
+        });
+
+        function fmt$(n) {
+            if (n == null || isNaN(n)) return '$0';
+            if (n >= 1e9) return '$' + (n / 1e9).toFixed(2) + 'B';
+            if (n >= 1e6) return '$' + (n / 1e6).toFixed(2) + 'M';
+            if (n >= 1e3) return '$' + (n / 1e3).toFixed(1) + 'K';
+            return '$' + Number(n).toFixed(2);
+        }
+
+        function fmtNum(n) {
+            if (n == null || isNaN(n)) return '0';
+            if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
+            if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
+            return Math.floor(n).toLocaleString();
+        }
+
+        const CAT_LABELS = {
+            B2B_RAW: 'Raw',
+            B2B_SEMI: 'Semi',
+            B2B_MANUFACTURED: 'Mfg',
+            B2B_WHOLESALE: 'Wholesale',
+            B2C_RETAIL: 'Retail',
+            CONTRACT: 'Contract'
+        };
+
+        function catBadge(category) {
+            const label = CAT_LABELS[category] || category || '—';
+            const cls = category ? `cat-${category}` : 'cat-other';
+            return `<span class="cat-badge ${cls}">${label}</span>`;
+        }
+
+        function renderTransactions(transactions) {
+            const filtered = currentFilter === 'all'
+                ? transactions
+                : transactions.filter(tx => tx.category === currentFilter);
+
+            countEl.textContent = filtered.length + ' transactions';
+
+            if (filtered.length === 0) {
+                txContainer.innerHTML = '<div class="loading">No transactions' + (currentFilter !== 'all' ? ' for category: ' + currentFilter : '') + '</div>';
+                return;
+            }
+
+            const rows = filtered.map(tx => {
+                const total = tx.totalValue || (tx.quantity * (tx.unitPrice || 0));
+                return `
+                    <tr>
+                        <td>${catBadge(tx.category)}</td>
+                        <td><strong>${tx.productName || '—'}</strong></td>
+                        <td class="qty-cell">${fmtNum(tx.quantity)}</td>
+                        <td class="qty-cell">${tx.unitPrice ? fmt$(tx.unitPrice) : '—'}</td>
+                        <td class="value-cell">${fmt$(total)}</td>
+                        <td class="route-cell">
+                            <span class="seller">${tx.sellerName || tx.sellerId || '—'}</span>
+                            <span class="arrow">→</span>
+                            <span class="buyer">${tx.buyerName || tx.buyerId || '—'}</span>
+                        </td>
+                        <td class="route-cell">${tx.cityName || '—'}</td>
+                        <td class="time-cell">${tx.gameTime || '—'}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            txContainer.innerHTML = `
+                <table class="tx-table">
+                    <thead>
+                        <tr>
+                            <th>Category</th>
+                            <th>Product</th>
+                            <th style="text-align:right">Qty</th>
+                            <th style="text-align:right">Unit Price</th>
+                            <th style="text-align:right">Total</th>
+                            <th>Route</th>
+                            <th>City</th>
+                            <th>Time</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                </table>
+            `;
+        }
+
+        let _renderTimer = null;
+        stateManager.subscribeAll((state, changedKeys) => {
+            if (changedKeys.includes('recentTransactions')) {
+                currentTransactions = Array.isArray(state.recentTransactions) ? state.recentTransactions : [];
+                clearTimeout(_renderTimer);
+                _renderTimer = setTimeout(() => renderTransactions(currentTransactions), 300);
+            }
+        });
+
+        async function init() {
+            const sessionId = sessionStorage.getItem('activeSessionId');
+            if (!sessionId) {
+                txContainer.innerHTML = '<div class="loading">No active session. <a href="index.html" style="color: #00d4ff;">Go to Dashboard</a></div>';
+                return;
+            }
+            try {
+                await wsClient.connect();
+                setupGameControls(wsClient, stateManager);
+                await fetch('/api/v1/games/' + sessionId + '/load', { method: 'POST' });
+                await wsClient.joinSession(sessionId);
+                txContainer.innerHTML = '<div class="loading">Loading transactions...</div>';
+            } catch (e) {
+                console.error('Error:', e);
+                txContainer.innerHTML = '<div class="loading">Error connecting. <a href="index.html" style="color: #00d4ff;">Go to Dashboard</a></div>';
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>

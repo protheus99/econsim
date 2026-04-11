@@ -293,7 +293,23 @@ export class Farm extends Firm {
             // Use product's baseProductionRate * growing hours for total yield
             const technologyBonus = this.technologyLevel * 0.05;
             const efficiencyFactor = this.efficiency || 1.0;
-            const totalYield = this.baseProductionRate * seasonHours * (1 + technologyBonus) * efficiencyFactor;
+            let totalYield = this.baseProductionRate * seasonHours * (1 + technologyBonus) * efficiencyFactor;
+
+            // Throttle yield when inventory exceeds contract demand
+            if (this.contractManager) {
+                const productName = this.cropType;
+                const currentInventory = this.getAvailableQuantity();
+                const perishable = isPerishable(productName);
+                const shelfLife = perishable ? getShelfLife(productName) : 30;
+                const throttleCheck = this.contractManager.shouldThrottleProduction(
+                    this, productName, currentInventory, perishable, shelfLife
+                );
+                if (throttleCheck.shouldThrottle) {
+                    totalYield *= (1 - throttleCheck.throttlePercent / 100);
+                    this.consecutiveThrottleCycles = (this.consecutiveThrottleCycles || 0) + 1;
+                    this.lastThrottleReason = throttleCheck.reason;
+                }
+            }
 
             // Track production rate (average over growing season)
             this.actualProductionRate = totalYield / seasonHours;
@@ -448,6 +464,8 @@ export class Farm extends Firm {
     createLot(productName) {
         // Check if lot inventory has capacity
         if (this.lotInventory.lots.size >= this.lotInventory.storageCapacity) {
+            this.consecutiveThrottleCycles = (this.consecutiveThrottleCycles || 0) + 1;
+            this.lastThrottleReason = 'storage_full';
             return null;
         }
 

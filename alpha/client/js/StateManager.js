@@ -32,6 +32,15 @@ export class StateManager {
             productMarketData: {},
             productCatalog: {},
 
+            // Transaction history
+            recentTransactions: [],
+
+            // Pending deliveries (in-transit)
+            pendingDeliveries: [],
+
+            // Supply contracts
+            contracts: [],
+
             // Display summaries
             firmsSummary: null,
             citiesSummary: null
@@ -96,6 +105,55 @@ export class StateManager {
                 speed: data.speed
             });
         });
+
+        // Handle delta updates (daily/monthly partial state)
+        wsClient.on('deltaUpdate', (data) => {
+            this._handleDelta(data);
+        });
+    }
+
+    /**
+     * Handle delta update: shallow-merge changed slices into state
+     */
+    _handleDelta(data) {
+        const updates = {};
+
+        if (data.clock) {
+            updates.clock = data.clock;
+        }
+
+        // Daily delta: firms (deep merge by id — preserve displayName/type/city from initial state)
+        if (data.firms) {
+            const merged = { ...this.state.firms };
+            for (const [id, delta] of Object.entries(data.firms)) {
+                merged[id] = { ...(merged[id] || {}), ...delta };
+            }
+            updates.firms = merged;
+        }
+        if (data.productMarketData) {
+            updates.productMarketData = data.productMarketData;
+        }
+        if (data.recentTransactions) {
+            updates.recentTransactions = data.recentTransactions;
+        }
+        if (data.pendingDeliveries) {
+            updates.pendingDeliveries = data.pendingDeliveries;
+        }
+        if (data.contracts) {
+            updates.contracts = data.contracts;
+        }
+
+        // Monthly delta: corporations (replace array) + cities (shallow merge by id)
+        if (data.corporations) {
+            updates.corporations = data.corporations;
+        }
+        if (data.cities) {
+            updates.cities = { ...this.state.cities, ...data.cities };
+        }
+
+        if (Object.keys(updates).length > 0) {
+            this._update(updates);
+        }
     }
 
     /**
@@ -115,7 +173,10 @@ export class StateManager {
             cities: data.cities || {},
             corporations: data.corporations || [],
             productMarketData: data.productMarketData || {},
-            productCatalog: data.productCatalog || {}
+            productCatalog: data.productCatalog || {},
+            recentTransactions: data.recentTransactions || [],
+            pendingDeliveries: data.pendingDeliveries || [],
+            contracts: data.contracts || []
         };
 
         // Add display data if present

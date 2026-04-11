@@ -2,8 +2,24 @@
 // Goal-driven corporate roadmap system — replaces BoardMeeting
 // Three planning horizons: SHORT (0-3mo), MEDIUM (3-12mo), LONG (12+mo)
 
-import { GOAL_TYPES, INDUSTRY_TIERS } from './Corporation.js';
 import { DECISION_TYPES, FIRM_CREATION_TIMELINE, CAPITAL_REQUIREMENTS } from './BoardMeeting.js';
+
+// Inlined to avoid circular dependency with Corporation.js
+const INDUSTRY_TIERS = {
+    RAW: 'RAW', SEMI_RAW: 'SEMI_RAW', MANUFACTURED: 'MANUFACTURED',
+    RETAIL: 'RETAIL', SERVICES: 'SERVICES'
+};
+const GOAL_TYPES = {
+    ESTABLISH_OPERATIONS: 'ESTABLISH_OPERATIONS',
+    SECURE_SUPPLY: 'SECURE_SUPPLY',
+    EXPAND_CAPACITY: 'EXPAND_CAPACITY',
+    VERTICAL_INTEGRATION: 'VERTICAL_INTEGRATION',
+    HORIZONTAL_EXPANSION: 'HORIZONTAL_EXPANSION',
+    INCREASE_MARKET_SHARE: 'INCREASE_MARKET_SHARE',
+    IMPROVE_PROFITABILITY: 'IMPROVE_PROFITABILITY',
+    ENTER_NEW_MARKET: 'ENTER_NEW_MARKET',
+    FULL_VERTICAL_MILESTONE: 'FULL_VERTICAL_MILESTONE'
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants

@@ -231,6 +231,13 @@ export class SessionManager extends EventEmitter {
         session.on('tick', (tickData) => {
             // Could aggregate metrics here
         });
+
+        // Save whenever the simulation is paused so progress is never lost
+        session.on('paused', () => {
+            this._saveSession(session, 'pause_save').catch(e => {
+                console.warn(`Could not save on pause for session ${session.id}:`, e);
+            });
+        });
     }
 
     /**
@@ -296,7 +303,7 @@ export class SessionManager extends EventEmitter {
             id: game.id,
             name: game.name,
             seed: game.seed,
-            config: game.config ? JSON.parse(game.config) : {},
+            config: typeof game.config === 'string' ? JSON.parse(game.config) : (game.config || {}),
             savedState
         });
     }
@@ -309,7 +316,7 @@ export class SessionManager extends EventEmitter {
 
         this.autosaveTimer = setInterval(async () => {
             for (const session of this.sessions.values()) {
-                if (session.status === 'active') {
+                if (session.status === 'active' || session.status === 'paused') {
                     try {
                         await this._saveSession(session, 'autosave');
                     } catch (e) {

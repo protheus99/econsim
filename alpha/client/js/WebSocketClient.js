@@ -28,6 +28,7 @@ export class WebSocketClient {
             tick: [],
             initialState: [],
             controlUpdate: [],
+            deltaUpdate: [],
             sessionJoined: [],
             sessionLeft: []
         };
@@ -142,6 +143,10 @@ export class WebSocketClient {
 
                 case 'TICK_UPDATE':
                     this._emit('tick', message.payload);
+                    break;
+
+                case 'DELTA_UPDATE':
+                    this._emit('deltaUpdate', message.payload);
                     break;
 
                 case 'CONTROL_UPDATE':

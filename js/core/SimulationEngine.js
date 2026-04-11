@@ -135,8 +135,6 @@ export class SimulationEngine {
                 defaultThreshold: 3
             },
             purchasing: {
-                // Use new PurchaseManager system (set to false for legacy behavior)
-                useNewSystem: true,
                 // Enable contract-based purchasing
                 enableContracts: true,
                 // Enable supplier scoring with transport costs
@@ -252,9 +250,14 @@ export class SimulationEngine {
 
         // Generate corporations and build lookup Map
         if (this.config.corporations?.organicGrowth) {
-            // Use new organic growth system - corporations with personas
-            this.corporations = this.corporationManager.generateCorporations();
-            console.log('✅ Using organic growth system - firms created via board meetings');
+            // Use new organic growth system - corporations with personas.
+            // IMPORTANT: push into the existing array rather than replacing it.
+            // ensureMineralCoverage() (called inside generateCorporations) pushes mineral corps
+            // directly to this.corporations via this.engine.corporations.push().
+            // If we replace the array reference, those corps would be lost.
+            const newCorps = this.corporationManager.generateCorporations();
+            this.corporations.push(...newCorps);
+            console.log('✅ Using organic growth system - firms created via roadmap');
         } else {
             // Legacy system - simple corporations
             this.corporations = this.generateCorporations();
@@ -927,120 +930,12 @@ export class SimulationEngine {
         });
 
         // Step 2 & 3: Process purchasing and supply chain
-        if (this.config.purchasing?.useNewSystem && this.purchaseManager) {
-            // New unified purchasing system handles:
-            // - Contract fulfillment
-            // - Manufacturer purchasing with supplier scoring
-            // - Retail restocking
-            // - Competitive retail sales
-            this.purchaseManager.processPurchasing(currentHour);
-        } else {
-            // Legacy system: separate retail and supply chain processing
-            // Step 2: Process competitive retail sales using city-wide demand
-            this.processCompetitiveRetailSales(currentHour);
-
-            // Step 3: Process supply chain transactions
-            this.processSupplyChain();
-        }
+        this.purchaseManager.processPurchasing(currentHour);
 
         // Debug: Log supply chain stats every 24 hours (once per game day)
         if (this.dailyTick === 0) {
             this.logSupplyChainStats();
         }
-    }
-
-    /**
-     * Process competitive retail sales using city-wide demand distribution
-     * Replaces the old per-retailer sellHourly system
-     */
-    processCompetitiveRetailSales(currentHour) {
-        if (!this.cityRetailDemandManager) return;
-
-        // Process city-wide demand and distribute to retailers competitively
-        const demandStats = this.cityRetailDemandManager.processCompetitiveRetailSales(currentHour);
-
-        // Log retail sales for each retailer
-        this.firms.forEach(firm => {
-            if (firm.type === 'RETAIL') {
-                const sales = firm.getPendingCompetitiveSales();
-                if (sales && sales.length > 0) {
-                    this.logCompetitiveRetailSales(firm, sales);
-                }
-            }
-        });
-
-        // Update stats
-        this.stats.competitiveRetailDemand = demandStats.totalDemand;
-        this.stats.competitiveRetailFulfilled = demandStats.fulfilledDemand;
-        this.stats.competitiveRetailUnfulfilled = demandStats.unfulfilledDemand;
-
-        // Log demand stats periodically (every 24 hours)
-        if (this.dailyTick === 0 && demandStats.totalDemand > 0) {
-            const fulfillmentRate = (demandStats.fulfilledDemand / demandStats.totalDemand * 100).toFixed(1);
-            console.log(`📊 Retail Demand: ${demandStats.totalDemand} total, ${demandStats.fulfilledDemand} fulfilled (${fulfillmentRate}%)`);
-        }
-    }
-
-    /**
-     * Log sales from competitive retail system
-     */
-    logCompetitiveRetailSales(retailer, sales) {
-        let totalRevenue = 0;
-        let totalTransactions = 0;
-
-        sales.forEach(sale => {
-            this.transactionLog.logConsumerSale(
-                retailer,
-                sale.productName,
-                sale.quantity,
-                sale.unitPrice,
-                sale.total,
-                retailer.city?.name || 'Unknown'
-            );
-            totalRevenue += sale.total;
-            totalTransactions++;
-        });
-
-        // Update stats
-        this.stats.consumerSales = (this.stats.consumerSales || 0) + totalTransactions;
-        this.stats.consumerRevenue = (this.stats.consumerRevenue || 0) + totalRevenue;
-    }
-
-    logRetailConsumerSales(retailer, salesResult) {
-        // Aggregate sales by product for cleaner logging
-        const aggregatedSales = new Map();
-
-        salesResult.productSales.forEach(sale => {
-            const key = sale.productId;
-            if (aggregatedSales.has(key)) {
-                const existing = aggregatedSales.get(key);
-                existing.quantity += sale.quantity;
-                existing.total += sale.total;
-            } else {
-                aggregatedSales.set(key, {
-                    productName: sale.productName,
-                    quantity: sale.quantity,
-                    unitPrice: sale.unitPrice,
-                    total: sale.total
-                });
-            }
-        });
-
-        // Log each product sale as a consumer transaction
-        aggregatedSales.forEach((sale, productId) => {
-            this.transactionLog.logConsumerSale(
-                retailer,
-                sale.productName,
-                sale.quantity,
-                sale.unitPrice,
-                sale.total,
-                retailer.city?.name || 'Unknown'
-            );
-        });
-
-        // Update stats
-        this.stats.consumerSales = (this.stats.consumerSales || 0) + salesResult.transactions;
-        this.stats.consumerRevenue = (this.stats.consumerRevenue || 0) + salesResult.revenue;
     }
 
     logSupplyChainStats() {
@@ -1082,122 +977,6 @@ export class SimulationEngine {
         const dateStr = `Year ${this.clock.year}, Month ${this.clock.month}, Day ${this.clock.day}`;
         const nameStr = this.gameName ? `[${this.gameName}] ` : '';
         console.log(`📊 ${nameStr}Daily Supply Chain Stats (${dateStr}):`, stats);
-    }
-
-    processSupplyChain() {
-        const allManufacturers = Array.from(this.firms.values()).filter(f => f.type === 'MANUFACTURING');
-        const semiRawManufacturers = allManufacturers.filter(m => m.isSemiRawProducer === true);
-        const finalManufacturers = allManufacturers.filter(m => m.isSemiRawProducer === false);
-        const retailers = Array.from(this.firms.values()).filter(f => f.type === 'RETAIL');
-        const primaryProducers = Array.from(this.firms.values()).filter(f =>
-            f.type === 'MINING' || f.type === 'LOGGING' || f.type === 'FARM'
-        );
-
-        // Helper: Categorize suppliers by location relative to buyer
-        const categorizeSuppliers = (suppliers, buyerCity, buyerCountry) => {
-            const local = [];
-            const domestic = [];
-            const international = [];
-
-            suppliers.forEach(s => {
-                const supplierCity = s.city?.name;
-                const supplierCountry = s.city?.country?.name || s.country?.name;
-
-                if (supplierCity === buyerCity) {
-                    local.push(s);
-                } else if (supplierCountry === buyerCountry) {
-                    domestic.push(s);
-                } else {
-                    international.push(s);
-                }
-            });
-
-            return { local, domestic, international };
-        };
-
-        // Helper: Select best supplier by location priority (local > domestic > international)
-        const selectBestSupplier = (categorized, getInventoryQty) => {
-            // Sort each group by inventory quantity (highest first)
-            const sortByQty = arr => arr.sort((a, b) => getInventoryQty(b) - getInventoryQty(a));
-
-            if (categorized.local.length > 0) {
-                return { supplier: sortByQty(categorized.local)[0], source: 'local' };
-            }
-            if (categorized.domestic.length > 0) {
-                return { supplier: sortByQty(categorized.domestic)[0], source: 'domestic' };
-            }
-            if (categorized.international.length > 0) {
-                return { supplier: sortByQty(categorized.international)[0], source: 'international' };
-            }
-            return null;
-        };
-
-        // TIER 1: Primary producers sell RAW materials to SEMI_RAW manufacturers
-        semiRawManufacturers.forEach(manufacturer => {
-            if (!manufacturer.product || !manufacturer.product.inputs) return;
-
-            const buyerCity = manufacturer.city?.name;
-            const buyerCountry = manufacturer.city?.country?.name || manufacturer.country?.name;
-
-            manufacturer.product.inputs.forEach(input => {
-                const neededMaterial = input.material; // e.g., "Iron Ore", "Coal"
-                const currentStock = manufacturer.rawMaterialInventory.get(neededMaterial);
-                if (currentStock && currentStock.quantity >= currentStock.minRequired) return; // Already stocked
-
-                const neededQuantity = Math.floor(input.quantity * 50); // Buy enough for ~50 hours
-
-                // Find primary producers that produce this RAW material
-                const allSuppliers = primaryProducers.filter(p => {
-                    const producesType = p.resourceType || p.timberType || p.cropType || p.livestockType;
-                    return producesType === neededMaterial && p.inventory && p.inventory.quantity > 0;
-                });
-
-                const categorized = categorizeSuppliers(allSuppliers, buyerCity, buyerCountry);
-                const selection = selectBestSupplier(categorized, s => s.inventory?.quantity || 0);
-
-                if (selection) {
-                    this.executeTrade(selection.supplier, manufacturer, neededMaterial, neededQuantity);
-                }
-                // No global market fallback - local suppliers only
-            });
-        });
-
-        // TIER 2: SEMI_RAW manufacturers sell to MANUFACTURED manufacturers
-        finalManufacturers.forEach(manufacturer => {
-            if (!manufacturer.product || !manufacturer.product.inputs) return;
-
-            const buyerCity = manufacturer.city?.name;
-            const buyerCountry = manufacturer.city?.country?.name || manufacturer.country?.name;
-
-            manufacturer.product.inputs.forEach(input => {
-                const neededMaterial = input.material; // e.g., "Steel", "Copper Wire"
-                const currentStock = manufacturer.rawMaterialInventory.get(neededMaterial);
-                if (currentStock && currentStock.quantity >= currentStock.minRequired) return;
-
-                const neededQuantity = Math.floor(input.quantity * 50); // Buy enough for ~50 hours
-
-                // Find SEMI_RAW manufacturers that produce this material
-                const allSuppliers = semiRawManufacturers.filter(m => {
-                    return m.product &&
-                           m.product.name === neededMaterial &&
-                           m.finishedGoodsInventory &&
-                           m.finishedGoodsInventory.quantity > 0;
-                });
-
-                const categorized = categorizeSuppliers(allSuppliers, buyerCity, buyerCountry);
-                const selection = selectBestSupplier(categorized, s => s.finishedGoodsInventory?.quantity || 0);
-
-                if (selection) {
-                    this.executeManufacturerToManufacturerTrade(selection.supplier, manufacturer, neededMaterial, neededQuantity);
-                }
-                // No global market fallback - local suppliers only
-            });
-        });
-
-        // TIER 3: Retail purchasing handled by contracts only
-        // NOTE: Retail stores only purchase through contracts, not spot purchases
-        // This is now handled by PurchaseManager.processRetailRestocking() via contracts
-        // No spot purchases from manufacturers to retailers
     }
 
     /**

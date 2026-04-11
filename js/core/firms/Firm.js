@@ -46,6 +46,11 @@ export class Firm {
         this.consecutiveLossMonths = 0;
         this.availableForAcquisition = false;
         this.acquisitionValue = 0;  // updated each month = totalAssets * 1.5
+
+        // Production health diagnostics
+        this.noSaleStreak = 0;              // consecutive months with zero revenue
+        this.consecutiveThrottleCycles = 0; // production cycles where throttle > 0 or storage full
+        this.lastThrottleReason = null;     // 'no_contracts' | 'excess_inventory' | 'storage_full'
     }
     
     generateId() {
@@ -185,6 +190,14 @@ export class Firm {
             this.consecutiveLossMonths = 0;
         }
         this.acquisitionValue = (this.totalAssets || 0) * 1.5;
+
+        // Track no-sale streak (reset throttle cycle counter each month)
+        if ((this.monthlyRevenue || 0) === 0) {
+            this.noSaleStreak = (this.noSaleStreak || 0) + 1;
+        } else {
+            this.noSaleStreak = 0;
+        }
+        this.consecutiveThrottleCycles = 0; // reset monthly; firms increment during production
     }
 
     /**
@@ -219,6 +232,9 @@ export class Firm {
             consecutiveLossMonths: this.consecutiveLossMonths || 0,
             availableForAcquisition: this.availableForAcquisition || false,
             acquisitionValue: this.acquisitionValue || 0,
+            noSaleStreak: this.noSaleStreak || 0,
+            consecutiveThrottleCycles: this.consecutiveThrottleCycles || 0,
+            lastThrottleReason: this.lastThrottleReason || null,
             loans: (this.loans || []).map(loan => ({
                 id: loan.id,
                 borrowerId: loan.borrowerId,
@@ -257,8 +273,14 @@ export class Firm {
         this.technologyLevel = state.technologyLevel ?? this.technologyLevel;
         this.efficiency = state.efficiency ?? this.efficiency;
         this.loans = state.loans ?? this.loans;
+        // Corporation linkage — required for rewireCorporationFirms after load
+        if (state.corporationId !== undefined) this.corporationId = state.corporationId;
+        if (state.corporationAbbreviation !== undefined) this.corporationAbbreviation = state.corporationAbbreviation;
         this.consecutiveLossMonths = state.consecutiveLossMonths ?? this.consecutiveLossMonths;
         this.availableForAcquisition = state.availableForAcquisition ?? this.availableForAcquisition;
         this.acquisitionValue = state.acquisitionValue ?? this.acquisitionValue;
+        this.noSaleStreak = state.noSaleStreak ?? this.noSaleStreak;
+        this.consecutiveThrottleCycles = state.consecutiveThrottleCycles ?? this.consecutiveThrottleCycles;
+        this.lastThrottleReason = state.lastThrottleReason ?? this.lastThrottleReason;
     }
 }

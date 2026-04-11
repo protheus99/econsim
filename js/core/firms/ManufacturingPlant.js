@@ -1342,6 +1342,8 @@ export class ManufacturingPlant extends Firm {
         if (!this.lotInventory) return null;
 
         if (this.lotInventory.lots.size >= this.lotInventory.storageCapacity) {
+            this.consecutiveThrottleCycles = (this.consecutiveThrottleCycles || 0) + 1;
+            this.lastThrottleReason = 'storage_full';
             return null;
         }
 
@@ -1390,6 +1392,8 @@ export class ManufacturingPlant extends Firm {
 
         // Check if lot inventory has capacity
         if (this.lotInventory.lots.size >= this.lotInventory.storageCapacity) {
+            this.consecutiveThrottleCycles = (this.consecutiveThrottleCycles || 0) + 1;
+            this.lastThrottleReason = 'storage_full';
             return null;
         }
 

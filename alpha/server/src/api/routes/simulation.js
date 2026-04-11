@@ -72,11 +72,11 @@ export function createSimulationRouter(sessionManager) {
 
     /**
      * POST /api/v1/games/:id/speed - Set simulation speed
-     * Body: { speed: 1|2|4|8|24|168 }
+     * Body: { speed: 1|2|4|8|24|168|720|8760 }
      */
     router.post('/:id/speed', getSession, (req, res) => {
         const { speed } = req.body;
-        const validSpeeds = [1, 2, 4, 8, 24, 168];
+        const validSpeeds = [1, 2, 4, 8, 24, 168, 720, 8760];
 
         if (!speed || !validSpeeds.includes(speed)) {
             return res.status(400).json({

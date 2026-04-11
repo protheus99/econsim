@@ -199,7 +199,9 @@ export class SupplierSelector {
         let transportScore = 50;
         let transportCost = 0;
         if (options.considerTransport) {
-            const transport = TransportCost.calculate(supplierCity, buyerCity, quantity);
+            const productDef = this.engine.productRegistry?.getProductByName(productName);
+            const weightPerUnit = productDef?.weight ?? 1.0;
+            const transport = TransportCost.calculate(supplierCity, buyerCity, quantity, weightPerUnit);
             transportCost = transport.cost;
             transportScore = this.calculateTransportScore(transportCost, quantity, unitPrice);
         }

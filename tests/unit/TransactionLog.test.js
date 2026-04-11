@@ -40,10 +40,10 @@ function runTests() {
     const results = [];
 
     // B1.1: CATEGORIES constants
-    results.push(test('B1.1 CATEGORIES has all 7 types', () => {
+    results.push(test('B1.1 CATEGORIES has all 6 types', () => {
         const cats = TransactionLog.CATEGORIES;
         return cats.B2B_RAW && cats.B2B_SEMI && cats.B2B_MANUFACTURED &&
-               cats.B2B_WHOLESALE && cats.B2C_RETAIL && cats.GLOBAL_MARKET && cats.CONTRACT;
+               cats.B2B_WHOLESALE && cats.B2C_RETAIL && cats.CONTRACT;
     }));
 
     // B1.2: RAW_PRODUCER_TYPES includes MINING
@@ -53,12 +53,6 @@ function runTests() {
 
     // Create fresh log for each set of tests
     const log = new TransactionLog();
-
-    // B1.3: categorize GLOBAL_MARKET
-    results.push(test('B1.3 categorize GLOBAL_MARKET type', () => {
-        const tx = { type: 'GLOBAL_MARKET' };
-        return log.categorize(tx) === 'GLOBAL_MARKET';
-    }));
 
     // B1.4: categorize with contractId
     results.push(test('B1.4 categorize with contractId = CONTRACT', () => {
@@ -130,12 +124,6 @@ function runTests() {
             lotInfo: { id: 'retaillot', quality: 0.85 }
         });
         return tx.lotId === 'retaillot' && tx.lotQuality === 0.85;
-    }));
-
-    // B1.15: logGlobalMarketPurchase
-    results.push(test('B1.15 logGlobalMarketPurchase creates GLOBAL_MARKET', () => {
-        const tx = log.logGlobalMarketPurchase(steelMill, 'Iron Ore', 200, 60);
-        return tx.category === 'GLOBAL_MARKET' && tx.type === 'GLOBAL_MARKET';
     }));
 
     // B1.16: getByCategory

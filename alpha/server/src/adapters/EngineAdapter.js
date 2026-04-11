@@ -35,6 +35,10 @@ export class EngineAdapter extends EventEmitter {
         this.isPaused = true;
         this.lastTickTime = null;
 
+        // Batch mode: for high speeds we run multiple updateHourly() calls per interval
+        // and suppress intermediate daily/monthly delta broadcasts to avoid WS message floods
+        this.isBatching = false;
+
         // Bind browser event bus to our events
         this._setupEventBridge();
     }
@@ -198,15 +202,13 @@ export class EngineAdapter extends EventEmitter {
         this.engine?.clock?.resume();
         this.lastTickTime = Date.now();
 
-        // Get base interval from config (default 1000ms = 1 game hour per second)
-        const baseInterval = this.engine?.config?.simulation?.timeScale?.realSecond || 1000;
-        const interval = Math.max(10, Math.floor(baseInterval / this.speed));
+        const { interval, batchSize } = this._speedParams(this.speed);
 
         this.tickInterval = setInterval(() => {
-            this._tick();
+            this._tick(batchSize);
         }, interval);
 
-        console.log(`▶️ Simulation started (speed: ${this.speed}x, interval: ${interval}ms)`);
+        console.log(`▶️ Simulation started (speed: ${this.speed}x, interval: ${interval}ms, batch: ${batchSize})`);
         this.emit('started', { speed: this.speed });
     }
 
@@ -239,8 +241,22 @@ export class EngineAdapter extends EventEmitter {
      * Set simulation speed
      * @param {number} speed - Speed multiplier (1, 2, 4, 8, 24, 168)
      */
+    /**
+     * Compute interval (ms) and batchSize (ticks per interval) for a given speed.
+     * speeds ≤ 168: 1 tick per interval, interval = max(10, 1000/speed)
+     * speeds > 168:  fixed 100ms interval, batchSize = speed / 10
+     */
+    _speedParams(speed) {
+        const baseInterval = this.engine?.config?.simulation?.timeScale?.realSecond || 1000;
+        if (speed <= 168) {
+            return { interval: Math.max(10, Math.floor(baseInterval / speed)), batchSize: 1 };
+        }
+        // High-speed batch mode: 100ms interval, N ticks per fire
+        return { interval: 100, batchSize: Math.round(speed / 10) };
+    }
+
     setSpeed(speed) {
-        const validSpeeds = [1, 2, 4, 8, 24, 168];
+        const validSpeeds = [1, 2, 4, 8, 24, 168, 720, 8760];
         if (!validSpeeds.includes(speed)) {
             console.warn(`Invalid speed ${speed}, using closest valid speed`);
             speed = validSpeeds.reduce((prev, curr) =>
@@ -252,19 +268,15 @@ export class EngineAdapter extends EventEmitter {
 
         // Restart interval with new speed if running
         if (!this.isPaused && this.tickInterval) {
-            // Clear the old interval
             clearInterval(this.tickInterval);
             this.tickInterval = null;
 
-            // Recalculate and start new interval (don't pause/resume the clock)
-            const baseInterval = this.engine?.config?.simulation?.timeScale?.realSecond || 1000;
-            const interval = Math.max(10, Math.floor(baseInterval / this.speed));
-
+            const { interval, batchSize } = this._speedParams(speed);
             this.tickInterval = setInterval(() => {
-                this._tick();
+                this._tick(batchSize);
             }, interval);
 
-            console.log(`⏩ Speed changed to ${speed}x (interval: ${interval}ms)`);
+            console.log(`⏩ Speed changed to ${speed}x (interval: ${interval}ms, batch: ${batchSize})`);
         } else {
             console.log(`⏩ Speed set to ${speed}x (will apply when resumed)`);
         }
@@ -273,23 +285,36 @@ export class EngineAdapter extends EventEmitter {
     }
 
     /**
-     * Execute one simulation tick
+     * Execute one or more simulation ticks.
+     * @param {number} batchSize - Number of game hours to advance per call (default 1)
+     *
+     * When batchSize > 1 (high-speed mode) we set `isBatching = true` so that
+     * GameSession suppresses intermediate daily/monthly delta broadcasts.
+     * After the batch we emit 'batchComplete' so GameSession can send one
+     * consolidated delta covering the whole batch.
      */
-    _tick() {
+    _tick(batchSize = 1) {
         if (!this.engine || this.isPaused) return;
 
         try {
-            // Advance the clock first (this is what the original SimulationEngine does)
-            this.engine.clock.tick();
+            if (batchSize > 1) {
+                this.isBatching = true;
+                for (let i = 0; i < batchSize; i++) {
+                    this.engine.clock.tick();
+                    this.engine.updateHourly();
+                }
+                this.isBatching = false;
+                this.emit('batchComplete', this.getTickState());
+            } else {
+                this.engine.clock.tick();
+                this.engine.updateHourly();
+            }
 
-            // Call the engine's hourly update
-            this.engine.updateHourly();
-
-            // Emit tick event with current state summary
             const tickData = this.getTickState();
             this.emit('tick', tickData);
 
         } catch (error) {
+            this.isBatching = false;
             console.error('Tick error:', error);
             this.emit('error', { type: 'tick', error: error.message });
         }
@@ -363,7 +388,10 @@ export class EngineAdapter extends EventEmitter {
             productMarketData: this._serializeProductMarketData(),
 
             // Full product catalog (all possible products)
-            productCatalog: this._serializeProductCatalog()
+            productCatalog: this._serializeProductCatalog(),
+
+            // Recent transaction history (last 200)
+            recentTransactions: this._serializeRecentTransactions(200)
         };
 
         // Serialize firms using their built-in serialization (includes lot inventories!)
@@ -393,9 +421,9 @@ export class EngineAdapter extends EventEmitter {
             for (const contract of contractManager.contracts.values()) {
                 state.contracts.push(contract.toJSON());
             }
-            // Serialize pending deliveries with all details
-            state.pendingDeliveries = this._serializePendingDeliveries(contractManager);
         }
+        // Serialize pending deliveries — lives on purchaseManager, not contractManager
+        state.pendingDeliveries = this._serializePendingDeliveries(this.engine.purchaseManager);
 
         return state;
     }
@@ -511,26 +539,27 @@ export class EngineAdapter extends EventEmitter {
     /**
      * Serialize pending deliveries with full details
      */
-    _serializePendingDeliveries(contractManager) {
-        if (!contractManager?.pendingDeliveries) return [];
+    _serializePendingDeliveries(purchaseManager) {
+        if (!purchaseManager?.pendingDeliveries) return [];
 
-        return contractManager.pendingDeliveries.map(delivery => ({
+        return purchaseManager.pendingDeliveries.map(delivery => ({
             id: delivery.id,
             contractId: delivery.contractId,
-            supplierId: delivery.supplierId,
-            buyerId: delivery.buyerId,
-            product: delivery.product,
+            supplierId: delivery.supplierId || delivery.seller?.id,
+            supplierName: delivery.supplierName || delivery.seller?.name || null,
+            buyerId: delivery.buyerId || delivery.buyer?.id,
+            buyerName: delivery.buyerName || delivery.buyer?.name || null,
+            productName: delivery.productName || delivery.product || null,
             quantity: delivery.quantity,
             quality: delivery.quality,
-            pricePerUnit: delivery.pricePerUnit,
-            totalValue: delivery.totalValue,
-            departureHour: delivery.departureHour,
+            unitPrice: delivery.unitPrice || delivery.pricePerUnit,
+            totalCost: delivery.totalCost || delivery.totalValue,
+            transportCost: delivery.transportCost,
+            createdAt: delivery.createdAt || delivery.departureHour,
             arrivalHour: delivery.arrivalHour,
             transportType: delivery.transportType,
-            transportCost: delivery.transportCost,
             status: delivery.status,
-            lotIds: delivery.lotIds || [],
-            lots: delivery.lots?.map(l => l.toJSON ? l.toJSON() : l) || []
+            lotIds: delivery.lotIds || []
         }));
     }
 
@@ -579,6 +608,8 @@ export class EngineAdapter extends EventEmitter {
             // 7. Restore corporations
             if (state.corporations) {
                 this._restoreCorporations(state.corporations);
+                // 7b. Re-link firm objects into corp.firms[] using corporationId on each firm
+                this._rewireCorporationFirms();
             }
 
             // 8. Restore contracts
@@ -749,57 +780,103 @@ export class EngineAdapter extends EventEmitter {
     }
 
     /**
-     * Restore corporations
+     * Restore corporations — including roadmap, goals, and integration map
      */
     _restoreCorporations(corporationsData) {
         for (const corpState of corporationsData) {
             const corp = this.engine.corporations.find(c => c.id === corpState.id);
             if (corp) {
-                corp.totalValue = corpState.totalValue ?? corp.totalValue;
-                corp.totalProfit = corpState.totalProfit ?? corp.totalProfit;
-                corp.employeeCount = corpState.employeeCount ?? corp.employeeCount;
-                corp.totalCash = corpState.totalCash ?? corp.totalCash;
-                corp.totalRevenue = corpState.totalRevenue ?? corp.totalRevenue;
-                corp.totalExpenses = corpState.totalExpenses ?? corp.totalExpenses;
+                // Use Corporation.restoreState() which handles all fields:
+                // financials, roadmap, currentGoal, goalStartMonth, goalHistory,
+                // integrationMap, isFullyVertical, firms list
+                if (typeof corp.restoreState === 'function') {
+                    corp.restoreState(corpState);
+                } else {
+                    // Fallback: financial fields only
+                    corp.totalValue = corpState.totalValue ?? corp.totalValue;
+                    corp.totalProfit = corpState.totalProfit ?? corp.totalProfit;
+                    corp.employeeCount = corpState.employeeCount ?? corp.employeeCount;
+                    corp.totalCash = corpState.totalCash ?? corp.totalCash;
+                    corp.totalRevenue = corpState.totalRevenue ?? corp.totalRevenue;
+                    corp.totalExpenses = corpState.totalExpenses ?? corp.totalExpenses;
+                }
             }
         }
     }
 
     /**
-     * Restore contracts
+     * Re-link live firm objects into each corporation's firms[] array.
+     * Firms are restored before corporations, so corporationId is set on each firm.
+     * This must run after both _restoreFirms and _restoreCorporations complete.
+     */
+    _rewireCorporationFirms() {
+        // Clear existing firm refs on all corps (they may be stale from generation)
+        for (const corp of this.engine.corporations) {
+            corp.firms = [];
+        }
+
+        // Re-populate from the engine.firms map using each firm's corporationId
+        for (const [, firm] of this.engine.firms) {
+            if (!firm.corporationId) continue;
+            const corp = this.engine.corporations.find(c => c.id === firm.corporationId);
+            if (corp) {
+                corp.firms.push(firm);
+            }
+        }
+
+        // Rebuild integrationMap from the now-populated firms list
+        for (const corp of this.engine.corporations) {
+            if (typeof corp.updateIntegrationMap === 'function') {
+                corp.updateIntegrationMap();
+            }
+        }
+    }
+
+    /**
+     * Restore contracts — uses ContractManager.fromJSON() to rebuild Contract
+     * instances and all lookup indices (bySupplier, byBuyer, byProduct).
      */
     _restoreContracts(contractsData) {
         const contractManager = this.engine.purchaseManager?.contractManager;
         if (!contractManager) return;
 
-        // Clear existing contracts
-        contractManager.contracts.clear();
-
-        // Restore each contract
-        for (const contractData of contractsData) {
-            // Use Contract.fromJSON if available
-            const Contract = contractManager.contracts.constructor === Map
-                ? null
-                : contractManager.contracts.values().next().value?.constructor;
-
-            if (Contract?.fromJSON) {
-                const contract = Contract.fromJSON(contractData);
-                contractManager.contracts.set(contract.id, contract);
-            } else {
-                // Manual restoration - just store the data
+        // ContractManager.fromJSON rebuilds indices and creates proper Contract instances
+        if (typeof contractManager.fromJSON === 'function') {
+            contractManager.fromJSON({ contracts: contractsData, config: {}, stats: {} });
+        } else {
+            // Fallback: plain objects (indices not rebuilt — lookup by supplier/buyer won't work)
+            contractManager.contracts.clear();
+            for (const contractData of contractsData) {
                 contractManager.contracts.set(contractData.id, contractData);
             }
         }
     }
 
     /**
-     * Restore pending deliveries
+     * Restore pending deliveries — reconstructs the nested seller/buyer shape
+     * that PurchaseManager.completeDelivery() expects.
      */
     _restorePendingDeliveries(deliveriesData) {
-        const contractManager = this.engine.purchaseManager?.contractManager;
-        if (!contractManager) return;
+        const purchaseManager = this.engine.purchaseManager;
+        if (!purchaseManager) return;
 
-        contractManager.pendingDeliveries = deliveriesData || [];
+        purchaseManager.pendingDeliveries = (deliveriesData || []).map(d => ({
+            id: d.id,
+            contractId: d.contractId || null,
+            // Reconstruct nested seller/buyer objects from flat serialized fields
+            seller: { id: d.supplierId, name: d.supplierName || d.supplierId || 'Unknown' },
+            buyer:  { id: d.buyerId,    name: d.buyerName    || d.buyerId    || 'Unknown' },
+            productName:   d.productName,
+            quantity:      d.quantity,
+            quality:       d.quality  ?? 1.0,
+            unitPrice:     d.unitPrice,
+            totalCost:     d.totalCost,
+            transportCost: d.transportCost || 0,
+            createdAt:     d.createdAt,
+            arrivalHour:   d.arrivalHour,
+            transportType: d.transportType || null,
+            status:        d.status || 'in_transit'
+        }));
     }
 
     /**
@@ -865,6 +942,157 @@ export class EngineAdapter extends EventEmitter {
         };
     }
 
+    // ─── Delta snapshot methods ───────────────────────────────────────────────
+
+    /**
+     * Serialize recent transactions from TransactionLog.
+     * @param {number} limit - Max entries (default 200)
+     * @returns {Array}
+     */
+    _serializeRecentTransactions(limit = 200) {
+        const log = this.engine?.transactionLog;
+        if (!log) return [];
+        return log.getRecentTransactions(limit).map(tx => ({
+            id: tx.id,
+            category: tx.category,
+            gameTime: tx.gameTime || null,
+            sellerId: tx.seller?.id || null,
+            sellerName: tx.seller?.name || null,
+            sellerType: tx.seller?.type || tx.sellerType || null,
+            buyerId: tx.buyer?.id || null,
+            buyerName: tx.buyer?.name || null,
+            buyerType: tx.buyer?.type || tx.buyerType || null,
+            productName: tx.product || tx.material || null,
+            quantity: tx.quantity || 0,
+            unitPrice: tx.unitPrice || 0,
+            totalValue: tx.totalCost || tx.totalRevenue || 0,
+            cityName: tx.seller?.city || tx.cityName || null,
+            contractId: tx.contractId || null
+        }));
+    }
+
+    /**
+     * Financial-only snapshot of all firms.
+     * Sent every game day. Only mutable financial fields — no static metadata.
+     * @returns {Object} { [firmId]: { cash, revenue, expenses, profit, currentProfit } }
+     */
+    getFirmFinancialSnapshot() {
+        if (!this.engine) return {};
+        const result = {};
+        for (const [id, firm] of this.engine.firms) {
+            result[id] = {
+                // Identity (keeps delta self-sufficient; client merge preserves these)
+                id:          firm.id,
+                type:        firm.type,
+                displayName: typeof firm.getDisplayName === 'function' ? firm.getDisplayName() : (firm.displayName || firm.name || firm.id),
+                cityName:    firm.city?.name || null,
+                corporationId:           firm.corporationId || null,
+                corporationAbbreviation: firm.corporationAbbreviation || null,
+                // Financials
+                cash:         firm.cash         || 0,
+                revenue:      firm.revenue       || 0,
+                expenses:     firm.expenses      || 0,
+                profit:       firm.profit        || 0,
+                monthlyRevenue:  firm.monthlyRevenue  || 0,
+                monthlyExpenses: firm.monthlyExpenses || 0,
+                monthlyProfit:   firm.monthlyProfit   || 0,
+                currentProfit: typeof firm.getCurrentProfit === 'function'
+                    ? firm.getCurrentProfit()
+                    : (firm.profit || 0),
+                totalEmployees: firm.totalEmployees || 0,
+                consecutiveLossMonths: firm.consecutiveLossMonths || 0,
+                noSaleStreak: firm.noSaleStreak || 0,
+                consecutiveThrottleCycles: firm.consecutiveThrottleCycles || 0,
+                lastThrottleReason: firm.lastThrottleReason || null
+            };
+        }
+        return result;
+    }
+
+    /**
+     * Summary snapshot of all corporations.
+     * Sent every game month. Full array replacement — corps are small.
+     * @returns {Array}
+     */
+    getCorporationSummarySnapshot() {
+        if (!this.engine) return [];
+        return this.engine.corporations.map(corp => ({
+            id:             corp.id,
+            name:           corp.name,
+            abbreviation:   corp.abbreviation,
+            type:           corp.type,
+            capital:        corp.capital        || 0,
+            cash:           corp.cash           || 0,
+            monthlyRevenue: corp.monthlyRevenue  || 0,
+            monthlyExpenses:corp.monthlyExpenses || 0,
+            monthlyProfit:  corp.monthlyProfit   || 0,
+            employees:      corp.employees       || 0,
+            firmCount:      corp.firms?.length   || 0,
+            currentGoal:    corp.currentGoal     || null,
+            isFullyVertical:corp.isFullyVertical  || false,
+            monthlyHistory: corp.monthlyHistory  || [],
+            primaryPersona: corp.primaryPersona  || null,
+            integrationMap: corp.integrationMap  || null,
+            headquartersCity: corp.headquartersCity || null
+        }));
+    }
+
+    /**
+     * Economic-indicator snapshot of all cities.
+     * Sent every game month. Only fields that change — no static coordinates/infra.
+     * @returns {Object} { [cityId]: { ... economic fields } }
+     */
+    getCityEconomicSnapshot() {
+        if (!this.engine) return {};
+        const result = {};
+        for (const city of this.engine.cities) {
+            result[city.id] = {
+                population:          city.population           || 0,
+                unemploymentRate:     city.unemploymentRate     || 0,
+                totalPurchasingPower: city.totalPurchasingPower || 0,
+                consumerConfidence:   city.consumerConfidence   || 0,
+                salaryLevel:         city.salaryLevel           || 0,
+                marketSize:          city.marketSize            || 0,
+                demographics: city.demographics ? {
+                    employed:   city.demographics.employed   || 0,
+                    unemployed: city.demographics.unemployed || 0,
+                    population: city.demographics.population || 0
+                } : null,
+                monthlyStats: city.monthlyStats ? {
+                    totalTransactions: city.monthlyStats.totalTransactions || 0,
+                    totalVolume:       city.monthlyStats.totalVolume       || 0,
+                    avgPrice:          city.monthlyStats.avgPrice          || 0
+                } : null
+            };
+        }
+        return result;
+    }
+
+    /**
+     * Product market data snapshot. Reuses existing serialization.
+     * Sent every game day.
+     */
+    getProductMarketSnapshot() {
+        return this._serializeProductMarketData();
+    }
+
+    /**
+     * Serialize all active contracts for client display.
+     * Included in daily delta so contract activity stays up to date.
+     * @returns {Array}
+     */
+    getContractSnapshot() {
+        const contractManager = this.engine?.purchaseManager?.contractManager;
+        if (!contractManager) return [];
+        const result = [];
+        for (const contract of contractManager.contracts.values()) {
+            result.push(contract.toJSON());
+        }
+        return result;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+
     _countByType(firms) {
         const counts = {};
         firms.forEach(firm => {
@@ -911,7 +1139,10 @@ export class EngineAdapter extends EventEmitter {
             bankType: firm.bankType,
             resourceType: firm.resourceType,
             timberType: firm.timberType,
-            productName: firm.product?.name
+            productName: firm.product?.name,
+            noSaleStreak: firm.noSaleStreak || 0,
+            consecutiveThrottleCycles: firm.consecutiveThrottleCycles || 0,
+            lastThrottleReason: firm.lastThrottleReason || null
         };
     }
 

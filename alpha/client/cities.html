@@ -31,6 +31,9 @@
         .infra-badge.active { background: #1a3a2a; color: #4caf50; }
         .loading { text-align: center; padding: 50px; color: #888; }
         #city-count { color: #888; font-size: 14px; margin-left: auto; }
+        #city-map-wrap { background: #1a1a2e; border: 1px solid #333; border-radius: 8px; margin-bottom: 20px; position: relative; overflow: hidden; }
+        #city-map { display: block; width: 100%; cursor: crosshair; }
+        #map-tooltip { position: absolute; background: #222; border: 1px solid #444; border-radius: 4px; padding: 6px 10px; font-size: 12px; color: #fff; pointer-events: none; display: none; white-space: nowrap; z-index: 10; }
     </style>
 </head>
 <body>
@@ -43,6 +46,8 @@
                 <a href="cities.html" style="color: #fff;">Cities</a>
                 <a href="corporations.html">Corporations</a>
                 <a href="products.html">Products</a>
+                <a href="deliveries.html">Deliveries</a>
+                <a href="transactions.html">Transactions</a>
             </nav>
         </header>
 
@@ -57,6 +62,8 @@
                 <button class="gc-btn gc-speed" data-speed="8">8x</button>
                 <button class="gc-btn gc-speed" data-speed="24">1D</button>
                 <button class="gc-btn gc-speed" data-speed="168">1W</button>
+                    <button class="gc-btn gc-speed" data-speed="720">1M</button>
+                    <button class="gc-btn gc-speed" data-speed="8760">1Y</button>
             </div>
             <div class="game-controls-right">
                 <span id="city-count">-- cities</span>
@@ -66,6 +73,11 @@
                 </span>
                 <span class="gc-clock" id="gc-clock">--</span>
             </div>
+        </div>
+
+        <div id="city-map-wrap">
+            <canvas id="city-map" height="380"></canvas>
+            <div id="map-tooltip"></div>
         </div>
 
         <div id="cities-container" class="cities-grid">
@@ -147,10 +159,153 @@
             }).join('');
         }
 
+        // ── Map renderer ─────────────────────────────────────────────────────
+        const mapCanvas  = document.getElementById('city-map');
+        const mapTooltip = document.getElementById('map-tooltip');
+        const ctx        = mapCanvas.getContext('2d');
+        let   _mapCities = [];
+
+        function renderMap(cities) {
+            _mapCities = cities.filter(c => c.coordinates && (c.coordinates.x !== 0 || c.coordinates.y !== 0));
+            const W = mapCanvas.offsetWidth || 1200;
+            mapCanvas.width  = W;
+            mapCanvas.height = 380;
+
+            const PAD = 30;
+            const w = W - PAD * 2;
+            const h = 380 - PAD * 2;
+
+            // Background
+            ctx.fillStyle = '#0d1117';
+            ctx.fillRect(0, 0, W, 380);
+
+            // Grid lines
+            ctx.strokeStyle = '#1e2a3a';
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= 10; i++) {
+                const x = PAD + (w / 10) * i;
+                const y = PAD + (h / 10) * i;
+                ctx.beginPath(); ctx.moveTo(x, PAD); ctx.lineTo(x, PAD + h); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(PAD, y); ctx.lineTo(PAD + w, y); ctx.stroke();
+            }
+
+            // Cities
+            const maxPop = Math.max(..._mapCities.map(c => c.population || 0), 1);
+
+            _mapCities.forEach(city => {
+                const pop = city.population || 0;
+                const cx  = PAD + (city.coordinates.x / 1000) * w;
+                const cy  = PAD + (city.coordinates.y / 1000) * h;
+                const r   = 3 + Math.sqrt(pop / maxPop) * 10;
+
+                // Glow for large cities
+                if (pop > maxPop * 0.3) {
+                    const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, r * 2.5);
+                    grad.addColorStop(0, 'rgba(0,212,255,0.25)');
+                    grad.addColorStop(1, 'rgba(0,212,255,0)');
+                    ctx.beginPath(); ctx.arc(cx, cy, r * 2.5, 0, Math.PI * 2);
+                    ctx.fillStyle = grad; ctx.fill();
+                }
+
+                // Dot colour by infrastructure
+                const color = city.hasSeaport ? '#00d4ff' : city.hasRailway ? '#4caf50' : '#ffa000';
+                ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
+                ctx.fillStyle = color + 'cc';
+                ctx.fill();
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
+                // Label for larger cities
+                if (pop > maxPop * 0.15) {
+                    ctx.fillStyle = '#ddd';
+                    ctx.font = '11px sans-serif';
+                    ctx.fillText(city.name, cx + r + 3, cy + 4);
+                }
+            });
+
+            // Legend
+            const legendItems = [
+                { color: '#00d4ff', label: 'Seaport' },
+                { color: '#4caf50', label: 'Railway' },
+                { color: '#ffa000', label: 'Basic' }
+            ];
+            legendItems.forEach((item, i) => {
+                const lx = PAD + i * 90;
+                const ly = 380 - 12;
+                ctx.beginPath(); ctx.arc(lx + 5, ly, 4, 0, Math.PI * 2);
+                ctx.fillStyle = item.color; ctx.fill();
+                ctx.fillStyle = '#888'; ctx.font = '11px sans-serif';
+                ctx.fillText(item.label, lx + 13, ly + 4);
+            });
+        }
+
+        // Tooltip on hover
+        mapCanvas.addEventListener('mousemove', (e) => {
+            if (!_mapCities.length) return;
+            const rect = mapCanvas.getBoundingClientRect();
+            const mx   = (e.clientX - rect.left) * (mapCanvas.width / rect.width);
+            const my   = (e.clientY - rect.top)  * (mapCanvas.height / rect.height);
+            const PAD  = 30;
+            const w    = mapCanvas.width  - PAD * 2;
+            const h    = mapCanvas.height - PAD * 2;
+
+            let hit = null;
+            let best = 20;
+            _mapCities.forEach(city => {
+                const cx = PAD + (city.coordinates.x / 1000) * w;
+                const cy = PAD + (city.coordinates.y / 1000) * h;
+                const d  = Math.hypot(mx - cx, my - cy);
+                if (d < best) { best = d; hit = city; }
+            });
+
+            if (hit) {
+                const pop = hit.population || 0;
+                mapTooltip.innerHTML = `<strong>${hit.name}</strong> &mdash; ${hit.countryName || ''}<br>`
+                    + `Pop: ${pop.toLocaleString()}`
+                    + (hit.hasSeaport ? ' &nbsp;⚓' : '')
+                    + (hit.hasRailway ? ' &nbsp;🚂' : '')
+                    + (hit.hasAirport ? ' &nbsp;✈️' : '');
+                mapTooltip.style.display = 'block';
+                mapTooltip.style.left = (e.clientX - rect.left + 12) + 'px';
+                mapTooltip.style.top  = (e.clientY - rect.top  - 10) + 'px';
+            } else {
+                mapTooltip.style.display = 'none';
+            }
+        });
+        mapCanvas.addEventListener('mouseleave', () => { mapTooltip.style.display = 'none'; });
+
+        // Click navigates to city detail
+        mapCanvas.addEventListener('click', (e) => {
+            if (!_mapCities.length) return;
+            const rect = mapCanvas.getBoundingClientRect();
+            const mx   = (e.clientX - rect.left) * (mapCanvas.width / rect.width);
+            const my   = (e.clientY - rect.top)  * (mapCanvas.height / rect.height);
+            const PAD  = 30;
+            const w    = mapCanvas.width  - PAD * 2;
+            const h    = mapCanvas.height - PAD * 2;
+
+            let hit = null;
+            let best = 20;
+            _mapCities.forEach(city => {
+                const cx = PAD + (city.coordinates.x / 1000) * w;
+                const cy = PAD + (city.coordinates.y / 1000) * h;
+                const d  = Math.hypot(mx - cx, my - cy);
+                if (d < best) { best = d; hit = city; }
+            });
+            if (hit) window.location.href = `city.html?id=${hit.id}`;
+        });
+        // ─────────────────────────────────────────────────────────────────────
+
+        let _citiesRenderTimer = null;
         stateManager.subscribeAll((state) => {
             if (state.cities) {
-                const cities = Array.isArray(state.cities) ? state.cities : Object.values(state.cities);
-                renderCities(cities);
+                clearTimeout(_citiesRenderTimer);
+                _citiesRenderTimer = setTimeout(() => {
+                    const cities = Array.isArray(state.cities) ? state.cities : Object.values(state.cities);
+                    renderMap(cities);
+                    renderCities(cities);
+                }, 500);
             }
         });
 
@@ -172,6 +327,8 @@
                 citiesContainer.innerHTML = '<div class="loading">Error connecting. <a href="index.html" style="color: #00d4ff;">Go to Dashboard</a></div>';
             }
         }
+
+        window.addEventListener('resize', () => { if (_mapCities.length) renderMap(_mapCities); });
 
         init();
     </script>

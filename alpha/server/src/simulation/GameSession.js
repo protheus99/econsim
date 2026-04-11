@@ -113,6 +113,8 @@ export class GameSession extends EventEmitter {
                         ...data
                     }
                 });
+                // Re-emit on this session so SessionManager can react (e.g. save on pause)
+                this.emit(event, data);
             });
         });
 
@@ -124,6 +126,97 @@ export class GameSession extends EventEmitter {
                 payload: error
             });
         });
+
+        // Daily delta: firm financials + product market data
+        // Suppressed during batch ticks — batchComplete sends one consolidated update instead
+        this.engine.on('clock-day-change', (data) => {
+            if (!this.engine.isBatching) this._broadcastDailyDelta(data);
+        });
+
+        // Monthly delta: corporations + cities
+        this.engine.on('clock-month-change', (data) => {
+            if (!this.engine.isBatching) this._broadcastMonthlyDelta(data);
+        });
+
+        // After a high-speed batch completes: send one combined daily+monthly delta
+        this.engine.on('batchComplete', () => {
+            this._broadcastBatchDelta();
+        });
+    }
+
+    /**
+     * Broadcast daily delta: firm financials + product market data
+     */
+    _broadcastDailyDelta(clockData) {
+        if (this.clients.size === 0) return;
+        try {
+            this._broadcast({
+                type: 'DELTA_UPDATE',
+                payload: {
+                    scope: 'daily',
+                    clock: clockData,
+                    firms: this.engine.getFirmFinancialSnapshot(),
+                    productMarketData: this.engine.getProductMarketSnapshot(),
+                    recentTransactions: this.engine._serializeRecentTransactions(200),
+                    pendingDeliveries: this.engine._serializePendingDeliveries(
+                        this.engine.engine?.purchaseManager
+                    ),
+                    contracts: this.engine.getContractSnapshot()
+                }
+            });
+        } catch (e) {
+            console.error('Error broadcasting daily delta:', e);
+        }
+    }
+
+    /**
+     * Broadcast a combined delta after a high-speed batch.
+     * Includes all fields (firms, products, corps, cities, contracts) so clients
+     * fully catch up in one message instead of receiving N intermediate deltas.
+     */
+    _broadcastBatchDelta() {
+        if (this.clients.size === 0) return;
+        try {
+            const clockData = this.engine.engine?.clock?.getGameTime() || null;
+            this._broadcast({
+                type: 'DELTA_UPDATE',
+                payload: {
+                    scope: 'batch',
+                    clock: clockData,
+                    firms: this.engine.getFirmFinancialSnapshot(),
+                    productMarketData: this.engine.getProductMarketSnapshot(),
+                    recentTransactions: this.engine._serializeRecentTransactions(200),
+                    pendingDeliveries: this.engine._serializePendingDeliveries(
+                        this.engine.engine?.purchaseManager
+                    ),
+                    contracts: this.engine.getContractSnapshot(),
+                    corporations: this.engine.getCorporationSummarySnapshot(),
+                    cities: this.engine.getCityEconomicSnapshot()
+                }
+            });
+        } catch (e) {
+            console.error('Error broadcasting batch delta:', e);
+        }
+    }
+
+    /**
+     * Broadcast monthly delta: corporations + cities
+     */
+    _broadcastMonthlyDelta(clockData) {
+        if (this.clients.size === 0) return;
+        try {
+            this._broadcast({
+                type: 'DELTA_UPDATE',
+                payload: {
+                    scope: 'monthly',
+                    clock: clockData,
+                    corporations: this.engine.getCorporationSummarySnapshot(),
+                    cities: this.engine.getCityEconomicSnapshot()
+                }
+            });
+        } catch (e) {
+            console.error('Error broadcasting monthly delta:', e);
+        }
     }
 
     /**

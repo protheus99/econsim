@@ -90,6 +90,18 @@
         }
         .stat-card h4 { margin: 0 0 10px 0; color: #888; font-size: 12px; text-transform: uppercase; }
         .stat-card .value { font-size: 28px; font-weight: bold; color: #fff; }
+        .stat-card .sub-value { font-size: 12px; color: #666; margin-top: 4px; }
+        .supply-health { background: #1e1e1e; border-radius: 6px; padding: 15px; margin-top: 15px; }
+        .supply-health h4 { margin: 0 0 12px 0; color: #888; font-size: 12px; text-transform: uppercase; }
+        .health-row { display: flex; gap: 20px; flex-wrap: wrap; }
+        .health-item { display: flex; flex-direction: column; gap: 2px; }
+        .health-item .h-value { font-size: 22px; font-weight: bold; }
+        .health-item .h-label { font-size: 11px; color: #666; text-transform: uppercase; }
+        .health-item .h-link { font-size: 11px; color: #00d4ff; text-decoration: none; }
+        .health-item .h-link:hover { text-decoration: underline; }
+        .h-warn { color: #ffa000; }
+        .h-ok { color: #4caf50; }
+        .h-neutral { color: #fff; }
         .connection-status {
             position: fixed;
             bottom: 10px;
@@ -116,6 +128,8 @@
                 <a href="cities.html" style="color: #00d4ff; margin-right: 15px;">Cities</a>
                 <a href="corporations.html" style="color: #00d4ff; margin-right: 15px;">Corporations</a>
                 <a href="products.html" style="color: #00d4ff;">Products</a>
+                <a href="deliveries.html" style="color: #00d4ff; margin-left: 15px;">Deliveries</a>
+                <a href="transactions.html" style="color: #00d4ff; margin-left: 15px;">Transactions</a>
             </nav>
         </header>
 
@@ -155,10 +169,39 @@
                 <div class="stat-card">
                     <h4>Transactions Today</h4>
                     <div id="stat-transactions" class="value">--</div>
+                    <div id="stat-tx-breakdown" class="sub-value"></div>
                 </div>
                 <div class="stat-card">
                     <h4>Simulation Hour</h4>
                     <div id="stat-hours" class="value">--</div>
+                </div>
+                <div class="stat-card">
+                    <h4>Pending Deliveries</h4>
+                    <div id="stat-deliveries" class="value">--</div>
+                    <div class="sub-value"><a href="deliveries.html" style="color:#00d4ff;font-size:11px;">View all</a></div>
+                </div>
+            </div>
+
+            <div class="supply-health" id="supply-health" style="display:none">
+                <h4>Supply Health</h4>
+                <div class="health-row">
+                    <div class="health-item">
+                        <span id="health-in-transit" class="h-value h-neutral">--</span>
+                        <span class="h-label">In Transit</span>
+                        <a href="deliveries.html" class="h-link">Deliveries</a>
+                    </div>
+                    <div class="health-item">
+                        <span id="health-no-sale" class="h-value h-ok">--</span>
+                        <span class="h-label">No-Sale Firms</span>
+                    </div>
+                    <div class="health-item">
+                        <span id="health-throttled" class="h-value h-ok">--</span>
+                        <span class="h-label">Throttled Firms</span>
+                    </div>
+                    <div class="health-item">
+                        <span id="health-distress" class="h-value h-ok">--</span>
+                        <span class="h-label">Loss Months &gt;2</span>
+                    </div>
                 </div>
             </div>
         </div>

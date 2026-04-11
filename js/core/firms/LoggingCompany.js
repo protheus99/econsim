@@ -144,6 +144,24 @@ export class LoggingCompany extends Firm {
         );
 
         harvestAmount *= healthFactor;
+
+        // Throttle production when inventory exceeds contract demand
+        if (this.contractManager) {
+            const currentInventory = this.getAvailableQuantity();
+            const throttleCheck = this.contractManager.shouldThrottleProduction(
+                this, this.timberType, currentInventory, false, null
+            );
+            if (throttleCheck.shouldThrottle) {
+                harvestAmount *= (1 - throttleCheck.throttlePercent / 100);
+                this.consecutiveThrottleCycles = (this.consecutiveThrottleCycles || 0) + 1;
+                this.lastThrottleReason = throttleCheck.reason;
+                if (harvestAmount <= 0) {
+                    this.actualHarvestRate = 0;
+                    return { produced: false, reason: 'THROTTLED_' + throttleCheck.reason, resource: this.timberType, quantity: 0 };
+                }
+            }
+        }
+
         this.actualHarvestRate = harvestAmount;
 
         // Update forest health based on sustainability
@@ -195,6 +213,8 @@ export class LoggingCompany extends Firm {
     createLot() {
         // Check if lot inventory has capacity
         if (this.lotInventory.lots.size >= this.lotInventory.storageCapacity) {
+            this.consecutiveThrottleCycles = (this.consecutiveThrottleCycles || 0) + 1;
+            this.lastThrottleReason = 'storage_full';
             return null;
         }
 

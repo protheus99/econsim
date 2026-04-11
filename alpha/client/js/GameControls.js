@@ -94,6 +94,8 @@ export class GameControls {
                     <button class="gc-btn gc-speed" data-speed="8">8x</button>
                     <button class="gc-btn gc-speed" data-speed="24">1D</button>
                     <button class="gc-btn gc-speed" data-speed="168">1W</button>
+                    <button class="gc-btn gc-speed" data-speed="720">1M</button>
+                    <button class="gc-btn gc-speed" data-speed="8760">1Y</button>
                 </div>
                 <div class="game-controls-right">
                     <span class="gc-status gc-status-paused" id="gc-status">

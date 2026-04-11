@@ -76,6 +76,8 @@
                 <a href="cities.html">Cities</a>
                 <a href="corporations.html">Corporations</a>
                 <a href="products.html" style="color: #fff;">Products</a>
+                <a href="deliveries.html">Deliveries</a>
+                <a href="transactions.html">Transactions</a>
             </nav>
         </header>
 
@@ -90,6 +92,8 @@
                 <button class="gc-btn gc-speed" data-speed="8">8x</button>
                 <button class="gc-btn gc-speed" data-speed="24">1D</button>
                 <button class="gc-btn gc-speed" data-speed="168">1W</button>
+                    <button class="gc-btn gc-speed" data-speed="720">1M</button>
+                    <button class="gc-btn gc-speed" data-speed="8760">1Y</button>
             </div>
             <div class="game-controls-right">
                 <span id="product-count">-- products</span>
@@ -363,6 +367,7 @@
         filterSearch.addEventListener('input', renderProducts);
         filterCategory.addEventListener('change', renderProducts);
 
+        let _productsRenderTimer = null;
         stateManager.subscribeAll((state) => {
             if (state.productMarketData) {
                 productMarketData = state.productMarketData;
@@ -377,7 +382,8 @@
             }
 
             if (state.productMarketData || state.productCatalog) {
-                renderProducts();
+                clearTimeout(_productsRenderTimer);
+                _productsRenderTimer = setTimeout(() => renderProducts(), 500);
             }
         });
 

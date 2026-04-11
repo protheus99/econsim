@@ -35,6 +35,14 @@
         #corp-count { color: #888; font-size: 14px; margin-left: auto; }
         .positive { color: #4caf50; }
         .negative { color: #f44336; }
+        .focus-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; padding: 3px 8px; border-radius: 3px; font-weight: 600; margin-right: 5px; margin-bottom: 4px; }
+        .focus-raw      { background: #2a1a0a; color: #ff9800; border: 1px solid #7a4400; }
+        .focus-semi     { background: #1a2a1a; color: #66bb6a; border: 1px solid #2e7d32; }
+        .focus-mfg      { background: #1a1a2a; color: #7986cb; border: 1px solid #303f9f; }
+        .focus-retail   { background: #2a1a2a; color: #ce93d8; border: 1px solid #6a1b9a; }
+        .focus-vertical { background: #1a2a2a; color: #00d4ff; border: 1px solid #006080; }
+        .tier-pip { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 2px; }
+        .corp-focus-row { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
     </style>
 </head>
 <body>
@@ -47,6 +55,8 @@
                 <a href="cities.html">Cities</a>
                 <a href="corporations.html" style="color: #fff;">Corporations</a>
                 <a href="products.html">Products</a>
+                <a href="deliveries.html">Deliveries</a>
+                <a href="transactions.html">Transactions</a>
             </nav>
         </header>
 
@@ -61,6 +71,8 @@
                 <button class="gc-btn gc-speed" data-speed="8">8x</button>
                 <button class="gc-btn gc-speed" data-speed="24">1D</button>
                 <button class="gc-btn gc-speed" data-speed="168">1W</button>
+                    <button class="gc-btn gc-speed" data-speed="720">1M</button>
+                    <button class="gc-btn gc-speed" data-speed="8760">1Y</button>
             </div>
             <div class="game-controls-right">
                 <span id="corp-count">-- corporations</span>
@@ -93,6 +105,88 @@
             if (num >= 1e6) return '$' + (num / 1e6).toFixed(1) + 'M';
             if (num >= 1e3) return '$' + (num / 1e3).toFixed(1) + 'K';
             return '$' + Math.floor(num).toLocaleString();
+        }
+
+        // Map persona type → human label + css class
+        const PERSONA_LABELS = {
+            MINING_COMPANY:            { label: '⛏️ Mining',        cls: 'focus-raw' },
+            LOGGING_COMPANY:           { label: '🪵 Logging',        cls: 'focus-raw' },
+            FARM_CROP:                 { label: '🌾 Crop Farm',      cls: 'focus-raw' },
+            FARM_LIVESTOCK:            { label: '🐄 Livestock',      cls: 'focus-raw' },
+            STEEL_PROCESSING:          { label: '🔩 Steel',          cls: 'focus-semi' },
+            METAL_PROCESSING:          { label: '⚙️ Metal Process',  cls: 'focus-semi' },
+            PETROLEUM_REFINERY:        { label: '🛢️ Refinery',       cls: 'focus-semi' },
+            LUMBER_MILL:               { label: '🪚 Lumber Mill',    cls: 'focus-semi' },
+            PULP_MILL:                 { label: '📄 Pulp Mill',      cls: 'focus-semi' },
+            FOOD_INGREDIENT_PROCESSOR: { label: '🥛 Food Proc.',     cls: 'focus-semi' },
+            MEAT_PROCESSOR:            { label: '🥩 Meat Proc.',     cls: 'focus-semi' },
+            DAIRY_PROCESSOR:           { label: '🧀 Dairy',          cls: 'focus-semi' },
+            TEXTILE_MILL:              { label: '🧵 Textiles',       cls: 'focus-semi' },
+            PACKAGED_FOOD:             { label: '🍞 Packaged Food',  cls: 'focus-mfg' },
+            BEVERAGE:                  { label: '🥤 Beverages',      cls: 'focus-mfg' },
+            CLOTHING:                  { label: '👕 Clothing',       cls: 'focus-mfg' },
+            ELECTRONICS:               { label: '💻 Electronics',    cls: 'focus-mfg' },
+            FURNITURE:                 { label: '🛋️ Furniture',      cls: 'focus-mfg' },
+            APPLIANCE:                 { label: '🧺 Appliances',     cls: 'focus-mfg' },
+            VEHICLE:                   { label: '🚗 Vehicles',       cls: 'focus-mfg' },
+            SUPERMARKET:               { label: '🛒 Supermarket',    cls: 'focus-retail' },
+            CONVENIENCE_STORE:         { label: '🏪 Convenience',    cls: 'focus-retail' },
+            FASHION_RETAIL:            { label: '👗 Fashion',        cls: 'focus-retail' },
+            ELECTRONICS_RETAIL:        { label: '📱 Elec. Retail',   cls: 'focus-retail' },
+            HOME_GOODS_RETAIL:         { label: '🏠 Home Goods',     cls: 'focus-retail' },
+        };
+
+        const TIER_LABELS = { RAW: '⛏️ Raw', SEMI_RAW: '🔩 Semi-Raw', MANUFACTURED: '🏭 Mfg', RETAIL: '🛒 Retail' };
+        const TIER_COLORS = { RAW: '#ff9800', SEMI_RAW: '#66bb6a', MANUFACTURED: '#7986cb', RETAIL: '#ce93d8' };
+
+        function corpFocusBadges(corp, corpFirms) {
+            const badges = [];
+
+            // Fully vertical flag
+            if (corp.isFullyVertical) {
+                badges.push(`<span class="focus-badge focus-vertical">🔗 Fully Vertical</span>`);
+            }
+
+            // Primary persona badge
+            const persona = corp.primaryPersona;
+            if (persona?.type) {
+                const p = PERSONA_LABELS[persona.type];
+                if (p) {
+                    badges.push(`<span class="focus-badge ${p.cls}">${p.label}</span>`);
+                } else {
+                    badges.push(`<span class="focus-badge focus-raw">${persona.type.replace(/_/g,' ')}</span>`);
+                }
+            }
+
+            // Integration map: show which tiers are active (if multi-tier)
+            const imap = corp.integrationMap;
+            if (imap) {
+                const activeTiers = Object.entries(imap).filter(([,ids]) => ids?.length > 0);
+                if (activeTiers.length > 1) {
+                    const pips = activeTiers.map(([tier]) =>
+                        `<span class="tier-pip" style="background:${TIER_COLORS[tier] || '#888'}" title="${tier}"></span>`
+                    ).join('');
+                    badges.push(`<span class="focus-badge focus-vertical" style="font-weight:400">${pips} ${activeTiers.map(([t]) => TIER_LABELS[t] || t).join(' → ')}</span>`);
+                }
+            }
+
+            // Derive focus from firm types if no persona info
+            if (badges.length === 0 && corpFirms.length > 0) {
+                const typeCount = {};
+                corpFirms.forEach(f => { typeCount[f.type] = (typeCount[f.type] || 0) + 1; });
+                const dominant = Object.entries(typeCount).sort((a,b) => b[1]-a[1])[0]?.[0] || '';
+                const map = {
+                    MINING: { label: '⛏️ Mining', cls: 'focus-raw' },
+                    LOGGING: { label: '🪵 Logging', cls: 'focus-raw' },
+                    FARM: { label: '🌾 Farming', cls: 'focus-raw' },
+                    ManufacturingPlant: { label: '🏭 Manufacturing', cls: 'focus-mfg' },
+                    RetailStore: { label: '🛒 Retail', cls: 'focus-retail' },
+                };
+                const m = map[dominant];
+                if (m) badges.push(`<span class="focus-badge ${m.cls}">${m.label}</span>`);
+            }
+
+            return badges.length ? `<div class="corp-focus-row">${badges.join('')}</div>` : '';
         }
 
         function renderCorporations(corporations, firms) {
@@ -135,6 +229,7 @@
                                 <div class="corp-value-label">Total Value</div>
                             </div>
                         </div>
+                        ${corpFocusBadges(corp, corpFirms)}
                         <div class="corp-stats">
                             <div class="corp-stat">
                                 <div class="value">${corpFirms.length}</div>

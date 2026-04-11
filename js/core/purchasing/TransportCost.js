@@ -2,12 +2,14 @@
 // Calculates transportation costs and distances between cities
 
 export class TransportCost {
-    // Cost rates per kg per km by transport mode
+    // Cost rates in $/kg/km by transport mode
+    // Calibrated so bulk ore (1000 kg/unit) at 500 km by rail ≈ 15-20% of product value
+    // while light manufactured goods (0.1-50 kg/unit) pay negligible transport costs
     static RATES = {
-        truck: 0.10,   // Local/regional - fast, flexible
-        rail: 0.05,    // Domestic bulk - moderate speed, cheap
-        ship: 0.02,    // International bulk - slow, cheapest
-        air: 0.50      // Urgent - fastest, most expensive
+        truck: 0.000060,  // $/kg/km  (~$0.060/ton-km)
+        rail:  0.000016,  // $/kg/km  (~$0.016/ton-km)
+        ship:  0.000003,  // $/kg/km  (~$0.003/ton-km)
+        air:   0.000300   // $/kg/km  (~$0.300/ton-km)
     };
 
     // Speed in km/h by transport mode

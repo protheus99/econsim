@@ -1,6 +1,8 @@
 // js/core/purchasing/ContractManager.js
 // Manages contract lifecycle and fulfillment
 
+const DEBUG_PURCHASING = false; // Set true to enable verbose purchasing logs
+
 import { Contract } from './Contract.js';
 import { TransportCost } from './TransportCost.js';
 import { getLotSizeForProduct } from '../LotSizings.js';
@@ -101,7 +103,7 @@ export class ContractManager {
             }
         }
 
-        console.log(`ContractManager: Created contract ${contract.id} - ${supplier.getDisplayName()} -> ${buyer.getDisplayName()} for ${config.product}`);
+        if (DEBUG_PURCHASING) console.log(`ContractManager: Created contract ${contract.id} - ${supplier.getDisplayName()} -> ${buyer.getDisplayName()} for ${config.product}`);
         return contract;
     }
 
@@ -119,7 +121,7 @@ export class ContractManager {
         }
 
         const buyerName = buyer.getDisplayName?.() || buyer.name || buyer.id;
-        console.log(`📦 fulfillFromContracts: ${buyerName} needs ${needed} "${productName}"`);
+        if (DEBUG_PURCHASING) console.log(`📦 fulfillFromContracts: ${buyerName} needs ${needed} "${productName}"`);
 
         let fulfilled = 0;
 
@@ -128,11 +130,11 @@ export class ContractManager {
 
         if (relevantContracts.length === 0) {
             const reason = this.diagnoseNoContract(buyer, productName);
-            console.log(`📦 ${buyerName}: No contracts found for "${productName}" - ${reason}`);
+            if (DEBUG_PURCHASING) console.log(`📦 ${buyerName}: No contracts found for "${productName}" - ${reason}`);
             return 0;
         }
 
-        console.log(`📦 ${buyerName}: Found ${relevantContracts.length} contract(s) for "${productName}"`);
+        if (DEBUG_PURCHASING) console.log(`📦 ${buyerName}: Found ${relevantContracts.length} contract(s) for "${productName}"`);
 
         // Sort by priority: exclusive first, then by fulfillment rate
         relevantContracts.sort((a, b) => {
@@ -145,25 +147,25 @@ export class ContractManager {
             if (fulfilled >= needed) break;
 
             const supplierName = this.engine.firms?.get(contract.supplierId)?.getDisplayName?.() || contract.supplierId;
-            console.log(`📦 Evaluating contract ${contract.id.slice(-8)}: supplier=${supplierName}, product="${contract.product}"`);
+            if (DEBUG_PURCHASING) console.log(`📦 Evaluating contract ${contract.id.slice(-8)}: supplier=${supplierName}, product="${contract.product}"`);
 
             const supplier = this.engine.firms?.get(contract.supplierId);
             if (!supplier) {
-                console.log(`   ❌ Supplier ${contract.supplierId} not found in firms map`);
+                if (DEBUG_PURCHASING) console.log(`   ❌ Supplier ${contract.supplierId} not found in firms map`);
                 continue;
             }
 
             // Check how much can be ordered under this contract
             const maxOrderable = contract.getMaxOrderableVolume();
-            console.log(`   📊 Period status: ${contract.currentPeriodFulfilled}/${contract.volumePerPeriod} fulfilled, maxOrderable=${maxOrderable}`);
+            if (DEBUG_PURCHASING) console.log(`   📊 Period status: ${contract.currentPeriodFulfilled}/${contract.volumePerPeriod} fulfilled, maxOrderable=${maxOrderable}`);
             if (maxOrderable <= 0) {
-                console.log(`   ❌ Period maxed out - no more volume available this period`);
+                if (DEBUG_PURCHASING) console.log(`   ❌ Period maxed out - no more volume available this period`);
                 continue;
             }
 
             // Check supplier inventory
             const available = this.getSupplierInventory(supplier, productName);
-            console.log(`   📊 Supplier inventory for "${productName}": ${available}`);
+            if (DEBUG_PURCHASING) console.log(`   📊 Supplier inventory for "${productName}": ${available}`);
             if (available <= 0) {
                 // Also check what products the supplier DOES have
                 if (supplier.lotInventory) {
@@ -171,9 +173,9 @@ export class ContractManager {
                     supplier.lotInventory.lots?.forEach((lot, id) => {
                         if (!allProducts.includes(lot.productName)) allProducts.push(lot.productName);
                     });
-                    console.log(`   ❌ No inventory for "${productName}". Supplier has: [${allProducts.join(', ')}]`);
+                    if (DEBUG_PURCHASING) console.log(`   ❌ No inventory for "${productName}". Supplier has: [${allProducts.join(', ')}]`);
                 } else {
-                    console.log(`   ❌ No inventory for "${productName}" (no lotInventory)`);
+                    if (DEBUG_PURCHASING) console.log(`   ❌ No inventory for "${productName}" (no lotInventory)`);
                 }
                 continue;
             }
@@ -184,7 +186,7 @@ export class ContractManager {
                 maxOrderable,
                 needed - fulfilled
             ));
-            console.log(`   📊 Calculated toDeliver: min(available=${available}, maxOrderable=${maxOrderable}, stillNeeded=${needed - fulfilled}) = ${toDeliver}`);
+            if (DEBUG_PURCHASING) console.log(`   📊 Calculated toDeliver: min(available=${available}, maxOrderable=${maxOrderable}, stillNeeded=${needed - fulfilled}) = ${toDeliver}`);
 
             // Align to lot boundaries for efficiency
             const lotSize = getLotSizeForProduct(productName, this.engine.productRegistry);
@@ -192,20 +194,20 @@ export class ContractManager {
                 // Round down to whole lots
                 const wholeLots = Math.floor(toDeliver / lotSize);
                 toDeliver = wholeLots * lotSize;
-                console.log(`   📊 Aligned to lot size ${lotSize}: ${wholeLots} lots = ${toDeliver} units`);
+                if (DEBUG_PURCHASING) console.log(`   📊 Aligned to lot size ${lotSize}: ${wholeLots} lots = ${toDeliver} units`);
             } else if (lotSize > 0 && toDeliver < lotSize) {
-                console.log(`   ❌ Quantity ${toDeliver} below lot size ${lotSize}, skipping`);
+                if (DEBUG_PURCHASING) console.log(`   ❌ Quantity ${toDeliver} below lot size ${lotSize}, skipping`);
                 continue;
             }
 
             if (toDeliver > 0) {
                 // Get quality from lots if available
                 const quality = this.getDeliveryQuality(supplier, productName, toDeliver);
-                console.log(`   📊 Quality check: supplier quality=${quality.toFixed(2)}, contract minimum=${contract.minQuality}`);
+                if (DEBUG_PURCHASING) console.log(`   📊 Quality check: supplier quality=${quality.toFixed(2)}, contract minimum=${contract.minQuality}`);
 
                 // Check quality meets minimum
                 if (quality < contract.minQuality) {
-                    console.log(`   ❌ Quality ${quality.toFixed(2)} below contract minimum ${contract.minQuality}`);
+                    if (DEBUG_PURCHASING) console.log(`   ❌ Quality ${quality.toFixed(2)} below contract minimum ${contract.minQuality}`);
                     continue;
                 }
 
@@ -214,10 +216,10 @@ export class ContractManager {
                                    this.engine.productRegistry?.getProductByName(productName)?.basePrice;
                 const unitPrice = contract.calculateUnitPrice(quality, marketPrice);
                 const totalCost = toDeliver * unitPrice;
-                console.log(`   📊 Price: $${unitPrice.toFixed(2)}/unit, total=$${totalCost.toFixed(2)}, buyer cash=$${(buyer.cash || 0).toFixed(2)}`);
+                if (DEBUG_PURCHASING) console.log(`   📊 Price: $${unitPrice.toFixed(2)}/unit, total=$${totalCost.toFixed(2)}, buyer cash=$${(buyer.cash || 0).toFixed(2)}`);
 
                 // Execute the trade
-                console.log(`   🚀 Attempting executeContractTrade for ${toDeliver} units...`);
+                if (DEBUG_PURCHASING) console.log(`   🚀 Attempting executeContractTrade for ${toDeliver} units...`);
                 const success = this.executeContractTrade(
                     supplier,
                     buyer,
@@ -232,14 +234,14 @@ export class ContractManager {
                     const gameHour = this.engine.clock?.totalHours || 0;
                     contract.recordDelivery(toDeliver, quality, unitPrice, gameHour);
                     fulfilled += toDeliver;
-                    console.log(`   ✅ SUCCESS: Dispatched ${toDeliver} units, delivery pending`);
+                    if (DEBUG_PURCHASING) console.log(`   ✅ SUCCESS: Dispatched ${toDeliver} units, delivery pending`);
                 } else {
-                    console.log(`   ❌ FAILED: executeContractTrade returned false`);
+                    if (DEBUG_PURCHASING) console.log(`   ❌ FAILED: executeContractTrade returned false`);
                 }
             }
         }
 
-        console.log(`📦 fulfillFromContracts complete: fulfilled ${fulfilled}/${needed} for ${buyerName}`);
+        if (DEBUG_PURCHASING) console.log(`📦 fulfillFromContracts complete: fulfilled ${fulfilled}/${needed} for ${buyerName}`);
         return fulfilled;
     }
 
@@ -254,8 +256,8 @@ export class ContractManager {
             return false;
         }
 
-        // Calculate transport cost and time
-        const transport = this.calculateTransport(supplier, buyer, quantity);
+        // Calculate transport cost and time (pass product name for weight-based costing)
+        const transport = this.calculateTransport(supplier, buyer, quantity, product);
         const totalProductCost = quantity * unitPrice;
         const totalCost = totalProductCost + transport.cost;
 
@@ -263,7 +265,7 @@ export class ContractManager {
         const buyerCash = buyer.cash || 0;
         if (buyerCash < totalCost) {
             const buyerName = buyer.getDisplayName?.() || buyer.name || buyer.id;
-            console.log(`📦 Contract blocked: ${buyerName} can't afford $${totalCost.toFixed(2)} (has $${buyerCash.toFixed(2)})`);
+            if (DEBUG_PURCHASING) console.log(`📦 Contract blocked: ${buyerName} can't afford $${totalCost.toFixed(2)} (has $${buyerCash.toFixed(2)})`);
             return false;
         }
 
@@ -271,7 +273,7 @@ export class ContractManager {
         const removed = this.removeFromSupplierInventory(supplier, product, quantity);
         if (removed <= 0) {
             const supplierName = supplier.getDisplayName?.() || supplier.name || supplier.id;
-            console.log(`📦 Contract blocked: Failed to remove ${quantity} ${product} from ${supplierName} inventory`);
+            if (DEBUG_PURCHASING) console.log(`📦 Contract blocked: Failed to remove ${quantity} ${product} from ${supplierName} inventory`);
             return false;
         }
 
@@ -287,7 +289,7 @@ export class ContractManager {
         if (transport.hours > 4) {
             const supplierName = supplier.getDisplayName?.() || supplier.name || supplier.id || 'Unknown Supplier';
             const buyerName = buyer.getDisplayName?.() || buyer.name || buyer.id || 'Unknown Buyer';
-            console.log(`📦 Contract delivery: ${Math.floor(removed)} ${product} from ${supplierName} to ${buyerName} - ${transport.hours}h transit (${transport.mode})`);
+            if (DEBUG_PURCHASING) console.log(`📦 Contract delivery: ${Math.floor(removed)} ${product} from ${supplierName} to ${buyerName} - ${transport.hours}h transit (${transport.mode})`);
         }
 
         // Create pending delivery instead of instant transfer
@@ -360,7 +362,7 @@ export class ContractManager {
      * @param {number} quantity - Quantity being shipped
      * @returns {object} { cost, hours, distance, mode }
      */
-    calculateTransport(supplier, buyer, quantity) {
+    calculateTransport(supplier, buyer, quantity, productName = null) {
         const supplierCity = supplier.city;
         const buyerCity = buyer.city;
 
@@ -369,8 +371,14 @@ export class ContractManager {
             return { cost: 0, hours: 1, distance: 0, mode: 'truck' };
         }
 
+        // Look up product weight (kg/unit) for accurate transport costing
+        const product = productName
+            ? this.engine.productRegistry?.getProductByName(productName)
+            : null;
+        const weightPerUnit = product?.weight ?? 1.0;
+
         // Use TransportCost class to calculate
-        const transport = TransportCost.calculate(supplierCity, buyerCity, quantity);
+        const transport = TransportCost.calculate(supplierCity, buyerCity, quantity, weightPerUnit);
 
         return {
             cost: transport.cost,
@@ -672,7 +680,7 @@ export class ContractManager {
             this.addToIndex(this.byProduct, contract.product, contract.id);
         }
 
-        console.log(`ContractManager: Rebuilt indices for ${this.contracts.size} contracts`);
+        if (DEBUG_PURCHASING) console.log(`ContractManager: Rebuilt indices for ${this.contracts.size} contracts`);
     }
 
     /**

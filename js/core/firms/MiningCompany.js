@@ -172,7 +172,25 @@ export class MiningCompany extends Firm {
         const technologyBonus = this.technologyLevel * 0.1;
         const qualityFactor = this.reserveQuality / 100;
 
-        const extractionAmount = this.baseExtractionRate * efficiencyFactor * (1 + technologyBonus) * qualityFactor;
+        let extractionAmount = this.baseExtractionRate * efficiencyFactor * (1 + technologyBonus) * qualityFactor;
+
+        // Throttle production when inventory exceeds contract demand
+        if (this.contractManager) {
+            const currentInventory = this.getAvailableQuantity();
+            const throttleCheck = this.contractManager.shouldThrottleProduction(
+                this, this.resourceType, currentInventory, false, null
+            );
+            if (throttleCheck.shouldThrottle) {
+                extractionAmount *= (1 - throttleCheck.throttlePercent / 100);
+                this.consecutiveThrottleCycles = (this.consecutiveThrottleCycles || 0) + 1;
+                this.lastThrottleReason = throttleCheck.reason;
+                if (extractionAmount <= 0) {
+                    this.actualExtractionRate = 0;
+                    return { produced: false, reason: 'THROTTLED_' + throttleCheck.reason, resource: this.resourceType, quantity: 0 };
+                }
+            }
+        }
+
         this.actualExtractionRate = extractionAmount;
 
         // Deduct from reserves
@@ -223,6 +241,8 @@ export class MiningCompany extends Firm {
     createLot() {
         // Check if lot inventory has capacity
         if (this.lotInventory.lots.size >= this.lotInventory.storageCapacity) {
+            this.consecutiveThrottleCycles = (this.consecutiveThrottleCycles || 0) + 1;
+            this.lastThrottleReason = 'storage_full';
             return null;
         }
 

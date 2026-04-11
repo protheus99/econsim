@@ -62,14 +62,14 @@
         .badge-switching { background: #3a2a00; color: #ffa000; }
         .badge-available { background: #1a2a3a; color: #42a5f5; }
         .badge-reserved { background: #2a1a3a; color: #ab47bc; }
+
+        /* Production health */
+        .health-badges { display: flex; gap: 8px; flex-wrap: wrap; padding: 10px 0 4px; }
+        .health-badge { font-size: 11px; padding: 3px 8px; border-radius: 4px; }
+        .health-badge-warn { background: #3a2a00; color: #ffa000; }
+        .health-badge-danger { background: #3a1a1a; color: #f44336; }
         .badge-expired { background: #3a1a1a; color: #ef5350; }
 
-        /* Lot table */
-        .lot-table { width: 100%; font-size: 12px; border-collapse: collapse; }
-        .lot-table th { color: #666; font-size: 10px; text-transform: uppercase; padding: 4px 6px; text-align: left; border-bottom: 1px solid #2a2a2a; }
-        .lot-table td { padding: 5px 6px; border-bottom: 1px solid #1a1a1a; color: #ddd; font-size: 11px; }
-        .lot-table tr:last-child td { border-bottom: none; }
-        .lot-id { font-family: monospace; font-size: 10px; color: #888; }
 
         /* Progress bar */
         .progress-bar { background: #2a2a2a; border-radius: 3px; height: 6px; overflow: hidden; margin-top: 4px; }
@@ -119,6 +119,8 @@
                 <a href="cities.html">Cities</a>
                 <a href="corporations.html">Corporations</a>
                 <a href="products.html">Products</a>
+                <a href="deliveries.html">Deliveries</a>
+                <a href="transactions.html">Transactions</a>
             </nav>
         </header>
 
@@ -135,6 +137,8 @@
                 <button class="gc-btn gc-speed" data-speed="8">8x</button>
                 <button class="gc-btn gc-speed" data-speed="24">1D</button>
                 <button class="gc-btn gc-speed" data-speed="168">1W</button>
+                    <button class="gc-btn gc-speed" data-speed="720">1M</button>
+                    <button class="gc-btn gc-speed" data-speed="8760">1Y</button>
             </div>
             <div class="game-controls-right">
                 <span class="gc-status gc-status-paused" id="gc-status">
@@ -480,39 +484,63 @@
             const lots = firm.lotInventory.lots || [];
             if (lots.length === 0) return '';
 
-            // Group by product
+            const capacity = firm.lotInventory.storageCapacity || 0;
+
+            // Aggregate by product
             const byProduct = {};
             lots.forEach(lot => {
                 const key = lot.productName || 'Unknown';
-                if (!byProduct[key]) byProduct[key] = { lots: [], total: 0 };
-                byProduct[key].lots.push(lot);
-                byProduct[key].total += lot.quantity || 0;
+                if (!byProduct[key]) byProduct[key] = { total: 0, count: 0, qualitySum: 0, available: 0, reserved: 0, expired: 0 };
+                const g = byProduct[key];
+                g.total      += lot.quantity || 0;
+                const q = lot.quality != null && lot.quality <= 1 ? lot.quality : (lot.quality || 0) / 100;
+                g.qualitySum += q * (lot.quantity || 0);
+                g.count++;
+                if      (lot.status === 'AVAILABLE') g.available += lot.quantity || 0;
+                else if (lot.status === 'RESERVED')  g.reserved  += lot.quantity || 0;
+                else if (lot.status === 'EXPIRED')   g.expired   += lot.quantity || 0;
             });
 
-            const summary = Object.entries(byProduct).map(([name, data]) =>
-                infoRow(name, `${fmtNum(data.total)} (${data.lots.length} lots)`)
-            ).join('');
+            const rows = Object.entries(byProduct).map(([name, g]) => {
+                const avgQuality = g.total > 0 ? g.qualitySum / g.total : 0;
+                const qColor = avgQuality >= 0.8 ? '#4caf50' : avgQuality >= 0.5 ? '#ffa000' : '#f44336';
+                const fillPct = capacity > 0 ? Math.min(100, (g.count / capacity) * 100) : 0;
+                const statusParts = [
+                    g.available ? `<span style="color:#4caf50">${fmtNum(g.available)} avail</span>` : '',
+                    g.reserved  ? `<span style="color:#ffa000">${fmtNum(g.reserved)} rsv</span>`   : '',
+                    g.expired   ? `<span style="color:#f44336">${fmtNum(g.expired)} exp</span>`    : ''
+                ].filter(Boolean).join('&nbsp; ');
 
-            const tableHtml = `
-                <div style="margin-top:12px">
-                <table class="lot-table">
-                    <thead><tr><th>Lot ID</th><th>Product</th><th>Qty</th><th>Quality</th><th>Status</th><th>Day</th></tr></thead>
-                    <tbody>${lots.slice(0, 30).map(lot => {
-                        const sc = lot.status === 'AVAILABLE' ? 'badge-available' : lot.status === 'RESERVED' ? 'badge-reserved' : lot.status === 'EXPIRED' ? 'badge-expired' : 'badge-idle';
-                        return `<tr>
-                            <td class="lot-id">${(lot.id || '').substring(0, 18)}…</td>
-                            <td>${lot.productName || '—'}</td>
-                            <td>${fmtNum(lot.quantity || 0)} ${lot.unit || ''}</td>
-                            <td>${pct(lot.quality != null && lot.quality <= 1 ? lot.quality : (lot.quality || 0) / 100, 0)}</td>
-                            <td><span class="badge ${sc}">${lot.status || '?'}</span></td>
-                            <td>${lot.createdDay || '?'}</td>
-                        </tr>`;
-                    }).join('')}</tbody>
-                </table>
-                ${lots.length > 30 ? `<div style="color:#666;font-size:11px;margin-top:6px">…and ${lots.length - 30} more lots</div>` : ''}
+                return `
+                <div style="padding:10px 0;border-bottom:1px solid #1e1e1e">
+                    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px">
+                        <span style="font-weight:600;color:#ddd">${name}</span>
+                        <span style="font-size:12px;color:#888">${g.count} lot${g.count !== 1 ? 's' : ''}</span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:16px">
+                        <div style="flex:1">
+                            <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px">
+                                <span>${statusParts || `<span style="color:#aaa">${fmtNum(g.total)}</span>`}</span>
+                                <span style="color:#aaa">${fmtNum(g.total)} total</span>
+                            </div>
+                            ${capacity > 0 ? `
+                            <div style="background:#2a2a2a;border-radius:3px;height:5px;overflow:hidden">
+                                <div style="height:100%;width:${fillPct.toFixed(1)}%;background:#00d4ff;border-radius:3px"></div>
+                            </div>` : ''}
+                        </div>
+                        <div style="text-align:right;min-width:60px">
+                            <div style="font-size:13px;font-weight:600;color:${qColor}">${pct(avgQuality, 0)}</div>
+                            <div style="font-size:10px;color:#555">avg quality</div>
+                        </div>
+                    </div>
                 </div>`;
+            }).join('');
 
-            return sectionHtml(`Lot Inventory — ${lots.length} lots`, summary + tableHtml);
+            const capacityLine = capacity > 0
+                ? `<div style="font-size:11px;color:#555;margin-top:8px;text-align:right">${lots.length} / ${capacity} lots &nbsp;(${Math.round(lots.length / capacity * 100)}% full)</div>`
+                : '';
+
+            return sectionHtml(`Lot Inventory — ${lots.length} lot${lots.length !== 1 ? 's' : ''}`, rows + capacityLine);
         }
 
         function renderLoans(firm) {
@@ -554,9 +582,188 @@
             return sectionHtml(`Performance History (${h.length} months)`, tableHtml);
         }
 
+        // ─── Firm transaction history ──────────────────────────────────────────────
+
+        const CAT_LABELS = { B2B_RAW:'Raw', B2B_SEMI:'Semi', B2B_MANUFACTURED:'Mfg', B2B_WHOLESALE:'Wholesale', B2C_RETAIL:'Retail', CONTRACT:'Contract' };
+
+        function renderFirmTransactions(firm, allTransactions) {
+            if (!allTransactions || allTransactions.length === 0) return '';
+            const firmTxs = allTransactions
+                .filter(tx => tx.sellerId === firm.id || tx.buyerId === firm.id)
+                .slice(0, 20);
+            if (firmTxs.length === 0) return '';
+
+            const rows = firmTxs.map(tx => {
+                const isSeller = tx.sellerId === firm.id;
+                const dir = isSeller
+                    ? '<span style="color:#4caf50;font-size:10px">SOLD</span>'
+                    : '<span style="color:#42a5f5;font-size:10px">BOUGHT</span>';
+                const cat = tx.category || '';
+                const catLabel = CAT_LABELS[cat] || cat;
+                const counterparty = isSeller
+                    ? (tx.buyerName || tx.buyerId || '—')
+                    : (tx.sellerName || tx.sellerId || '—');
+                const total = tx.totalValue || (tx.quantity * (tx.unitPrice || 0));
+                return `<tr>
+                    <td>${dir}</td>
+                    <td><strong>${tx.productName || '—'}</strong></td>
+                    <td style="text-align:right;color:#aaa">${Math.floor(tx.quantity || 0).toLocaleString()}</td>
+                    <td style="text-align:right;font-weight:500">${fmt$(total)}</td>
+                    <td style="color:#888;font-size:11px">${counterparty}</td>
+                    <td><span style="font-size:10px;padding:1px 5px;border-radius:3px;background:#2a2a2a;color:#888">${catLabel}</span></td>
+                    <td style="color:#555;font-size:11px">${tx.gameTime || '—'}</td>
+                </tr>`;
+            }).join('');
+
+            return `<div class="section">
+                <div class="section-title">Recent Transactions (${firmTxs.length})</div>
+                <table style="width:100%;border-collapse:collapse;font-size:12px">
+                    <thead>
+                        <tr style="color:#555;font-size:10px;text-transform:uppercase">
+                            <th style="padding:4px 6px;text-align:left;border-bottom:1px solid #2a2a2a">Dir</th>
+                            <th style="padding:4px 6px;text-align:left;border-bottom:1px solid #2a2a2a">Product</th>
+                            <th style="padding:4px 6px;text-align:right;border-bottom:1px solid #2a2a2a">Qty</th>
+                            <th style="padding:4px 6px;text-align:right;border-bottom:1px solid #2a2a2a">Total</th>
+                            <th style="padding:4px 6px;text-align:left;border-bottom:1px solid #2a2a2a">Counterparty</th>
+                            <th style="padding:4px 6px;text-align:left;border-bottom:1px solid #2a2a2a">Type</th>
+                            <th style="padding:4px 6px;text-align:left;border-bottom:1px solid #2a2a2a">Time</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                </table>
+            </div>`;
+        }
+
+        // ─── Production health badges ──────────────────────────────────────────────
+
+        function renderProductionHealth(firm) {
+            const badges = [];
+            if ((firm.noSaleStreak || 0) > 0) {
+                const cls = firm.noSaleStreak >= 3 ? 'health-badge-danger' : 'health-badge-warn';
+                badges.push(`<span class="health-badge ${cls}">No sales: ${firm.noSaleStreak} mo</span>`);
+            }
+            if ((firm.consecutiveThrottleCycles || 0) > 2) {
+                const reason = firm.lastThrottleReason || 'unknown';
+                const label = reason === 'storage_full' ? 'Storage full' : reason === 'excess_inventory' ? 'Excess stock' : 'No contracts';
+                badges.push(`<span class="health-badge health-badge-warn">Throttled: ${label} (${firm.consecutiveThrottleCycles})</span>`);
+            }
+            if (badges.length === 0) return '';
+            return `<div class="section"><div class="section-title">Production Health</div><div class="health-badges">${badges.join('')}</div></div>`;
+        }
+
+        // ─── Contracts ─────────────────────────────────────────────────────────────
+
+        function renderContracts(firm, allContracts) {
+            if (!allContracts || allContracts.length === 0) return '';
+            const firmContracts = allContracts.filter(c =>
+                c.supplierId === firm.id || c.buyerId === firm.id
+            );
+            if (firmContracts.length === 0) return '';
+
+            const statusColor = { ACTIVE: '#4caf50', PENDING: '#ffa000', TERMINATED: '#f44336', SUSPENDED: '#888' };
+            const statusBg    = { ACTIVE: '#1a3a1a', PENDING: '#3a2a00', TERMINATED: '#3a1a1a', SUSPENDED: '#2a2a2a' };
+
+            const cards = firmContracts.map(c => {
+                const isSeller = c.supplierId === firm.id;
+                const role = isSeller
+                    ? `<span style="color:#4caf50;font-weight:600">SELLING</span>`
+                    : `<span style="color:#42a5f5;font-weight:600">BUYING</span>`;
+                const counterparty = isSeller
+                    ? (c.buyerName || c.buyerId || '—')
+                    : (c.supplierName || c.supplierId || '—');
+                const st = (c.status || 'ACTIVE').toUpperCase();
+                const stColor = statusColor[st] || '#aaa';
+                const stBg    = statusBg[st]    || '#2a2a2a';
+
+                // Fulfillment history: last 5 deliveries
+                const history = (c.fulfillmentHistory || []).slice(-5).reverse();
+                const histRows = history.map(d => {
+                    const fr = ((d.fulfillmentRate || 0) * 100).toFixed(0);
+                    const frColor = d.fulfillmentRate >= 0.9 ? '#4caf50' : d.fulfillmentRate >= 0.5 ? '#ffa000' : '#f44336';
+                    return `<tr>
+                        <td style="color:#888;font-size:10px">${d.gameHour != null ? 'Hr ' + d.gameHour : '—'}</td>
+                        <td style="text-align:right">${fmtNum(d.deliveredQuantity || 0)}</td>
+                        <td style="text-align:right">${fmt$(d.pricePerUnit || 0)}</td>
+                        <td style="text-align:right;font-weight:500">${fmt$(d.totalValue || 0)}</td>
+                        <td style="text-align:right;color:${frColor}">${fr}%</td>
+                    </tr>`;
+                }).join('');
+
+                const histTable = history.length > 0
+                    ? `<table style="width:100%;border-collapse:collapse;font-size:11px;margin-top:6px">
+                        <thead><tr style="color:#555;font-size:10px;text-transform:uppercase">
+                            <th style="padding:3px 4px;text-align:left;border-bottom:1px solid #222">Time</th>
+                            <th style="padding:3px 4px;text-align:right;border-bottom:1px solid #222">Qty</th>
+                            <th style="padding:3px 4px;text-align:right;border-bottom:1px solid #222">Unit $</th>
+                            <th style="padding:3px 4px;text-align:right;border-bottom:1px solid #222">Total</th>
+                            <th style="padding:3px 4px;text-align:right;border-bottom:1px solid #222">Fulfill</th>
+                        </tr></thead>
+                        <tbody>${histRows}</tbody>
+                    </table>`
+                    : `<div style="font-size:11px;color:#555;margin-top:4px">No deliveries yet</div>`;
+
+                const avgFulfill = c.averageFulfillmentRate != null
+                    ? ((c.averageFulfillmentRate) * 100).toFixed(0) + '%'
+                    : '—';
+                const fulfillColor = (c.averageFulfillmentRate || 0) >= 0.9 ? '#4caf50'
+                                   : (c.averageFulfillmentRate || 0) >= 0.5 ? '#ffa000' : '#f44336';
+
+                return `<div style="background:#161616;border-radius:6px;padding:12px 14px;margin-bottom:10px;border:1px solid #2a2a2a">
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+                        <div>
+                            <span style="font-weight:600;font-size:13px;color:#ddd">${c.product || '—'}</span>
+                            <span style="margin-left:8px;font-size:11px;color:#888">${c.productCategory || ''}</span>
+                        </div>
+                        <span style="font-size:10px;padding:2px 6px;border-radius:3px;background:${stBg};color:${stColor}">${st}</span>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;font-size:11px;margin-bottom:8px">
+                        <div>
+                            <div style="color:#555;text-transform:uppercase;font-size:10px">Role</div>
+                            <div>${role}</div>
+                        </div>
+                        <div>
+                            <div style="color:#555;text-transform:uppercase;font-size:10px">Counterparty</div>
+                            <div style="color:#aaa">${counterparty}</div>
+                        </div>
+                        <div>
+                            <div style="color:#555;text-transform:uppercase;font-size:10px">Volume / Period</div>
+                            <div style="color:#ddd">${fmtNum(c.volumePerPeriod || 0)} ${c.periodType || ''}</div>
+                        </div>
+                        <div>
+                            <div style="color:#555;text-transform:uppercase;font-size:10px">Price / Unit</div>
+                            <div style="color:#ddd">${fmt$(c.pricePerUnit || 0)} <span style="color:#555">${c.priceType || ''}</span></div>
+                        </div>
+                        <div>
+                            <div style="color:#555;text-transform:uppercase;font-size:10px">Total Delivered</div>
+                            <div style="color:#ddd">${fmtNum(c.totalDelivered || 0)}</div>
+                        </div>
+                        <div>
+                            <div style="color:#555;text-transform:uppercase;font-size:10px">Total Value</div>
+                            <div style="color:#4caf50">${fmt$(c.totalValue || 0)}</div>
+                        </div>
+                        <div>
+                            <div style="color:#555;text-transform:uppercase;font-size:10px">Avg Fulfillment</div>
+                            <div style="color:${fulfillColor};font-weight:600">${avgFulfill}</div>
+                        </div>
+                        <div>
+                            <div style="color:#555;text-transform:uppercase;font-size:10px">Penalties</div>
+                            <div style="color:${(c.totalPenalties || 0) > 0 ? '#f44336' : '#555'}">${fmt$(c.totalPenalties || 0)}</div>
+                        </div>
+                    </div>
+                    <div style="font-size:10px;color:#444;margin-bottom:4px">RECENT DELIVERIES</div>
+                    ${histTable}
+                </div>`;
+            }).join('');
+
+            return `<div class="section">
+                <div class="section-title">Contracts (${firmContracts.length})</div>
+                ${cards}
+            </div>`;
+        }
+
         // ─── Main render ───────────────────────────────────────────────────────────
 
-        function renderFirm(firm) {
+        function renderFirm(firm, allTransactions = [], allContracts = []) {
             if (!firm) {
                 content.innerHTML = '<div class="loading error">Firm not found</div>';
                 return;
@@ -610,11 +817,14 @@
                     ${renderLabor(firm)}
                 </div>
 
+                ${renderProductionHealth(firm)}
                 ${renderTypeSection(firm)}
                 ${renderLotProgress(firm)}
                 ${renderLotInventory(firm)}
                 ${renderLoans(firm)}
                 ${renderHistory(firm)}
+                ${renderContracts(firm, allContracts)}
+                ${renderFirmTransactions(firm, allTransactions)}
             `;
         }
 
@@ -623,7 +833,7 @@
         stateManager.subscribeAll((state) => {
             if (state.firms && firmId) {
                 const firm = state.firms[firmId];
-                renderFirm(firm);
+                renderFirm(firm, state.recentTransactions || [], state.contracts || []);
             }
         });
 

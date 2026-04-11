@@ -186,6 +186,43 @@ stateManager.subscribeAll((state) => {
     const fc = Object.keys(state.firms || {}).length;
     document.getElementById("stat-firms").textContent = fc || state.firmCount || "--";
     document.getElementById("stat-corps").textContent = state.corporations?.length || "--";
+
+    // Transaction count + breakdown
+    const txs = state.recentTransactions || [];
+    document.getElementById("stat-transactions").textContent = txs.length || "--";
+    if (txs.length > 0) {
+        const b2b = txs.filter(t => t.category && t.category.startsWith('B2B')).length;
+        const b2c = txs.filter(t => t.category === 'B2C_RETAIL').length;
+        const breakdown = document.getElementById("stat-tx-breakdown");
+        if (breakdown) breakdown.textContent = `B2B: ${b2b} · B2C: ${b2c}`;
+    }
+
+    // Pending deliveries
+    const deliveries = state.pendingDeliveries || [];
+    const inTransit = deliveries.filter(d => d.status === 'in_transit').length;
+    const delivEl = document.getElementById("stat-deliveries");
+    if (delivEl) delivEl.textContent = inTransit;
+
+    // Supply health panel
+    const firms = Object.values(state.firms || {});
+    if (firms.length > 0) {
+        const supplyHealth = document.getElementById("supply-health");
+        if (supplyHealth) supplyHealth.style.display = 'block';
+
+        const noSaleFirms = firms.filter(f => (f.noSaleStreak || 0) > 0).length;
+        const throttledFirms = firms.filter(f => (f.consecutiveThrottleCycles || 0) > 2).length;
+        const distressFirms = firms.filter(f => (f.consecutiveLossMonths || 0) > 2).length;
+
+        const inTransitEl = document.getElementById("health-in-transit");
+        const noSaleEl = document.getElementById("health-no-sale");
+        const throttledEl = document.getElementById("health-throttled");
+        const distressEl = document.getElementById("health-distress");
+
+        if (inTransitEl) { inTransitEl.textContent = inTransit; inTransitEl.className = 'h-value ' + (inTransit > 0 ? 'h-neutral' : 'h-ok'); }
+        if (noSaleEl) { noSaleEl.textContent = noSaleFirms; noSaleEl.className = 'h-value ' + (noSaleFirms > 5 ? 'h-warn' : 'h-ok'); }
+        if (throttledEl) { throttledEl.textContent = throttledFirms; throttledEl.className = 'h-value ' + (throttledFirms > 5 ? 'h-warn' : 'h-ok'); }
+        if (distressEl) { distressEl.textContent = distressFirms; distressEl.className = 'h-value ' + (distressFirms > 3 ? 'h-warn' : 'h-ok'); }
+    }
 });
 stateManager.subscribe("speed", s => {
     document.querySelectorAll(".btn-speed").forEach(b => b.classList.toggle("active", parseInt(b.dataset.speed) === s));

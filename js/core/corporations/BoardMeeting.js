@@ -2,7 +2,11 @@
 // Constants shared across the corporate planning system.
 // The BoardMeeting class has been removed — planning is handled by CorporateRoadmap.
 
-import { GOAL_TYPES, INDUSTRY_TIERS } from './Corporation.js';
+// Inlined to avoid circular dependency
+const INDUSTRY_TIERS = {
+    RAW: 'RAW', SEMI_RAW: 'SEMI_RAW', MANUFACTURED: 'MANUFACTURED',
+    RETAIL: 'RETAIL', SERVICES: 'SERVICES'
+};
 
 /**
  * Decision types that can be queued in a corporation's roadmap
