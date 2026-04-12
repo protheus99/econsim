@@ -6,6 +6,7 @@ import { ContractManager } from './ContractManager.js';
 import { RetailPurchaseManager } from './RetailPurchaseManager.js';
 import { TransportCost } from './TransportCost.js';
 import { Lot } from '../Lot.js';
+import { getLotSizeForProduct } from '../LotSizings.js';
 
 export class PurchaseManager {
     constructor(simulationEngine) {
@@ -71,7 +72,7 @@ export class PurchaseManager {
 
         // 1. Process contract deliveries first (highest priority)
         if (this.config.enableContracts) {
-            this.contractManager.processScheduledDeliveries(Date.now());
+            this.contractManager.processScheduledDeliveries(this.engine.clock?.totalHours ?? 0);
         }
 
         // 2. Process manufacturer and processor supply chain
@@ -88,7 +89,7 @@ export class PurchaseManager {
         // Log performance
         const elapsed = Date.now() - startTime;
         if (elapsed > 100) {
-            console.log(`PurchaseManager: Processing took ${elapsed}ms`);
+            if (DEBUG_PURCHASING) console.log(`PurchaseManager: Processing took ${elapsed}ms`);
         }
     }
 
@@ -140,36 +141,34 @@ export class PurchaseManager {
 
             if (remaining <= 0) continue;
 
-            // Step 2: Find best supplier and purchase
-            if (this.config.enableSupplierScoring) {
-                const selection = this.supplierSelector.selectBest({
-                    buyer: firm,
-                    productName: materialName,
-                    quantity: remaining,
-                    considerPrice: true,
-                    considerTransport: true,
-                    considerRelationship: true
-                });
-
-                if (selection && selection.supplier) {
-                    const purchased = this.executePurchase(
-                        firm,
-                        selection.supplier,
-                        materialName,
-                        Math.min(remaining, selection.availableQty),
-                        selection.effectiveUnitPrice,
-                        selection.transportCost
-                    );
-
-                    remaining -= purchased;
-                    if (purchased > 0) {
-                        this.stats.purchasesFromSuppliers += purchased;
-                    }
-                }
-            }
-
-            // No global market fallback - local suppliers only
+            // Step 2: Try to auto-create a contract for unmet demand (no spot purchasing)
+            this._tryAutoCreateContract(firm, materialName, needed);
         }
+    }
+
+    /**
+     * Try to auto-create a supply contract when a firm has unmet input demand.
+     * Called when contracts don't cover all needs — negotiates a new contract if possible.
+     * @param {object} firm - The buying firm
+     * @param {string} materialName - Input material needed
+     * @param {number} monthlyNeed - Monthly volume required
+     */
+    _tryAutoCreateContract(firm, materialName, monthlyNeed) {
+        if (!this.config.enableContracts) return;
+        const selection = this.supplierSelector.selectBest({
+            buyer: firm,
+            productName: materialName,
+            quantity: monthlyNeed,
+            requireInventory: false,
+            forSpotPurchase: false
+        });
+        if (!selection?.supplier) return;
+
+        const lotSize = getLotSizeForProduct(materialName, this.engine.productRegistry);
+        this.contractManager.negotiateAndCreate(
+            firm, selection.supplier, materialName, monthlyNeed,
+            { durationMonths: 12, lotSize, minLots: 2 }
+        );
     }
 
     /**
@@ -342,7 +341,7 @@ export class PurchaseManager {
                     if (name === productName) {
                         invData.quantity = (invData.quantity || 0) + removed;
                         added = true;
-                        console.log(`📦 Retail spot: Added ${removed} "${productName}" to ${buyer.getDisplayName?.() || buyer.id} inventory (now ${invData.quantity})`);
+                        if (DEBUG_PURCHASING) console.log(`📦 Retail spot: Added ${removed} "${productName}" to ${buyer.getDisplayName?.() || buyer.id} inventory (now ${invData.quantity})`);
                         break;
                     }
                 }
@@ -354,7 +353,7 @@ export class PurchaseManager {
                         const existing = buyer.productInventory.get(product.id);
                         if (existing) {
                             existing.quantity = (existing.quantity || 0) + removed;
-                            console.log(`📦 Retail spot: Added ${removed} "${productName}" via product ID to ${buyer.getDisplayName?.() || buyer.id}`);
+                            if (DEBUG_PURCHASING) console.log(`📦 Retail spot: Added ${removed} "${productName}" via product ID to ${buyer.getDisplayName?.() || buyer.id}`);
                             added = true;
                         }
                     }
@@ -499,7 +498,10 @@ export class PurchaseManager {
         if (this.engine.firmManager?.getManufacturers) {
             return this.engine.firmManager.getManufacturers();
         }
-
+        // Use pre-partitioned array if available (avoids Array.from().filter() per tick)
+        if (this.engine.manufacturerFirms) {
+            return this.engine.manufacturerFirms;
+        }
         // Fallback: filter from all firms (firms is a Map)
         const allFirms = this.engine.firms
             ? Array.from(this.engine.firms.values())
@@ -522,7 +524,10 @@ export class PurchaseManager {
         if (this.engine.firmManager?.getRetailers) {
             return this.engine.firmManager.getRetailers();
         }
-
+        // Use pre-partitioned array if available
+        if (this.engine.retailerFirms) {
+            return this.engine.retailerFirms;
+        }
         // Fallback: filter from all firms (firms is a Map)
         const allFirms = this.engine.firms
             ? Array.from(this.engine.firms.values())
@@ -633,8 +638,8 @@ export class PurchaseManager {
         };
 
         this.pendingDeliveries.push(delivery);
-        console.log(`📤 Created pending delivery: ${quantity} "${productName}" from ${sellerName} to ${buyerName}, ETA hour ${arrivalHour} (${transitTime}h transit)`);
-        console.log(`   📋 Total pending deliveries: ${this.pendingDeliveries.length}`);
+        if (DEBUG_PURCHASING) console.log(`📤 Created pending delivery: ${quantity} "${productName}" from ${sellerName} to ${buyerName}, ETA hour ${arrivalHour} (${transitTime}h transit)`);
+        if (DEBUG_PURCHASING) console.log(`   📋 Total pending deliveries: ${this.pendingDeliveries.length}`);
         return delivery;
     }
 
@@ -659,12 +664,24 @@ export class PurchaseManager {
 
         // Process each arrived delivery
         for (const delivery of arrived) {
+            // Apply delay penalty if delivery has a contract and arrived after expected hour
+            if (delivery.contractId && delivery.arrivalHour) {
+                const contract = this.contractManager.contracts.get(delivery.contractId);
+                const supplierFirm = this.engine.firms?.get(delivery.seller?.id);
+                const buyerFirm    = this.engine.firms?.get(delivery.buyer?.id);
+                if (contract && supplierFirm && buyerFirm) {
+                    contract.applyDelayPenalty(
+                        currentHour, delivery.arrivalHour,
+                        supplierFirm, buyerFirm, delivery.quantity
+                    );
+                }
+            }
             this.completeDelivery(delivery);
         }
 
         // Log summary of completed deliveries (only for non-trivial batches)
         if (arrived.length > 0 && arrived.some(d => d.arrivalHour - d.createdAt > 4)) {
-            console.log(`📬 ${arrived.length} contract deliveries arrived`);
+            if (DEBUG_PURCHASING) console.log(`📬 ${arrived.length} contract deliveries arrived`);
         }
 
         return arrived.length;
@@ -682,14 +699,14 @@ export class PurchaseManager {
 
         const buyerName = buyer.getDisplayName?.() || buyer.id;
         const sellerName = delivery.seller?.name || delivery.seller?.id || 'Unknown';
-        console.log(`📬 Completing delivery: ${delivery.quantity} "${delivery.productName}" from ${sellerName} to ${buyerName}`);
+        if (DEBUG_PURCHASING) console.log(`📬 Completing delivery: ${delivery.quantity} "${delivery.productName}" from ${sellerName} to ${buyerName}`);
 
         // Add goods to buyer's inventory
         const transferred = this.addToBuyerInventory(buyer, delivery.productName, delivery.quantity, delivery.quality);
 
         if (transferred > 0) {
             delivery.status = 'delivered';
-            console.log(`   ✅ Delivered ${transferred} units to ${buyerName}'s inventory`);
+            if (DEBUG_PURCHASING) console.log(`   ✅ Delivered ${transferred} units to ${buyerName}'s inventory`);
 
             // Log the completed transaction
             if (this.engine.transactionLog) {
@@ -711,7 +728,7 @@ export class PurchaseManager {
             return true;
         }
 
-        console.log(`   ❌ FAILED to add ${delivery.quantity} "${delivery.productName}" to ${buyerName}'s inventory (transferred=0)`);
+        if (DEBUG_PURCHASING) console.log(`   ❌ FAILED to add ${delivery.quantity} "${delivery.productName}" to ${buyerName}'s inventory (transferred=0)`);
         return false;
     }
 

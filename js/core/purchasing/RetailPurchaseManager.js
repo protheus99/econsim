@@ -207,11 +207,12 @@ export class RetailPurchaseManager {
         // Get lot size for this product to ensure contract volume is compatible
         const lotSize = getLotSizeForProduct(productName, this.engine.productRegistry);
 
-        // Estimate weekly sales need
+        // Estimate monthly sales need (weekly * 4)
         const weeklyEstimatedSales = this.estimateWeeklySales(retailer, productName);
+        const monthlyEstimatedSales = weeklyEstimatedSales * 4;
 
         // Request coverage percentage via contracts
-        let requestedVolume = Math.floor(weeklyEstimatedSales * this.config.contractCoverageTarget);
+        let requestedVolume = Math.floor(monthlyEstimatedSales * this.config.contractCoverageTarget);
 
         // Ensure minimum contract volume meets lot size requirements
         const minVolume = lotSize > 0
@@ -241,10 +242,10 @@ export class RetailPurchaseManager {
         const supplier = selection.supplier;
         const supplierId = supplier.id;
 
-        // Check supplier's available capacity
-        const maxWeeklyCapacity = this.getSupplierWeeklyCapacity(supplier);
+        // Check supplier's available capacity (monthly = weekly * 4)
+        const maxMonthlyCapacity = this.getSupplierWeeklyCapacity(supplier) * 4;
         const currentCommitment = this.supplierCommitments.get(supplierId) || 0;
-        const availableCapacity = maxWeeklyCapacity - currentCommitment;
+        const availableCapacity = maxMonthlyCapacity - currentCommitment;
 
         if (availableCapacity <= 0) {
             return null; // Supplier fully committed
@@ -277,10 +278,12 @@ export class RetailPurchaseManager {
             product: productName,
             type: 'fixed_volume',
             volumePerPeriod: contractVolume,
-            periodType: 'weekly',
+            periodType: 'monthly',
             pricePerUnit: contractPrice,
             priceType: 'fixed',
-            minQuality: 0.5
+            minQuality: 0.5,
+            durationMonths: 12,
+            shortfallPenaltyRate: 0.10
         });
 
         if (contract) {

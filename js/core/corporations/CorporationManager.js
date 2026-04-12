@@ -2,8 +2,8 @@
 // Manages corporations, board meetings, and organic firm creation
 
 import { Corporation, CORPORATION_TYPES, INDUSTRY_TIERS, GOAL_TYPES } from './Corporation.js';
-import { DECISION_TYPES, determineEconomicPhase, FIRM_CREATION_TIMELINE } from './BoardMeeting.js';
-import { CorporateRoadmap } from './CorporateRoadmap.js';
+import { DECISION_TYPES, determineEconomicPhase, FIRM_CREATION_TIMELINE, CAPITAL_REQUIREMENTS } from './BoardMeeting.js';
+import { CorporateRoadmap, ROAD_HORIZON } from './CorporateRoadmap.js';
 
 /**
  * Corporation type weights for generation
@@ -1238,6 +1238,9 @@ export class CorporationManager {
         // Process pending firm creations
         this.processPendingCreations(gameTime);
 
+        // Check for supply gaps and respond (scale existing firms or queue new ones)
+        this._checkSupplyGapExpansion(this.monthsElapsed);
+
         console.log(`   Actions executed: ${totalActions}`);
         console.log(`   Pending firm creations: ${this.pendingFirmCreations.length}`);
 
@@ -1365,6 +1368,8 @@ export class CorporationManager {
         if (!firm) return;
         corporation.removeFirm(firmId);
         this.engine.firms.delete(firmId);
+        this.engine._rebuildFirmPartitions();
+        this.engine.cityRetailDemandManager?.invalidateRetailerCache();
         console.log(`   🔒 ${corporation.abbreviation}: Closed firm ${firmId} (consecutive losses)`);
     }
 
@@ -1546,13 +1551,21 @@ export class CorporationManager {
                 // Create the firm
                 const corporation = this.corporations.get(project.corporationId);
                 if (corporation) {
+                    project._deferred = false;  // reset deferral flag each pass
                     const firm = this.createFirmFromProject(corporation, project);
                     if (firm) {
                         corporation.addFirm(firm);
                         console.log(`   ✅ ${corporation.abbreviation} opened: ${firm.getDisplayName?.() || firm.type} in ${firm.city?.name || 'unknown location'}`);
                         completed.push(project.id);
+                    } else if (project._deferred) {
+                        // Manufacturing firm deferred — waiting for input suppliers
+                        if ((project._deferralCount || 0) >= 12) {
+                            console.warn(`   ❌ ${corporation.abbreviation}: Abandoned after 12 months — inputs never available for ${project.persona?.type}`);
+                            completed.push(project.id);
+                        }
+                        // else: stays in pendingFirmCreations, retried next month
                     } else {
-                        // Firm creation failed - log warning and mark as failed
+                        // Hard failure (missing city, resource, etc.)
                         console.warn(`   ❌ ${corporation.abbreviation}: Failed to create ${project.persona?.type} - no location available (city: ${project.city?.name || 'null'}, resource: ${project.selectedResource || 'null'})`);
                         completed.push(project.id);
                     }
@@ -1658,6 +1671,170 @@ export class CorporationManager {
     }
 
     /**
+     * Try to scale an existing firm's production when a supply gap is detected.
+     * Priority: manufacturing shifts → mining workers/equipment → farm/logging tech upgrades.
+     * @param {object} firm - Producer firm to scale
+     * @returns {{ scaled: boolean, method?: string, cost?: number }}
+     */
+    _tryScaleExistingFirm(firm) {
+        const RESERVE_MULTIPLIER = 3;  // Keep 3x the upgrade cost in cash after paying
+
+        if (firm.type === 'MANUFACTURING') {
+            // Add a shift (1→2→3): biggest bang-for-buck per dollar
+            const currentShifts = firm.shiftConfig?.shiftCount || 1;
+            if (currentShifts < 3 && typeof firm.setShiftCount === 'function') {
+                const shiftCost = 80000;
+                if ((firm.cash || 0) >= shiftCost * RESERVE_MULTIPLIER) {
+                    firm.cash -= shiftCost;
+                    firm.setShiftCount(currentShifts + 1);
+                    firm.expenses = (firm.expenses || 0) + shiftCost;
+                    return { scaled: true, method: `shift_${currentShifts + 1}`, cost: shiftCost };
+                }
+            }
+            // Production line addition already auto-triggers in ManufacturingPlant.updateMonthly()
+        }
+
+        else if (firm.type === 'MINING') {
+            // Priority 1: Hire more workers (permanent extraction rate increase)
+            if (typeof firm.hireWorkers === 'function') {
+                const hireCost = 25000;
+                if ((firm.cash || 0) >= hireCost * RESERVE_MULTIPLIER) {
+                    firm.cash -= hireCost;
+                    firm.hireWorkers('miners', 10);
+                    firm.hireWorkers('heavyEquipmentOperators', 3);
+                    firm.expenses = (firm.expenses || 0) + hireCost;
+                    return { scaled: true, method: 'hire_workers', cost: hireCost };
+                }
+            }
+            // Priority 2: Equipment upgrade
+            if (typeof firm.upgradeEquipment === 'function' && (firm.equipmentLevel || 0) < 5) {
+                const upgradeCost = (firm.equipmentCosts || 50000) * 4;
+                if ((firm.cash || 0) >= upgradeCost * RESERVE_MULTIPLIER) {
+                    firm.upgradeEquipment(upgradeCost);
+                    return { scaled: true, method: 'equipment_upgrade', cost: upgradeCost };
+                }
+            }
+        }
+
+        else {
+            // Farm, LoggingCompany: base class upgradeEquipment() increments technologyLevel
+            if (typeof firm.upgradeEquipment === 'function' && (firm.technologyLevel || 0) < 10) {
+                const upgradeCost = 100000;
+                if ((firm.cash || 0) >= upgradeCost * RESERVE_MULTIPLIER) {
+                    firm.upgradeEquipment(upgradeCost);
+                    return { scaled: true, method: 'tech_upgrade', cost: upgradeCost };
+                }
+            }
+        }
+
+        return { scaled: false };
+    }
+
+    /**
+     * Check for supply gaps (product price > 1.3x base) and respond with two-tier escalation:
+     * Tier 1: scale existing producing firm; Tier 2: queue a new firm if none can scale.
+     * Called monthly from conductMonthlyPlanning().
+     * @param {number} monthsElapsed - Current month count
+     */
+    _checkSupplyGapExpansion(monthsElapsed) {
+        const registry = this.engine.productRegistry;
+        if (!registry) return;
+
+        for (const product of registry.products.values()) {
+            const priceRatio = (product.currentPrice || product.basePrice) / product.basePrice;
+            if (priceRatio < 1.3) continue;  // Only respond to shortages ≥30% above base
+
+            let responded = false;
+
+            // --- TIER 1: Scale an existing firm ---
+            for (const firm of this.engine.firms.values()) {
+                const produces = firm.product?.name === product.name
+                              || firm.resourceType    === product.name
+                              || firm.timberType      === product.name
+                              || firm.cropType        === product.name
+                              || firm.livestockType   === product.name;
+                if (!produces) continue;
+
+                const result = this._tryScaleExistingFirm(firm);
+                if (result.scaled) {
+                    console.log(`   ⬆️ ${firm.getDisplayName?.() || firm.id}: Scaled via ${result.method} ($${result.cost?.toLocaleString()}) — ${product.name} at ${(priceRatio * 100).toFixed(0)}% of base`);
+                    responded = true;
+                    break;  // One scaling action per product per month
+                }
+            }
+
+            // --- TIER 2: Queue a new firm if no existing firm could scale ---
+            if (!responded) {
+                for (const firm of this.engine.firms.values()) {
+                    const produces = firm.product?.name === product.name
+                                  || firm.resourceType   === product.name
+                                  || firm.timberType     === product.name
+                                  || firm.cropType       === product.name
+                                  || firm.livestockType  === product.name;
+                    if (!produces) continue;
+
+                    const corp = this.corporations.get(firm.corporationId);
+                    if (!corp) continue;
+                    if (corp.roadmap._hasGoalQueued?.(GOAL_TYPES.EXPAND_CAPACITY)) continue;
+
+                    const capital = corp.getAvailableCapital?.() || corp.capital || 0;
+                    const persona = corp.primaryPersona;
+                    if (!persona) continue;
+                    const tier = persona.tier;
+                    const cost = (CAPITAL_REQUIREMENTS[tier]?.[persona.type]) || 3000000;
+                    if (capital < cost * 1.2) continue;
+
+                    corp.roadmap.addAction({
+                        type: DECISION_TYPES.OPEN_FIRM,
+                        horizon: ROAD_HORIZON.SHORT,
+                        scheduledMonth: monthsElapsed,
+                        persona,
+                        tier,
+                        goal: GOAL_TYPES.EXPAND_CAPACITY,
+                        rationale: `Supply gap: ${product.name} at ${(priceRatio * 100).toFixed(0)}% of base — all existing firms at capacity`
+                    });
+                    console.log(`   📈 ${corp.abbreviation}: New firm queued — ${product.name} price ${(priceRatio * 100).toFixed(0)}% of base`);
+                    break;
+                }
+            }
+        }
+    }
+
+    /**
+     * Find a product in the given tier whose every input has a supplier with available inventory.
+     * Returns a product ID, or null if no viable product exists yet.
+     * @param {string} tierName - 'SEMI_RAW' or 'MANUFACTURED'
+     * @param {object} city - City where the firm will open
+     * @returns {string|null} Product ID or null
+     */
+    _selectViableProduct(tierName, city) {
+        const supplierSelector = this.engine.purchaseManager?.supplierSelector;
+        if (!supplierSelector) return null;
+        const products = this.engine.productRegistry?.getProductsByTier(tierName) || [];
+        const viable = [];
+        for (const product of products) {
+            const inputs = product.inputs || [];
+            if (inputs.length === 0) {
+                viable.push(product.id);
+                continue;
+            }
+            const allAvailable = inputs.every(input => {
+                const selection = supplierSelector.selectBest({
+                    buyer: { city, id: 'VIABILITY_CHECK' },
+                    productName: input.material || input.name,
+                    quantity: 1,
+                    requireInventory: true,
+                    forSpotPurchase: false
+                });
+                return !!selection?.supplier;
+            });
+            if (allAvailable) viable.push(product.id);
+        }
+        if (!viable.length) return null;
+        return viable[Math.floor(this.random() * viable.length)];
+    }
+
+    /**
      * Create a firm from a completed project
      */
     createFirmFromProject(corporation, project) {
@@ -1722,10 +1899,19 @@ export class CorporationManager {
                 firm = firmGenerator.createFarmFirmWithResource(city, country, firmId, selectedResource, persona.type);
                 break;
 
-            case 'MANUFACTURING':
+            case 'MANUFACTURING': {
                 const isSemiRaw = project.tier === INDUSTRY_TIERS.SEMI_RAW;
-                firm = firmGenerator.createManufacturingFirm(city, country, firmId, isSemiRaw);
+                const tierName  = isSemiRaw ? 'SEMI_RAW' : 'MANUFACTURED';
+                const selectedProductId = this._selectViableProduct(tierName, city);
+                if (!selectedProductId) {
+                    project._deferred = true;
+                    project._deferralCount = (project._deferralCount || 0) + 1;
+                    console.log(`   ⏳ ${corporation.abbreviation}: Opening deferred (${project._deferralCount}/12) — no product with available inputs`);
+                    return null;
+                }
+                firm = firmGenerator.createManufacturingFirm(city, country, firmId, isSemiRaw, selectedProductId);
                 break;
+            }
 
             case 'RETAIL':
                 firm = firmGenerator.createRetailFirm(city, country, firmId);

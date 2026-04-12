@@ -400,14 +400,22 @@ export class FirmGenerator {
         return firm;
     }
 
-    createManufacturingFirm(city, country, firmId, isSemiRaw) {
+    createManufacturingFirm(city, country, firmId, isSemiRaw, productId = null) {
         const config = this.engine.config;
         const productRegistry = this.engine.productRegistry;
         const tier = isSemiRaw ? 'SEMI_RAW' : 'MANUFACTURED';
-        const products = productRegistry.getProductsByTier(tier);
 
-        if (products.length > 0) {
-            const product = products[Math.floor(this.random() * products.length)];
+        // Use specified product if provided, otherwise pick randomly from tier
+        let product = productId
+            ? (productRegistry.getProduct(productId) || productRegistry.getProductByName(productId))
+            : null;
+        if (!product) {
+            const products = productRegistry.getProductsByTier(tier);
+            if (products.length === 0) return null;
+            product = products[Math.floor(this.random() * products.length)];
+        }
+
+        if (product) {
             const firm = new ManufacturingPlant({ city: city }, country, product.id, productRegistry, firmId);
             firm.engine = this.engine; // Set engine reference for clock access
             firm.isSemiRawProducer = isSemiRaw;
@@ -569,6 +577,15 @@ export class FirmGenerator {
 
         // Add employment to city
         city.addEmployment(firm.totalEmployees, firm.calculateLaborCosts() / firm.totalEmployees);
+
+        // Keep pre-partitioned arrays and retailer cache in sync
+        this.engine._rebuildFirmPartitions();
+        this.engine.cityRetailDemandManager?.invalidateRetailerCache();
+
+        // Set up supply contracts for new manufacturing firms
+        if (firm.type === 'MANUFACTURING') {
+            this.engine.initializeContractsForNewFirm(firm);
+        }
     }
 
     weightedRandomChoice(items, weights) {

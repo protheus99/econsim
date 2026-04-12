@@ -23,6 +23,8 @@ import { CorporationManager } from './corporations/CorporationManager.js';
 // Persistent storage (IndexedDB)
 import { gameStorage } from './GameStorage.js';
 
+const DEBUG_SIMULATION = false;
+
 export class SimulationEngine {
     constructor() {
         this.clock = new GameClock();
@@ -32,6 +34,12 @@ export class SimulationEngine {
         this.cityManager = null;
         this.firms = new Map();
         this.corporations = [];
+
+        // Pre-partitioned firm arrays — rebuilt once after generateFirms(), never per-tick
+        this.producerFirms = [];       // MINING, LOGGING, FARM
+        this.manufacturerFirms = [];   // MANUFACTURING
+        this.retailerFirms = [];       // RETAIL
+        this.nonRetailFirms = [];      // all except RETAIL
 
         // City product coverage tracking - prevents retailer convergence on same products
         // Map<cityId, Map<productId, Set<retailerId>>>
@@ -358,6 +366,33 @@ export class SimulationEngine {
     generateFirms() {
         // Delegated to FirmGenerator module
         this.firmGenerator.generateFirms();
+        this._rebuildFirmPartitions();
+        // Invalidate retailer-by-city cache so it rebuilds on first use
+        this.cityRetailDemandManager?.invalidateRetailerCache();
+    }
+
+    /**
+     * Rebuild pre-partitioned firm arrays.
+     * Called once after generateFirms() and whenever firms are added/removed.
+     * Avoids O(n) Array.from().filter() on every tick.
+     */
+    _rebuildFirmPartitions() {
+        this.producerFirms = [];
+        this.manufacturerFirms = [];
+        this.retailerFirms = [];
+        this.nonRetailFirms = [];
+        this.firms.forEach(firm => {
+            if (firm.type === 'MINING' || firm.type === 'LOGGING' || firm.type === 'FARM') {
+                this.producerFirms.push(firm);
+            } else if (firm.type === 'MANUFACTURING') {
+                this.manufacturerFirms.push(firm);
+            } else if (firm.type === 'RETAIL') {
+                this.retailerFirms.push(firm);
+            }
+            if (firm.type !== 'RETAIL') {
+                this.nonRetailFirms.push(firm);
+            }
+        });
     }
 
     ensureProductCoverage() {
@@ -419,38 +454,6 @@ export class SimulationEngine {
         let capacityLimitedCount = 0;
         const supplierSelector = this.purchaseManager.supplierSelector;
 
-        // Track committed capacity per supplier (supplierId -> weekly committed volume)
-        const supplierCommitments = new Map();
-
-        // Helper to get supplier's max weekly production (with 10% buffer)
-        const getSupplierWeeklyCapacity = (supplier) => {
-            let dailyCapacity = 0;
-
-            // Manufacturing plants
-            if (supplier.productionLine?.outputPerHour) {
-                dailyCapacity = supplier.productionLine.outputPerHour * 24;
-            }
-            // Mining companies
-            else if (supplier.extractionRate) {
-                dailyCapacity = supplier.extractionRate * 24;
-            }
-            // Logging companies
-            else if (supplier.harvestRate) {
-                dailyCapacity = supplier.harvestRate * 24;
-            }
-            // Farms
-            else if (supplier.productionRate) {
-                dailyCapacity = supplier.productionRate * 24;
-            }
-            // Default fallback
-            else {
-                dailyCapacity = 100; // Conservative default
-            }
-
-            // Weekly capacity with 10% buffer (only commit 90% of capacity)
-            return dailyCapacity * 7 * 0.9;
-        };
-
         // Get all manufacturing firms with input requirements
         const manufacturers = Array.from(this.firms.values()).filter(firm =>
             firm.type === 'MANUFACTURING' && firm.product?.inputs?.length > 0
@@ -458,93 +461,29 @@ export class SimulationEngine {
 
         for (const manufacturer of manufacturers) {
             for (const input of manufacturer.product.inputs) {
-                // Calculate weekly volume need (70% coverage via contracts)
                 const hourlyUsage = input.quantity * (manufacturer.productionLine?.outputPerHour || 10);
-                const weeklyNeed = hourlyUsage * 24 * 7;
-                let requestedVolume = Math.floor(weeklyNeed * 0.7);
-
-                // Align to lot sizes - contracts should be in whole lots
+                const monthlyNeed = Math.floor(hourlyUsage * 24 * 30);
                 const lotSize = getLotSizeForProduct(input.material, this.productRegistry);
-                if (lotSize > 0) {
-                    // Round up to nearest lot, minimum 2 lots per week for efficiency
-                    const lotsNeeded = Math.max(2, Math.ceil(requestedVolume / lotSize));
-                    requestedVolume = lotsNeeded * lotSize;
-                } else {
-                    // No lot size defined, use minimum of 100
-                    requestedVolume = Math.max(100, requestedVolume);
-                }
 
-                // Find best supplier using existing SupplierSelector
-                // Note: requireInventory=false since suppliers haven't produced yet at init time
-                // Note: forSpotPurchase=false since we're setting up contracts, not spot buying
                 const selection = supplierSelector.selectBest({
                     buyer: manufacturer,
                     productName: input.material,
-                    quantity: requestedVolume,
-                    considerPrice: true,
-                    considerTransport: true,
-                    considerRelationship: true,
+                    quantity: monthlyNeed,
                     requireInventory: false,
                     forSpotPurchase: false
                 });
 
                 if (!selection?.supplier) {
                     noSupplierCount++;
-                    continue; // No supplier found, rely on spot market
+                    continue;
                 }
 
-                const supplier = selection.supplier;
-                const supplierId = supplier.id;
-
-                // Check supplier's available capacity
-                const maxWeeklyCapacity = getSupplierWeeklyCapacity(supplier);
-                const currentCommitment = supplierCommitments.get(supplierId) || 0;
-                const availableCapacity = maxWeeklyCapacity - currentCommitment;
-
-                if (availableCapacity <= 0) {
-                    capacityLimitedCount++;
-                    continue; // Supplier fully committed, skip
-                }
-
-                // Limit contract volume to available capacity (round down to whole lots)
-                let contractVolume = Math.min(requestedVolume, Math.floor(availableCapacity));
-
-                // Re-align to lot boundaries after capacity limiting
-                if (lotSize > 0) {
-                    const wholeLots = Math.floor(contractVolume / lotSize);
-                    if (wholeLots < 2) {
-                        capacityLimitedCount++;
-                        continue; // Less than 2 lots per week - not worth a contract
-                    }
-                    contractVolume = wholeLots * lotSize;
-                } else if (contractVolume < 100) {
-                    capacityLimitedCount++;
-                    continue; // Too small to be worth a contract
-                }
-
-                // Get base price for product
-                const product = this.productRegistry.getProductByName(input.material);
-                const basePrice = product?.basePrice || 50;
-                const contractPrice = basePrice * 0.97; // 3% discount for contract commitment
-
-                // Create the contract
-                const contract = contractManager.createContract({
-                    supplierId: supplierId,
-                    buyerId: manufacturer.id,
-                    product: input.material,
-                    type: 'fixed_volume',
-                    volumePerPeriod: contractVolume,
-                    periodType: 'weekly',
-                    pricePerUnit: contractPrice,
-                    priceType: 'fixed',
-                    minQuality: 0.5
-                });
-
-                if (contract) {
-                    contractsCreated++;
-                    // Track the commitment
-                    supplierCommitments.set(supplierId, currentCommitment + contractVolume);
-                }
+                const contract = contractManager.negotiateAndCreate(
+                    manufacturer, selection.supplier, input.material, monthlyNeed,
+                    { durationMonths: 12, lotSize, minLots: 2 }
+                );
+                if (contract) contractsCreated++;
+                else capacityLimitedCount++;
             }
         }
 
@@ -559,6 +498,38 @@ export class SimulationEngine {
             for (const retailer of retailers) {
                 retailPurchaseManager.initializeRetailerContracts(retailer);
             }
+        }
+    }
+
+    /**
+     * Initialize supply contracts for a newly created manufacturing firm.
+     * Called by FirmGenerator.registerFirm() after a new manufacturer joins.
+     * @param {object} firm - The newly created firm
+     */
+    initializeContractsForNewFirm(firm) {
+        if (firm.type !== 'MANUFACTURING') return;
+        const contractManager = this.purchaseManager?.contractManager;
+        const supplierSelector = this.purchaseManager?.supplierSelector;
+        if (!contractManager || !supplierSelector) return;
+
+        for (const input of (firm.product?.inputs || [])) {
+            const hourlyUsage = input.quantity * (firm.productionLine?.outputPerHour || 10);
+            const monthlyNeed = Math.floor(hourlyUsage * 24 * 30);
+            const lotSize = getLotSizeForProduct(input.material, this.productRegistry);
+
+            const selection = supplierSelector.selectBest({
+                buyer: firm,
+                productName: input.material,
+                quantity: monthlyNeed,
+                requireInventory: false,
+                forSpotPurchase: false
+            });
+            if (!selection?.supplier) continue;
+
+            contractManager.negotiateAndCreate(
+                firm, selection.supplier, input.material, monthlyNeed,
+                { durationMonths: 12, lotSize, minLots: 2 }
+            );
         }
     }
 
@@ -611,8 +582,8 @@ export class SimulationEngine {
         // Hourly critical inventory check (for fast-moving goods)
         this.checkCriticalInventoryLevels();
 
-        // Update corporation stats from firms
-        this.updateCorporationStats();
+        // Update corporation stats from firms (daily is sufficient)
+        if (this.dailyTick === 0) this.updateCorporationStats();
 
         // Update market history
         this.updateMarketHistory();
@@ -643,13 +614,12 @@ export class SimulationEngine {
         const invConfig = this.config.inventory;
         const hourlyThresholdPct = invConfig.hourlyCheckThresholdPct || 0.15;
 
-        this.firms.forEach(firm => {
-            if (firm.type === 'MANUFACTURING') {
-                this.checkCriticalManufacturingInventory(firm, hourlyThresholdPct);
-            } else if (firm.type === 'RETAIL') {
-                this.checkCriticalRetailInventory(firm, hourlyThresholdPct);
-            }
-        });
+        for (const firm of this.manufacturerFirms) {
+            this.checkCriticalManufacturingInventory(firm, hourlyThresholdPct);
+        }
+        for (const firm of this.retailerFirms) {
+            this.checkCriticalRetailInventory(firm, hourlyThresholdPct);
+        }
     }
 
     /**
@@ -777,9 +747,9 @@ export class SimulationEngine {
         let totalFulfilled = 0;
         let remainingQuantity = quantity;
 
-        // Try to find local producers for this material
-        const allManufacturers = Array.from(this.firms.values()).filter(f => f.type === 'MANUFACTURING');
-        const primaryProducers = Array.from(this.firms.values()).filter(f =>
+        // Try to find local producers for this material (use pre-partitioned arrays)
+        const allManufacturers = this.manufacturerFirms.length > 0 ? this.manufacturerFirms : Array.from(this.firms.values()).filter(f => f.type === 'MANUFACTURING');
+        const primaryProducers = this.producerFirms.length > 0 ? this.producerFirms : Array.from(this.firms.values()).filter(f =>
             f.type === 'MINING' || f.type === 'LOGGING' || f.type === 'FARM'
         );
 
@@ -918,16 +888,14 @@ export class SimulationEngine {
     processFirmOperations() {
         const currentHour = this.clock.hour;
 
-        // Step 1: Non-retail firms produce
-        this.firms.forEach(firm => {
+        // Step 1: Non-retail firms produce (use pre-partitioned array — avoids Map iteration + type check)
+        for (const firm of this.nonRetailFirms) {
             try {
-                if (firm.type !== 'RETAIL') {
-                    firm.produceHourly();
-                }
+                firm.produceHourly();
             } catch (error) {
                 console.error(`Error in production for firm ${firm.id}:`, error);
             }
-        });
+        }
 
         // Step 2 & 3: Process purchasing and supply chain
         this.purchaseManager.processPurchasing(currentHour);
@@ -1115,7 +1083,7 @@ export class SimulationEngine {
                     console.error(`Error paying wages for firm ${firm.id}:`, error);
                 }
             });
-            console.log(`💰 Day 1: Paid first payroll to all firms`);
+            if (DEBUG_SIMULATION) console.log(`💰 Day 1: Paid first payroll to all firms`);
         }
 
         // Day 15 (tick 15): Pay second half of wages
@@ -1127,7 +1095,7 @@ export class SimulationEngine {
                     console.error(`Error paying wages for firm ${firm.id}:`, error);
                 }
             });
-            console.log(`💰 Day 15: Paid second payroll to all firms`);
+            if (DEBUG_SIMULATION) console.log(`💰 Day 15: Paid second payroll to all firms`);
         }
 
         // Day 30 (tick 30): Pay end-of-month expenses
@@ -1139,7 +1107,7 @@ export class SimulationEngine {
                     console.error(`Error paying end-of-month expenses for firm ${firm.id}:`, error);
                 }
             });
-            console.log(`📋 Day 30: Paid operating expenses and loans for all firms`);
+            if (DEBUG_SIMULATION) console.log(`📋 Day 30: Paid operating expenses and loans for all firms`);
 
             this.monthlyTick = 0;
             this.updateMonthly();
@@ -1155,13 +1123,13 @@ export class SimulationEngine {
     }
 
     updateMonthly() {
-        console.log(`📅 Month ${this.clock.month}, Year ${this.clock.year}`);
+        if (DEBUG_SIMULATION) console.log(`📅 Month ${this.clock.month}, Year ${this.clock.year}`);
 
         // Conduct monthly planning for organic growth
         if (this.config.corporations?.organicGrowth && this.corporationManager) {
             const gameTime = this.clock.getGameTime();
             const meetingResults = this.corporationManager.conductMonthlyPlanning(gameTime);
-            console.log(`📊 Economic Phase: ${meetingResults.economicPhase}`);
+            if (DEBUG_SIMULATION) console.log(`📊 Economic Phase: ${meetingResults.economicPhase}`);
         }
 
         // Update all cities
@@ -1217,6 +1185,9 @@ export class SimulationEngine {
             }
         });
 
+        // Update commodity prices based on contracted demand vs production capacity
+        this._updateCommodityPrices();
+
         // Generate monthly reports (without resetting stats)
         this.generateMonthlyReport();
 
@@ -1239,8 +1210,52 @@ export class SimulationEngine {
             `Total Revenue: ${this.formatMoney(totalRevenue)}, Total Profit: ${this.formatMoney(totalProfit)}`);
     }
 
+    /**
+     * Update commodity prices based on contracted demand vs total production capacity.
+     * Called monthly. Sets product.currentPrice which INDEXED contracts use for delivery pricing.
+     */
+    _updateCommodityPrices() {
+        if (!this.purchaseManager?.contractManager) return;
+        const contracts = this.purchaseManager.contractManager.contracts;
+        const registry  = this.productRegistry;
+
+        // Aggregate contracted demand and production capacity per product
+        const demand = new Map();  // productName -> monthly contracted volume
+        const supply = new Map();  // productName -> monthly production capacity
+
+        for (const contract of contracts.values()) {
+            if (contract.status !== 'active') continue;
+            const monthlyVol = contract.periodType === 'monthly' ? contract.volumePerPeriod
+                             : contract.periodType === 'weekly'  ? contract.volumePerPeriod * 4
+                             : contract.volumePerPeriod * 30;
+            demand.set(contract.product, (demand.get(contract.product) || 0) + monthlyVol);
+        }
+
+        this.firms.forEach(firm => {
+            const productName = firm.product?.name || firm.resourceType || firm.timberType
+                              || firm.cropType || firm.livestockType;
+            if (!productName) return;
+            const monthlyCapacity = (firm.productionLine?.outputPerHour || firm.extractionRate
+                                   || firm.harvestRate || firm.productionRate || 0) * 720;
+            supply.set(productName, (supply.get(productName) || 0) + monthlyCapacity);
+        });
+
+        // Update each product's currentPrice
+        for (const [name, demandVol] of demand) {
+            const product = registry.getProductByName(name);
+            if (!product) continue;
+            const supplyVol = supply.get(name) || 1;
+            // Price multiplier: 1.0 at equilibrium, up to 3x when oversold, down to 0.5x when oversupplied
+            const ratio = demandVol / supplyVol;
+            const multiplier = Math.min(3.0, Math.max(0.5, 0.5 + ratio));
+            // Smooth: blend 80% old price, 20% new target (prevents instant spikes)
+            const targetPrice = product.basePrice * multiplier;
+            product.currentPrice = product.currentPrice * 0.8 + targetPrice * 0.2;
+        }
+    }
+
     updateYearly() {
-        console.log(`🎆 Year ${this.clock.year} complete`);
+        if (DEBUG_SIMULATION) console.log(`🎆 Year ${this.clock.year} complete`);
 
         // Update cities
         this.cityManager.updateAllCities('yearly', this.clock.getGameTime());
@@ -1724,6 +1739,8 @@ export class SimulationEngine {
                 }
 
                 console.log(`   - Firms: ${firmsRestored}/${totalFirms} restored`);
+                this._rebuildFirmPartitions();
+                this.cityRetailDemandManager?.invalidateRetailerCache();
             }
 
             // Restore city states
@@ -1983,6 +2000,8 @@ export class SimulationEngine {
                         firm.restoreState(firmState);
                     }
                 }
+                this._rebuildFirmPartitions();
+                this.cityRetailDemandManager?.invalidateRetailerCache();
             }
 
             // Restore cities

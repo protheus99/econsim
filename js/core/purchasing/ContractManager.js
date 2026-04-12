@@ -76,6 +76,12 @@ export class ContractManager {
         config.supplierName = supplier.name;
         config.buyerName = buyer.name;
 
+        // Stamp creation time in game hours
+        const currentHour = this.engine.clock?.totalHours ?? 0;
+        config.createdAt = config.createdAt ?? currentHour;
+        config.startDate = config.startDate ?? currentHour;
+        config.lastPeriodReset = config.lastPeriodReset ?? currentHour;
+
         // Create contract
         const contract = new Contract(config);
         this.contracts.set(contract.id, contract);
@@ -105,6 +111,111 @@ export class ContractManager {
 
         if (DEBUG_PURCHASING) console.log(`ContractManager: Created contract ${contract.id} - ${supplier.getDisplayName()} -> ${buyer.getDisplayName()} for ${config.product}`);
         return contract;
+    }
+
+    /**
+     * Get a supplier firm's monthly production capacity (in units).
+     * Inspects known rate properties in priority order.
+     * @param {object} firm - Supplier firm object
+     * @returns {number} Monthly capacity in units
+     */
+    static getSupplierMonthlyCapacity(firm) {
+        let dailyCapacity = 0;
+        if (firm.productionLine?.outputPerHour)  dailyCapacity = firm.productionLine.outputPerHour * 24;
+        else if (firm.extractionRate)             dailyCapacity = firm.extractionRate * 24;
+        else if (firm.harvestRate)                dailyCapacity = firm.harvestRate * 24;
+        else if (firm.productionRate)             dailyCapacity = firm.productionRate * 24;
+        else                                      dailyCapacity = 100;
+        return dailyCapacity * 30;
+    }
+
+    /**
+     * Negotiate contract terms and create if viable — shared entry point for all manufacturer contract creation.
+     * Checks buyer's existing coverage, supplier's remaining capacity, and negotiates price.
+     * @param {object} buyerFirm - Buying firm
+     * @param {object} supplierFirm - Supplying firm
+     * @param {string} productName - Product to contract
+     * @param {number} monthlyNeed - Buyer's required monthly volume
+     * @param {object} [options] - { durationMonths, lotSize, minLots }
+     * @returns {Contract|null} Created contract or null if no deal reached
+     */
+    negotiateAndCreate(buyerFirm, supplierFirm, productName, monthlyNeed, options = {}) {
+        const { durationMonths = 12, lotSize = 0, minLots = 2 } = options;
+
+        // --- BUYER SIDE: how much is already covered by existing contracts? ---
+        const existingBuyerContracts = this.getActiveContractsForBuyer(buyerFirm.id, productName);
+        const existingCoverage = existingBuyerContracts.reduce((sum, c) => {
+            const monthly = c.periodType === 'monthly' ? c.volumePerPeriod
+                          : c.periodType === 'weekly'  ? c.volumePerPeriod * 4
+                          : c.volumePerPeriod * 30;
+            return sum + monthly;
+        }, 0);
+        const residualNeed = monthlyNeed - existingCoverage;
+        if (residualNeed <= 0) return null;  // Already fully covered — no deal needed
+
+        // --- SUPPLIER SIDE: production capacity vs existing commitments ---
+        const monthlyCapacity = ContractManager.getSupplierMonthlyCapacity(supplierFirm);
+        const committed = this.getContractedDemandForSupplier(supplierFirm.id, productName);
+        const committedMonthly = committed.dailyDemand * 30;
+        const availableCapacity = (monthlyCapacity * 0.9) - committedMonthly;  // 90% buffer
+        if (availableCapacity <= 0) return null;  // Supplier fully committed — walk away
+
+        // --- AGREED VOLUME ---
+        let agreedVolume = Math.floor(Math.min(residualNeed, availableCapacity));
+        if (lotSize > 0) {
+            const wholeLots = Math.floor(agreedVolume / lotSize);
+            if (wholeLots < minLots) return null;  // Too small to contract
+            agreedVolume = wholeLots * lotSize;
+        } else if (agreedVolume < 100) {
+            return null;
+        }
+
+        // --- PRICE NEGOTIATION ---
+        const product = this.engine.productRegistry?.getProductByName(productName);
+        const marketPrice = product?.currentPrice || product?.basePrice || 50;
+
+        // Volume discount: larger share of supplier's capacity = better price (up to 5%)
+        const capacityShare = agreedVolume / Math.max(1, monthlyCapacity);
+        const volumeDiscount = Math.min(0.05, capacityShare * 0.1);
+
+        // Duration discount: 3% for 12-month, 1.5% for 6-month
+        const durationDiscount = durationMonths >= 12 ? 0.03 : durationMonths >= 6 ? 0.015 : 0;
+
+        // Relationship discount: ±2% based on corporate relationship score (50 = neutral)
+        let relationshipDiscount = 0;
+        const sellerCorpId = supplierFirm.corporationId;
+        const buyerCorpId  = buyerFirm.corporationId;
+        if (sellerCorpId && buyerCorpId && this.engine.relationshipManager) {
+            const score = this.engine.relationshipManager.getScore?.(sellerCorpId, buyerCorpId) ?? 50;
+            relationshipDiscount = ((score - 50) / 50) * 0.02;
+        }
+
+        const totalDiscount = Math.max(0, volumeDiscount + durationDiscount + relationshipDiscount);
+        const negotiatedPrice = marketPrice * (1 - totalDiscount);
+
+        if (DEBUG_PURCHASING) {
+            console.log(`🤝 Contract negotiation: ${supplierFirm.name} → ${buyerFirm.name}`);
+            console.log(`   ${productName}: residual need=${residualNeed}, available=${availableCapacity.toFixed(0)}, agreed=${agreedVolume}`);
+            console.log(`   Price: $${marketPrice.toFixed(2)} → $${negotiatedPrice.toFixed(2)} (${(totalDiscount*100).toFixed(1)}% discount)`);
+        }
+
+        // --- SIGN CONTRACT ---
+        return this.createContract({
+            supplierId: supplierFirm.id,
+            buyerId: buyerFirm.id,
+            product: productName,
+            type: 'fixed_volume',
+            volumePerPeriod: agreedVolume,
+            periodType: 'monthly',
+            pricePerUnit: negotiatedPrice,
+            priceType: 'indexed',
+            marketDiscount: totalDiscount,
+            negotiatedDiscount: totalDiscount,
+            minQuality: 0.5,
+            durationMonths,
+            shortfallPenaltyRate: 0.10,
+            delayPenaltyPerHour: negotiatedPrice * 0.001
+        });
     }
 
     /**
@@ -211,9 +322,8 @@ export class ContractManager {
                     continue;
                 }
 
-                // Calculate price
-                const marketPrice = this.engine.commodityMarket?.get(productName) ||
-                                   this.engine.productRegistry?.getProductByName(productName)?.basePrice;
+                // Calculate price — use currentPrice which is updated monthly by _updateCommodityPrices()
+                const marketPrice = this.engine.productRegistry?.getProductByName(productName)?.currentPrice;
                 const unitPrice = contract.calculateUnitPrice(quality, marketPrice);
                 const totalCost = toDeliver * unitPrice;
                 if (DEBUG_PURCHASING) console.log(`   📊 Price: $${unitPrice.toFixed(2)}/unit, total=$${totalCost.toFixed(2)}, buyer cash=$${(buyer.cash || 0).toFixed(2)}`);
@@ -470,22 +580,29 @@ export class ContractManager {
      */
     processScheduledDeliveries(currentTime) {
         for (const contract of this.contracts.values()) {
-            if (!contract.isActive()) continue;
+            if (!contract.isActive(currentTime)) continue;
 
             // Check for period reset
-            contract.checkPeriodReset(currentTime);
-
-            // Check for expiration
-            if (contract.isExpired()) {
-                contract.status = Contract.STATUS.COMPLETED;
-                this.stats.activeCount--;
+            const periodReset = contract.checkPeriodReset(currentTime);
+            if (periodReset) {
+                // Apply shortfall penalties with actual cash transfer
+                const supplierFirm = this.engine.firms?.get(contract.supplierId);
+                const buyerFirm    = this.engine.firms?.get(contract.buyerId);
+                if (supplierFirm && buyerFirm) {
+                    const gameHour = this.engine.clock?.totalHours || 0;
+                    const penalty = contract.applyPeriodPenalties(supplierFirm, buyerFirm);
+                    if (penalty > 0 && DEBUG_PURCHASING) {
+                        console.log(`⚖️ Contract ${contract.id.slice(-6)}: $${penalty.toFixed(0)} shortfall penalty applied`);
+                    }
+                    // Stamp gameHour on the last penalty entry
+                    const last = contract.fulfillmentHistory[contract.fulfillmentHistory.length - 1];
+                    if (last?.type === 'penalty') last.gameHour = gameHour;
+                }
             }
 
-            // Check for pending termination
-            if (contract.status === Contract.STATUS.PENDING &&
-                contract.terminationEffectiveAt &&
-                currentTime >= contract.terminationEffectiveAt) {
-                contract.status = Contract.STATUS.TERMINATED;
+            // Check for expiration
+            if (contract.isExpired(currentTime)) {
+                contract.status = Contract.STATUS.COMPLETED;
                 this.stats.activeCount--;
             }
         }

@@ -202,13 +202,13 @@ export class EngineAdapter extends EventEmitter {
         this.engine?.clock?.resume();
         this.lastTickTime = Date.now();
 
-        const { interval, batchSize } = this._speedParams(this.speed);
+        const { interval, budgetMs } = this._speedParams(this.speed);
 
         this.tickInterval = setInterval(() => {
-            this._tick(batchSize);
+            this._tick(budgetMs);
         }, interval);
 
-        console.log(`▶️ Simulation started (speed: ${this.speed}x, interval: ${interval}ms, batch: ${batchSize})`);
+        console.log(`▶️ Simulation started (speed: ${this.speed}x, interval: ${interval}ms, budget: ${budgetMs ?? 'single'})`);
         this.emit('started', { speed: this.speed });
     }
 
@@ -242,17 +242,17 @@ export class EngineAdapter extends EventEmitter {
      * @param {number} speed - Speed multiplier (1, 2, 4, 8, 24, 168)
      */
     /**
-     * Compute interval (ms) and batchSize (ticks per interval) for a given speed.
-     * speeds ≤ 168: 1 tick per interval, interval = max(10, 1000/speed)
-     * speeds > 168:  fixed 100ms interval, batchSize = speed / 10
+     * Compute interval (ms) and budgetMs for a given speed.
+     * speeds ≤ 168: 1 tick per interval, interval = max(10, 1000/speed), budgetMs = null
+     * speeds > 168:  100ms interval, budgetMs = 50 (run as many ticks as fit in 50ms, yield remaining)
      */
     _speedParams(speed) {
         const baseInterval = this.engine?.config?.simulation?.timeScale?.realSecond || 1000;
         if (speed <= 168) {
-            return { interval: Math.max(10, Math.floor(baseInterval / speed)), batchSize: 1 };
+            return { interval: Math.max(10, Math.floor(baseInterval / speed)), budgetMs: null };
         }
-        // High-speed batch mode: 100ms interval, N ticks per fire
-        return { interval: 100, batchSize: Math.round(speed / 10) };
+        // High-speed time-budget mode: fire every 100ms, run ticks until 50ms budget exhausted
+        return { interval: 100, budgetMs: 50 };
     }
 
     setSpeed(speed) {
@@ -271,12 +271,12 @@ export class EngineAdapter extends EventEmitter {
             clearInterval(this.tickInterval);
             this.tickInterval = null;
 
-            const { interval, batchSize } = this._speedParams(speed);
+            const { interval, budgetMs } = this._speedParams(speed);
             this.tickInterval = setInterval(() => {
-                this._tick(batchSize);
+                this._tick(budgetMs);
             }, interval);
 
-            console.log(`⏩ Speed changed to ${speed}x (interval: ${interval}ms, batch: ${batchSize})`);
+            console.log(`⏩ Speed changed to ${speed}x (interval: ${interval}ms, budget: ${budgetMs ?? 'single'})`);
         } else {
             console.log(`⏩ Speed set to ${speed}x (will apply when resumed)`);
         }
@@ -286,20 +286,22 @@ export class EngineAdapter extends EventEmitter {
 
     /**
      * Execute one or more simulation ticks.
-     * @param {number} batchSize - Number of game hours to advance per call (default 1)
+     * @param {number|null} budgetMs - Wall-clock budget for high-speed batch (null = single tick)
      *
-     * When batchSize > 1 (high-speed mode) we set `isBatching = true` so that
-     * GameSession suppresses intermediate daily/monthly delta broadcasts.
-     * After the batch we emit 'batchComplete' so GameSession can send one
-     * consolidated delta covering the whole batch.
+     * budgetMs === null: single-tick path (speeds ≤ 168x)
+     * budgetMs > 0:     time-budget path — run ticks until wall-clock deadline is reached,
+     *                   yielding the remainder of the 100ms interval to I/O.
+     *                   isBatching suppresses intermediate delta broadcasts.
+     *                   batchComplete fires once after the budget loop.
      */
-    _tick(batchSize = 1) {
+    _tick(budgetMs = null) {
         if (!this.engine || this.isPaused) return;
 
         try {
-            if (batchSize > 1) {
+            if (budgetMs !== null) {
                 this.isBatching = true;
-                for (let i = 0; i < batchSize; i++) {
+                const deadline = Date.now() + budgetMs;
+                while (Date.now() < deadline && !this.isPaused) {
                     this.engine.clock.tick();
                     this.engine.updateHourly();
                 }

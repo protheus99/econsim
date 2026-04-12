@@ -18,6 +18,7 @@ export class CityRetailDemandManager {
 
         // Cache for city retailers by city
         this.retailersByCity = new Map();
+        this._retailerCacheDirty = true;
 
         // Track demand fulfillment for statistics
         this.demandStats = {
@@ -41,8 +42,8 @@ export class CityRetailDemandManager {
             byProduct: new Map()
         };
 
-        // Group retailers by city
-        this.updateRetailersByCity();
+        // Group retailers by city (lazy rebuild)
+        if (this._retailerCacheDirty) this.updateRetailersByCity();
 
         // Process each city
         for (const city of this.engine.cities) {
@@ -53,22 +54,33 @@ export class CityRetailDemandManager {
     }
 
     /**
-     * Update the cache of retailers by city
+     * Mark the retailer-by-city cache as stale (call on firm add/remove)
+     */
+    invalidateRetailerCache() {
+        this._retailerCacheDirty = true;
+    }
+
+    /**
+     * Rebuild the cache of retailers by city
      */
     updateRetailersByCity() {
         this.retailersByCity.clear();
 
-        this.engine.firms.forEach(firm => {
-            if (firm.type === 'RETAIL') {
-                const cityId = firm.city?.id;
-                if (!cityId) return;
+        const retailers = this.engine.retailerFirms?.length
+            ? this.engine.retailerFirms
+            : Array.from(this.engine.firms.values()).filter(f => f.type === 'RETAIL');
 
-                if (!this.retailersByCity.has(cityId)) {
-                    this.retailersByCity.set(cityId, []);
-                }
-                this.retailersByCity.get(cityId).push(firm);
+        for (const firm of retailers) {
+            const cityId = firm.city?.id;
+            if (!cityId) continue;
+
+            if (!this.retailersByCity.has(cityId)) {
+                this.retailersByCity.set(cityId, []);
             }
-        });
+            this.retailersByCity.get(cityId).push(firm);
+        }
+
+        this._retailerCacheDirty = false;
     }
 
     /**

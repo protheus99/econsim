@@ -69,10 +69,14 @@ export class Contract {
         this.minQuality = config.minQuality || 0.5;
         this.qualityPremium = config.qualityPremium || 0;  // Extra $ per quality point above min
 
-        // Timing
-        this.createdAt = config.createdAt || Date.now();
-        this.startDate = config.startDate || Date.now();
-        this.endDate = config.endDate || null;  // null = indefinite
+        // Duration
+        this.durationMonths = config.durationMonths || 12;  // Contract lifetime in game-months
+
+        // Timing (in game hours — set by ContractManager using clock.totalHours)
+        this.createdAt = config.createdAt ?? 0;
+        this.startDate = config.startDate ?? 0;
+        // endDate auto-calculated from durationMonths if not explicitly provided
+        this.endDate = config.endDate ?? (this.startDate > 0 ? this.startDate + this.durationMonths * 720 : null);
         this.terminationNoticePeriods = config.terminationNoticePeriods || 2;  // Periods of notice required
 
         // Status
@@ -82,12 +86,17 @@ export class Contract {
 
         // Performance tracking
         this.fulfillmentHistory = config.fulfillmentHistory || [];
-        this.currentPeriodFulfilled = 0;
-        this.lastPeriodReset = this.startDate;
+        this.currentPeriodFulfilled = config.currentPeriodFulfilled || 0;
+        this.lastPeriodReset = config.lastPeriodReset ?? this.startDate;
+
+        // Negotiation record
+        this.negotiatedDiscount = config.negotiatedDiscount || 0;  // Fraction off market price agreed at signing
 
         // Penalties
         this.shortfallPenaltyRate = config.shortfallPenaltyRate || 0.1;  // % of value for under-delivery
         this.lateDeliveryPenaltyRate = config.lateDeliveryPenaltyRate || 0.05;
+        this.delayPenaltyPerHour = config.delayPenaltyPerHour || 0;    // Per game-hour of late delivery
+        this.totalDelayPenalties = config.totalDelayPenalties || 0;
 
         // Statistics
         this.totalDelivered = 0;
@@ -193,18 +202,16 @@ export class Contract {
     }
 
     /**
-     * Check if new period should start and reset counters
+     * Check if new period should start and reset counters.
+     * Penalties are applied externally by ContractManager after this returns true.
      * @param {number} currentTime - Current simulation time
      */
     checkPeriodReset(currentTime) {
-        const periodMs = this.getPeriodMilliseconds();
+        const periodHours = this.getPeriodHours();
         const timeSinceReset = currentTime - this.lastPeriodReset;
 
-        if (timeSinceReset >= periodMs) {
-            // Record end-of-period stats before reset
-            this.recordPeriodEnd();
-
-            // Reset for new period
+        if (timeSinceReset >= periodHours) {
+            // Reset for new period (penalties applied externally by ContractManager)
             this.currentPeriodFulfilled = 0;
             this.lastPeriodReset = currentTime;
 
@@ -214,35 +221,91 @@ export class Contract {
     }
 
     /**
-     * Record end-of-period performance
+     * Apply shortfall penalties at period end — transfers cash from supplier to buyer.
+     * Called by ContractManager after checkPeriodReset() returns true.
+     * @param {object} supplierFirm - Firm object for supplier
+     * @param {object} buyerFirm - Firm object for buyer
+     * @returns {number} Penalty amount applied
      */
-    recordPeriodEnd() {
+    applyPeriodPenalties(supplierFirm, buyerFirm) {
         const expected = this.volumePerPeriod;
         const delivered = this.currentPeriodFulfilled;
-        const rate = expected > 0 ? delivered / expected : 1;
+        if (expected <= 0) return 0;
 
-        // Calculate penalty for shortfall
+        const rate = delivered / expected;
+        const shortfall = Math.max(0, expected - delivered);
+        let penalty = 0;
+
         if (rate < 1.0 && this.shortfallPenaltyRate > 0) {
-            const shortfall = expected - delivered;
-            const penalty = shortfall * this.pricePerUnit * this.shortfallPenaltyRate;
-            this.totalPenalties += penalty;
+            penalty = shortfall * this.pricePerUnit * this.shortfallPenaltyRate;
+        }
+
+        if (penalty > 0 && supplierFirm && buyerFirm) {
+            // Clamp to what supplier can actually pay (don't bankrupt instantly)
+            const actualPenalty = Math.min(penalty, supplierFirm.cash * 0.1);
+            supplierFirm.cash -= actualPenalty;
+            buyerFirm.cash   += actualPenalty;
+            this.totalPenalties += actualPenalty;
+
+            this.fulfillmentHistory.push({
+                type: 'penalty',
+                gameHour: null,  // filled by ContractManager
+                shortfall,
+                penaltyAmount: actualPenalty,
+                fulfillmentRate: rate
+            });
+
+            return actualPenalty;
+        }
+        return 0;
+    }
+
+    /**
+     * Apply delay penalty when a delivery arrives late — transfers cash from supplier to buyer.
+     * @param {number} deliveryHour - Actual game hour of delivery
+     * @param {number} expectedHour - Expected game hour stored on delivery object
+     * @param {object} supplierFirm - Firm object for supplier
+     * @param {object} buyerFirm - Firm object for buyer
+     * @param {number} quantity - Quantity delivered
+     * @returns {number} Penalty amount applied
+     */
+    applyDelayPenalty(deliveryHour, expectedHour, supplierFirm, buyerFirm, quantity) {
+        if (!this.delayPenaltyPerHour || deliveryHour <= expectedHour) return 0;
+        const hoursLate = deliveryHour - expectedHour;
+        const penalty = Math.min(
+            hoursLate * this.delayPenaltyPerHour * quantity,
+            supplierFirm.cash * 0.05  // Cap at 5% of supplier cash
+        );
+        if (penalty > 0 && supplierFirm && buyerFirm) {
+            supplierFirm.cash -= penalty;
+            buyerFirm.cash   += penalty;
+            this.totalDelayPenalties += penalty;
+        }
+        return penalty;
+    }
+
+    /**
+     * Get period duration in game hours
+     */
+    getPeriodHours() {
+        switch (this.periodType) {
+            case Contract.PERIODS.DAILY:
+                return 24;
+            case Contract.PERIODS.WEEKLY:
+                return 168;
+            case Contract.PERIODS.MONTHLY:
+                return 720;
+            default:
+                return 168;
         }
     }
 
     /**
-     * Get period duration in milliseconds
+     * Get period duration in milliseconds (wall-clock — kept for termination logic only)
+     * @deprecated Use getPeriodHours() for simulation scheduling
      */
     getPeriodMilliseconds() {
-        switch (this.periodType) {
-            case Contract.PERIODS.DAILY:
-                return 24 * 60 * 60 * 1000;
-            case Contract.PERIODS.WEEKLY:
-                return 7 * 24 * 60 * 60 * 1000;
-            case Contract.PERIODS.MONTHLY:
-                return 30 * 24 * 60 * 60 * 1000;
-            default:
-                return 7 * 24 * 60 * 60 * 1000;
-        }
+        return this.getPeriodHours() * 60 * 60 * 1000;
     }
 
     /**
@@ -262,22 +325,26 @@ export class Contract {
 
     /**
      * Check if contract is currently active
+     * @param {number} [currentHour] - Current game hour (clock.totalHours). If omitted, skips time bounds check.
      */
-    isActive() {
+    isActive(currentHour) {
         if (this.status !== Contract.STATUS.ACTIVE) return false;
 
-        const now = Date.now();
-        if (now < this.startDate) return false;
-        if (this.endDate && now > this.endDate) return false;
+        if (currentHour !== undefined) {
+            if (currentHour < this.startDate) return false;
+            if (this.endDate && currentHour > this.endDate) return false;
+        }
 
         return true;
     }
 
     /**
      * Check if contract has expired
+     * @param {number} [currentHour] - Current game hour (clock.totalHours). If omitted, always returns false.
      */
-    isExpired() {
-        return this.endDate && Date.now() > this.endDate;
+    isExpired(currentHour) {
+        if (currentHour === undefined) return false;
+        return this.endDate && currentHour > this.endDate;
     }
 
     /**
@@ -378,8 +445,12 @@ export class Contract {
             fulfillmentHistory: this.fulfillmentHistory,
             currentPeriodFulfilled: this.currentPeriodFulfilled,
             lastPeriodReset: this.lastPeriodReset,
+            durationMonths: this.durationMonths,
+            negotiatedDiscount: this.negotiatedDiscount,
             shortfallPenaltyRate: this.shortfallPenaltyRate,
             lateDeliveryPenaltyRate: this.lateDeliveryPenaltyRate,
+            delayPenaltyPerHour: this.delayPenaltyPerHour,
+            totalDelayPenalties: this.totalDelayPenalties,
             totalDelivered: this.totalDelivered,
             totalValue: this.totalValue,
             totalPenalties: this.totalPenalties,
